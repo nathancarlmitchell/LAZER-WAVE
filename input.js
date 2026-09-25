@@ -15,16 +15,17 @@
 // events, since a release during a pause or between levels is recorded but not announced.
 //   keys:  keyName() values ("Shift", " ", "z", ...)     mouse: a MouseEvent.button (0 left, 1 middle, 2 right)
 //   label: the touch button's text and the help screen's name for it
-//   beat:  the colour of beat it hits (waves.js), which is also its name, so a colour finds the action that hits it
-//   lit:   when its touch button should stand out, if ever
+//   beat:  the kind of beat it hits (waves.js), which is also its name, so a beat finds the action that hits it
+//   lit:   when its touch button should stand out, if ever;  now: its touch button's text, when that changes
 const ACTIONS = {
     cyan: { label: "CYAN", keys: ["z"], mouse: 0, color: COLORS.cyan, beat: "cyan",
         help: "on a cyan beat, as your waves meet: the top wave lights up for it" },
     magenta: { label: "MAGENTA", keys: ["x"], mouse: 2, color: COLORS.magenta, beat: "magenta",
         help: "on a magenta beat: the bottom wave lights. A beat with no laser takes either" },
-    overdrive: { label: "OVERDRIVE", keys: [" "], mouse: 1, color: COLORS.laserCore,
-        lit: function () { return driveReady(); },
-        help: "when the meter beside your shields is full: two bars untouchable, double points" },
+    gate: { label: "GATE", keys: [" "], mouse: 1, color: COLORS.laserCore, beat: "gate", // off a gate, overdrive
+        lit: function () { return gateAhead() || driveReady(); },
+        now: function () { return gateAhead() ? "GATE" : "OVERDRIVE"; },
+        help: "on a gate, switches wave and laser; anywhere else, spends a full overdrive meter" },
 };
 const ACTION_NAMES = Object.keys(ACTIONS); // in the order they are laid out, first in the corner
 
@@ -376,7 +377,7 @@ function drawTouchControls() { // touch play: the action buttons and pause icon,
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
         ctx.fillStyle = COLORS.text;
-        ctx.fillText(a.label, c.x, c.y, 1.7 * c.r); // squeezed to fit the circle rather than spill out of it
+        ctx.fillText(a.now ? a.now() : a.label, c.x, c.y, 1.7 * c.r); // squeezed to fit rather than spill out
     });
     var p = tb.pause; // pause icon: two bars
     ctx.globalAlpha = 0.6;

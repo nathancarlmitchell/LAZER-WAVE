@@ -452,6 +452,15 @@ function helpPages() { // every page: a heading is a line of its own, and the li
         { t: "LASER FORM", head: true },
         { t: "Lasers can't hurt you, and your hits score double" },
         { t: "Fly through a laser as it fires to absorb it for a bonus" },
+    ], [
+        { t: "WAVE / LASER 変形", title: true },
+        { t: touch ? "A GATE sweeps in: tap GATE as it reaches you, on the beat"
+            : "A GATE sweeps in: press SPACE as it reaches you, on the beat" },
+        { t: "to switch between wave and laser. Miss one and it costs a shield" },
+        { t: "LASER FORM", head: true },
+        { t: "You lock to the left and fire across the screen: steer up and down" },
+        { t: "Line up with each target and hit it in its colour, on its beat" },
+        { t: "Lasers can't touch you, and overdrive widens your beam" },
     ]];
 }
 

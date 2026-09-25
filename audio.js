@@ -205,3 +205,32 @@ function synthZap(delay) { // a beam firing: a sawtooth diving down
     o.start(when);
     o.stop(when + 0.2);
 }
+
+function synthShot(delay) { // the piece's own beam striking a target: the other way to a zap, a square leaping up
+    var c = beatAudio();
+    if (!c) {
+        return;
+    }
+    var when = c.currentTime + delay;
+    var o = c.createOscillator();
+    o.type = "square";
+    o.frequency.setValueAtTime(420, when);
+    o.frequency.exponentialRampToValueAtTime(1680, when + 0.07);
+    o.connect(envelope(c, when, 0.06, 0.12));
+    o.start(when);
+    o.stop(when + 0.14);
+}
+
+function synthGate(delay) { // a gate passed: a sine sweeping up two octaves
+    var c = beatAudio();
+    if (!c) {
+        return;
+    }
+    var when = c.currentTime + delay;
+    var o = c.createOscillator();
+    o.frequency.setValueAtTime(220, when);
+    o.frequency.exponentialRampToValueAtTime(880, when + 0.25);
+    o.connect(envelope(c, when, 0.35, 0.35));
+    o.start(when);
+    o.stop(when + 0.4);
+}

@@ -6,8 +6,9 @@
 var PIECE_SIZE = 12; // px: the player's hitbox, the core where the two waves meet (player.js draws it)
 var MOVE_STEP = 5; // px: the most the piece moves between hit tests, so a fast mouse can't jump a thin hazard
 
-var hazards = []; // everything that kills on touch. A hazard is a component, or anything with the same x/y/width/
-                  // height and update(); a laser that isn't a rectangle can bring its own crashWith test (hits)
+var hazards = []; // everything in the world: what kills on touch, and laser form's targets and gates, whose hits is
+                  // never true. A hazard is a component, or anything with the same x/y/width/height and update(); a
+                  // laser that isn't a rectangle can bring its own crashWith test (hits)
 function clearObjects() {
     hazards = [];
 }

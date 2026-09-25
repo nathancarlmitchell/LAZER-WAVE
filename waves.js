@@ -1,5 +1,6 @@
 // Lazer Wave -- the waves. What each level is (its tempo, its length, the phrases it is built from), the phrases
-// themselves, the timeline a level is built into, and the Beam: a laser that warns, fires on the beat, and fades.
+// themselves, the timeline a level is built into, and what it puts on screen: the Beam, a laser that warns, fires on
+// the beat, and fades; and for laser form, the Target to hit and the Gate that switches the form.
 // index.html loads this with a plain <script src>, as globals rather than modules, so the game still opens straight
 // off disk. Nothing here runs at load beyond building the tables.
 //
@@ -23,17 +24,31 @@ var BEAM_ABSORB = 0.3; // beats an absorbed beam takes to collapse (overdrive, l
 
 // The levels. bpm is the tempo; bars is how long the level runs after the count-in; warn is how many beats ahead a
 // beam shows its outline; phrases is what the level's bars are drawn from (a repeat makes that one more common);
-// colors is the colour patterns its bars are painted from (see COLOR_PATTERNS), none for a colourless level.
+// colors is the colour patterns its bars are painted from (see COLOR_PATTERNS), none for a colourless level; laser
+// is the bars played in laser form, as [first bar, bars] pairs, each opened and closed by a gate; targets is what
+// those bars are drawn from (TARGET_PHRASES).
 const LEVELS = [null,
-    { name: "Signal", bpm: 100, bars: 12, warn: 2, phrases: ["rain", "rain", "rest"], colors: [] },
-    { name: "Carrier", bpm: 108, bars: 14, warn: 2, phrases: ["rain", "wall", "rain", "rest"], colors: ["solid"] },
+    { name: "Signal", bpm: 100, bars: 12, warn: 2, phrases: ["rain", "rain", "rest"], colors: [],
+        laser: [[6, 4]], targets: ["hold", "steps"] },
+    { name: "Carrier", bpm: 108, bars: 14, warn: 2, phrases: ["rain", "wall", "rain", "rest"], colors: ["solid"],
+        laser: [[7, 4]], targets: ["hold", "steps"] },
     { name: "Interference", bpm: 116, bars: 16, warn: 1.5, phrases: ["rain", "wall", "cross", "stairs"],
-        colors: ["solid", "pairs"] },
+        colors: ["solid", "pairs"], laser: [[6, 4]], targets: ["steps", "zigzag"] },
     { name: "Overdrive", bpm: 124, bars: 16, warn: 1.5, phrases: ["rain", "wall", "cross", "stairs", "double"],
-        colors: ["solid", "pairs", "alt"] },
+        colors: ["solid", "pairs", "alt"], laser: [[4, 3], [11, 3]], targets: ["steps", "zigzag", "scatter"] },
     { name: "Lazer Wave", bpm: 132, bars: 20, warn: 1, phrases: ["wall", "cross", "stairs", "double", "double"],
-        colors: ["pairs", "alt"] },
+        colors: ["pairs", "alt"], laser: [[5, 4], [13, 4]], targets: ["zigzag", "scatter", "scatter"] },
 ];
+
+// Laser form (loop.js has the rules). A target slides in from the right edge and reaches TARGET_X on its beat, at
+// its height; a gate is a white line sweeping in to the piece, a bar ahead of its beat
+var TARGET_X = 0.72; // where a target meets the beam on its beat, as a fraction of the width
+var TARGET_R = 0.035; // a target's size, as a fraction of the height
+var TARGET_LEAD = 1; // beats more warning than a beam gets: a target has to be lined up with, not just stepped out of
+var TARGET_GONE = 0.5; // beats a missed target takes to slide on out and go
+var TARGET_BURST = 0.4; // beats a hit target's burst lasts
+var GATE_LEAD = BEATS_PER_BAR; // a gate shows a bar ahead
+var GATE_GONE = 0.5; // beats a gate takes to go after its beat
 
 // Colour. A beat a beam fires on is cyan or magenta, and that is the key that hits it: Z for cyan, X for magenta (the
 // actions, input.js). Every beam on a beat has the beat's colour, and a beat with no beam has none, so either key
@@ -113,14 +128,58 @@ const PHRASES = {
     },
 };
 
+// Laser form's phrases: each fills the bar starting at b0 with targets, add(fireBeat, "target", pos, TARGET_R), pos
+// being the height to line up at, as a fraction of the screen's
+const TARGET_PHRASES = {
+    hold: function (b0, rnd, add) { // four at one height: hold the line
+        var y = 0.2 + rnd() * 0.6;
+        for (var i = 0; i < BEATS_PER_BAR; i++) {
+            add(b0 + i, "target", y, TARGET_R);
+        }
+    },
+    steps: function (b0, rnd, add) { // a stair, up the screen or down it
+        var up = rnd() < 0.5;
+        for (var i = 0; i < BEATS_PER_BAR; i++) {
+            add(b0 + i, "target", up ? 0.78 - i * 0.16 : 0.22 + i * 0.16, TARGET_R);
+        }
+    },
+    zigzag: function (b0, rnd, add) { // top, bottom, top, bottom
+        var top = 0.18 + rnd() * 0.12, low = 0.7 + rnd() * 0.12;
+        for (var i = 0; i < BEATS_PER_BAR; i++) {
+            add(b0 + i, "target", i % 2 ? low : top, TARGET_R);
+        }
+    },
+    scatter: function (b0, rnd, add) { // anywhere, never twice close together
+        var last = null;
+        for (var i = 0; i < BEATS_PER_BAR; i++) {
+            last = spread(rnd, 0.15, 0.85, last, 0.25);
+            add(b0 + i, "target", last, TARGET_R);
+        }
+    },
+};
+
 function levelDef(n) { // the level's table entry; past the last, the last one again
     return LEVELS[Math.max(1, Math.min(n, LEVELS.length - 1))];
 }
 
-function buildTimeline(n) { // every beam the level will fire, in firing order: { fire, axis, pos, size, color }
+function laserBars(def) { // the level's bars played in laser form: bar -> true
+    var bars = {};
+    (def.laser || []).forEach(function (s) {
+        for (var i = 0; i < s[1]; i++) {
+            bars[s[0] + i] = true;
+        }
+    });
+    return bars;
+}
+
+function buildTimeline(n) { // everything the level holds, in beat order: beams { fire, axis, pos, size, color },
+    // targets (axis "target", pos their height) and gates (axis "gate", to the form they switch to, color "gate")
     var def = levelDef(n);
     var rnd = seededRandom(n * 9973 + 17);
     var paint = seededRandom(n * 7919 + 101); // the colours' own stream, so painting a level never moves its beams
+    var aim = seededRandom(n * 6151 + 29); // and laser form's, so the wave bars around it keep the beams they had
+    var laser = laserBars(def);
+    var drop = function () {}; // a laser bar still draws its wave phrase, to keep the stream in step, and drops it
     var colors = def.colors || [];
     var b0 = 0, pattern = null; // the bar being filled, and its colours
     var out = [];
@@ -147,10 +206,36 @@ function buildTimeline(n) { // every beam the level will fire, in firing order: 
             }
         }
         b0 = (COUNT_IN_BARS + bar) * BEATS_PER_BAR;
-        PHRASES[name](b0, rnd, add);
+        PHRASES[name](b0, rnd, laser[bar] ? drop : add);
+        if (laser[bar]) {
+            var targets = def.targets || ["hold"];
+            TARGET_PHRASES[targets[Math.floor(aim() * targets.length)]](b0, aim, add);
+        }
     }
+    // the gates: the bar line into each laser section, and the one out of it unless it runs to the end. A gate's beat
+    // is its own: whatever else fell on it goes
+    var gates = [];
+    (def.laser || []).forEach(function (s) {
+        var into = (COUNT_IN_BARS + s[0]) * BEATS_PER_BAR;
+        gates.push({ fire: into, axis: "gate", to: "laser", color: "gate" });
+        if (s[0] + s[1] < def.bars) {
+            gates.push({ fire: into + s[1] * BEATS_PER_BAR, axis: "gate", to: "wave", color: "gate" });
+        }
+    });
+    out = out.filter(function (ev) {
+        return !gates.some(function (g) { return g.fire == ev.fire; });
+    }).concat(gates);
     out.sort(function (a, b) { return a.fire - b.fire; });
     return out;
+}
+
+function eventLead(ev, warn) { // how many beats ahead of its beat an event comes on screen
+    return ev.axis == "gate" ? GATE_LEAD : ev.axis == "target" ? warn + TARGET_LEAD : warn;
+}
+
+function makeHazard(ev, warn) { // the thing on screen for a timeline event
+    var lead = eventLead(ev, warn);
+    return ev.axis == "gate" ? new Gate(ev, lead) : ev.axis == "target" ? new Target(ev, lead) : new Beam(ev, lead);
 }
 
 // A laser. It shows its outline from `fire - warn` beats, burns from `fire` for BEAM_FIRE beats (the only time it
@@ -250,4 +335,123 @@ Beam.prototype.band = function (inset) { // fill the beam less `inset` px off ea
     } else {
         ctx.fillRect(this.x + inset, this.y, Math.max(1, this.width - 2 * inset), this.height);
     }
+};
+
+// A target, in laser form. It slides in from the right edge to reach TARGET_X on its beat, at its height, and can't
+// hurt anything: the beam hits it, lined up and in its colour, on its beat (loop.js). Hit, it bursts; missed, it
+// slides on out and goes. Its place is worked out from the window as it is drawn, so a resize needs nothing.
+function Target(ev, lead) {
+    this.pos = ev.pos;
+    this.size = ev.size;
+    this.color = ev.color; // "cyan", "magenta" or null
+    this.fireAt = ev.fire;
+    this.warnAt = ev.fire - lead;
+    this.hitAt = null; // the beat it was hit on, and where
+    this.hitX = 0;
+    this.x = this.y = this.width = this.height = 0; // nothing to run into
+}
+
+Target.prototype.hits = function () {
+    return false;
+};
+
+Target.prototype.step = function () { // false once its burst, or its slide out, is over
+    return beatPos < (this.hitAt !== null ? this.hitAt + TARGET_BURST : this.fireAt + TARGET_GONE);
+};
+
+Target.prototype.center = function () { // where it is now: { x, y, r }
+    var W = gameArea.canvas.width, H = gameArea.canvas.height;
+    var t = (beatPos - this.warnAt) / (this.fireAt - this.warnAt);
+    var at = TARGET_X * W;
+    return { x: at + (1 - t) * (W - at + this.size * H), y: this.pos * H, r: this.size * H };
+};
+
+Target.prototype.update = function () { // a diamond sharpening as it comes (cyan solid, magenta dashed, as a beam's
+    // warning is), lit up while the beam is on it; a hit bursts white
+    var c = this.center();
+    var tint = this.color ? COLORS[this.color] : COLORS.laserCore;
+    ctx.save();
+    if (this.hitAt !== null) {
+        var b = Math.min(1, (beatPos - this.hitAt) / TARGET_BURST);
+        ctx.globalAlpha = 1 - b;
+        ctx.strokeStyle = tint;
+        ctx.lineWidth = 1 + 4 * (1 - b);
+        ctx.beginPath();
+        ctx.arc(this.hitX, c.y, c.r * (1 + 2.5 * b), 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.globalAlpha = 0.8 * (1 - b) * (1 - b);
+        ctx.fillStyle = COLORS.laserCore;
+        ctx.beginPath();
+        ctx.arc(this.hitX, c.y, c.r * (1 - b), 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+        return;
+    }
+    var t = Math.max(0, Math.min(1, (beatPos - this.warnAt) / (this.fireAt - this.warnAt)));
+    var gone = beatPos > this.fireAt ? Math.min(1, (beatPos - this.fireAt) / TARGET_GONE) : 0;
+    var lit = linedUp(this);
+    ctx.globalAlpha = (0.35 + 0.65 * t) * (1 - gone);
+    ctx.beginPath();
+    ctx.moveTo(c.x, c.y - c.r);
+    ctx.lineTo(c.x + c.r, c.y);
+    ctx.lineTo(c.x, c.y + c.r);
+    ctx.lineTo(c.x - c.r, c.y);
+    ctx.closePath();
+    ctx.fillStyle = tint;
+    ctx.globalAlpha *= lit ? 0.45 : 0.18;
+    ctx.fill();
+    ctx.globalAlpha = (0.35 + 0.65 * t) * (1 - gone);
+    ctx.strokeStyle = tint;
+    ctx.lineWidth = lit ? 4 : 3;
+    ctx.setLineDash(this.color == "magenta" ? [7, 5] : []);
+    ctx.stroke();
+    ctx.restore();
+};
+
+// A gate: the bar line where the form switches. A white line sweeps in from the right edge to reach the piece on its
+// beat, saying what to press and what it switches to; SPACE on the beat passes it (loop.js), and it flashes out from
+// the piece. Unpassed, it runs on by. Nothing to run into either.
+function Gate(ev, lead) {
+    this.to = ev.to; // "laser" or "wave"
+    this.fireAt = ev.fire;
+    this.warnAt = ev.fire - lead;
+    this.hitAt = null; // the beat it was passed on, and where
+    this.hitX = 0;
+    this.x = this.y = this.width = this.height = 0;
+}
+
+Gate.prototype.hits = function () {
+    return false;
+};
+
+Gate.prototype.step = function () {
+    return beatPos < (this.hitAt !== null ? this.hitAt : this.fireAt) + GATE_GONE;
+};
+
+Gate.prototype.update = function () {
+    var W = gameArea.canvas.width, H = gameArea.canvas.height;
+    ctx.save();
+    ctx.fillStyle = COLORS.laserCore;
+    if (this.hitAt !== null) { // passed: a flash of white spreading out from the piece
+        var f = Math.min(1, (beatPos - this.hitAt) / GATE_GONE);
+        var half = 16 + 240 * f;
+        ctx.globalAlpha = 0.45 * (1 - f);
+        ctx.fillRect(this.hitX - half, 0, 2 * half, H);
+        ctx.restore();
+        return;
+    }
+    var px = gamePiece.x + gamePiece.width / 2;
+    var t = (beatPos - this.warnAt) / (this.fireAt - this.warnAt);
+    var gx = W - (W - px) * t; // on the piece on its beat, and on past it if it isn't passed
+    var a = (0.3 + 0.7 * Math.min(1, t)) * (t > 1 ? Math.max(0, 1 - (beatPos - this.fireAt) / GATE_GONE) : 1);
+    ctx.globalAlpha = 0.15 * a;
+    ctx.fillRect(gx - 14, 0, 28, H);
+    ctx.globalAlpha = 0.9 * a;
+    ctx.fillRect(gx - 2, 0, 4, H);
+    ctx.globalAlpha = a;
+    ctx.font = "bold 18px Arial";
+    ctx.fillText(inputMode == "touch" ? "TAP GATE" : "SPACE", gx + 12, H - 92);
+    ctx.font = "15px Arial";
+    ctx.fillText(this.to == "laser" ? "TO LASER" : "TO WAVE", gx + 12, H - 72);
+    ctx.restore();
 };

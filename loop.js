@@ -108,8 +108,9 @@ var ctx = gameArea.context = gameArea.canvas.getContext("2d"); // the one drawin
 // it and a slow machine doesn't bend it. Every beam, every judgment and every sound is placed on it.
 var beatPos = 0;
 var wave = null; // this level's LEVELS entry (waves.js)
-var timeline = []; // the beams it will fire, and the next one not yet on screen
-var nextEvent = 0;
+var timeline = []; // its beams, targets and gates, in beat order
+var spawnQueue = []; // the same, in the order they come on screen (a gate shows a bar ahead), and the next not yet up
+var nextSpawn = 0;
 var totalBeats = 0; // count-in and bars together: the level is cleared when beatPos reaches this
 var lastBeat = -1; // the last whole beat the step has crossed
 var scheduledBeat = -1; // the last beat whose sound has been handed to the audio clock
@@ -119,7 +120,8 @@ var AUDIO_LOOKAHEAD_MS = 80; // how far ahead beats are scheduled: enough to rid
 // Hitting on the beat. A press is judged against the nearest beat: inside PERFECT_MS or GOOD_MS it scores, times the
 // multiplier; outside, or a second press on a beat already hit, is a miss. A beat that goes by unhit breaks the combo.
 // A coloured beat also wants the key of its colour: the other one, on the beat, is WRONG -- it spends the beat and
-// breaks the combo, and the rank counts it as a press off the beat.
+// breaks the combo, and the rank counts it as a press off the beat. A gate's beat wants SPACE, and a target's wants
+// the beam lined up with it as well: on the beat, in its colour, but off it, is OFF TARGET, as WRONG is.
 var PERFECT_MS = 50;
 var GOOD_MS = 110;
 var POINTS = { perfect: 100, good: 50 };
@@ -129,8 +131,9 @@ var SURVIVE_POINTS = 10; // for every beat of the level lived through
 var combo = 0;
 var bestCombo = 0; // this level's longest
 var perfects = 0, goods = 0, strays = 0; // this attempt's hits by grade, and presses off the beat, for its rank
-var judged = {}; // beat number -> hit, so a beat can only be hit once
-var beatColors = {}; // beat number -> the colour its beams give it, "cyan" or "magenta"; a beat not in it takes either
+var judged = {}; // beat number -> how its one press went: "hit", "wrong" or "wide" (off target), so it only gets one
+var beatColors = {}; // beat number -> what it wants: "cyan" or "magenta" (its beams' or target's colour), or "gate"
+                     // for SPACE; a beat not in it takes either colour
 var nextJudge = 0; // the next beat to check for having gone by unhit
 var judgment = null; // the last grade, shown over the piece: { grade, age }
 var JUDGE_SHOW = 45; // steps it stays up
@@ -222,7 +225,7 @@ function driveStep() { // each step: announce it when its bar comes, and put it 
     }
 }
 
-function absorbHazards() { // in overdrive: every laser the piece is in is absorbed, for points
+function absorbHazards() { // in overdrive: every laser the piece is in is absorbed, for points, which pop up off it
     var n = 0;
     hazards.forEach(function (h) {
         if (h.absorb && h.hits(gamePiece)) {
@@ -231,9 +234,124 @@ function absorbHazards() { // in overdrive: every laser the piece is in is absor
         }
     });
     if (n > 0) {
-        score += n * ABSORB_POINTS * pointsMult();
+        var points = n * ABSORB_POINTS * pointsMult();
+        score += points;
+        popPoints(points, gamePiece.x + gamePiece.width / 2 + 44, gamePiece.y + gamePiece.height / 2 - 6);
         playSound(aud_pickupCoin);
     }
+}
+
+// Points popping up where they were won (an absorbed laser's bonus): they swell for a moment, rise and fade, and stay
+// where they were won rather than following the piece
+var POP_SHOW = 70; // steps one stays up
+var POP_SWELL = 8; // steps it takes to settle to its size
+var pops = []; // { text, x, y, age }
+
+function popPoints(points, x, y) { // kept far enough inside the screen to rise and still be read
+    var W = gameArea.canvas.width, H = gameArea.canvas.height;
+    pops.push({ text: "+" + points, x: Math.max(50, Math.min(W - 50, x)), y: Math.max(80, Math.min(H - 30, y)), age: 0 });
+}
+
+function agePops() {
+    pops.forEach(function (p) { p.age++; });
+    pops = pops.filter(function (p) { return p.age < POP_SHOW; });
+}
+
+function drawPops() {
+    ctx.save();
+    ctx.textAlign = "center";
+    ctx.lineJoin = "round";
+    ctx.strokeStyle = COLORS.bg; // edged, like a judgment, so it reads over a laser
+    pops.forEach(function (p) {
+        var t = p.age / POP_SHOW;
+        var swell = p.age < POP_SWELL ? 1.5 - 0.5 * p.age / POP_SWELL : 1;
+        var y = p.y - 40 * t;
+        ctx.globalAlpha = 1 - t * t;
+        ctx.font = "bold " + Math.round(26 * swell) + "px Arial";
+        ctx.lineWidth = 5;
+        ctx.strokeText(p.text, p.x, y);
+        ctx.fillStyle = COLORS.laserCore;
+        ctx.fillText(p.text, p.x, y);
+        ctx.font = "bold 12px Arial";
+        ctx.lineWidth = 3;
+        ctx.strokeText("ABSORBED", p.x, y + 16);
+        ctx.fillStyle = COLORS.dim;
+        ctx.fillText("ABSORBED", p.x, y + 16);
+    });
+    ctx.restore();
+}
+
+// Wave and laser. A level switches between two ways to play at its gates (waves.js). In wave form the piece is
+// steered anywhere and the lasers are dodged, as ever. In laser form it locks to LASER_X, steers only up and down, and
+// fires a beam across the screen; each beat brings a target, and a hit counts only lined up with it, and in its
+// colour. The lasers can't touch a laser. A gate is a beat SPACE hits, and passing it switches the form; one gone by
+// unpassed switches it anyway, and costs a shield.
+var LASER_X = 0.3; // where the piece locks in laser form, as a fraction of the width: clear of the HUD's column
+var LASER_REACH = 8; // px past a target's own size that still counts as lined up with it; overdrive doubles the lot
+var LASER_SLIDE = 0.2; // of the way to its place a step, while the piece slides into or out of laser form...
+var LASER_SLIDE_BEATS = 0.5; // ...which lasts this long after the switch: a glide, not a jump
+var LASER_GROW = 0.25; // beats the piece's beam takes to reach across the screen, or to go
+var form = "wave"; // "wave" or "laser"
+var formAt = -Infinity; // the beat the form last switched on
+var gateTo = {}; // gate beat -> the form it switches to
+
+function switchForm(to) {
+    if (form != to) {
+        form = to;
+        formAt = beatPos;
+    }
+}
+
+function beamReach() { // 0..1: how far across the screen the piece's beam reaches, as it comes and goes
+    var grown = (beatPos - formAt) / LASER_GROW;
+    return form == "laser" ? Math.min(1, grown) : Math.max(0, 1 - grown);
+}
+
+function onBeatOf(kind, n) { // the target, or gate, due on beat n, if it is up
+    for (var i = 0; i < hazards.length; i++) {
+        if (hazards[i] instanceof kind && hazards[i].fireAt == n) {
+            return hazards[i];
+        }
+    }
+    return null;
+}
+
+function linedUp(target) { // is the piece's beam on the target
+    var c = target.center();
+    var reach = (c.r + LASER_REACH) * (driveOn() ? 2 : 1);
+    return Math.abs(gamePiece.y + gamePiece.height / 2 - c.y) <= reach;
+}
+
+function passGate(n) { // SPACE on a gate's beat: it flashes, and the form switches
+    var gate = onBeatOf(Gate, n);
+    if (gate) {
+        gate.hitAt = beatPos;
+        gate.hitX = gamePiece.x + gamePiece.width / 2;
+    }
+    switchForm(gateTo[n]);
+    synthGate(0);
+}
+
+function missGate(n) { // a gate gone by unpassed: the form switches anyway, and it costs a shield. True if the last
+    switchForm(gateTo[n]);
+    hp--;
+    judge("gate");
+    if (hp > 0) {
+        playSound(aud_danger);
+    }
+    return hp <= 0;
+}
+
+function gateAhead() { // is a gate in the coming bar, or still inside its window: the touch button says GATE, so the
+    // player gets ready for it (what SPACE does is still the nearest beat's to say: see onActionPress)
+    var late = GOOD_MS / msPerBeat();
+    for (var g in gateTo) {
+        var d = Number(g) - beatPos;
+        if (d >= -late && d <= BEATS_PER_BAR) {
+            return true;
+        }
+    }
+    return false;
 }
 
 function firstPlayBeat() { // the first beat after the count-in: the first one that is judged and scored
@@ -256,9 +374,10 @@ function cueBeat() { // the beat the player is heading for: the next one, once t
     return Math.ceil(beatPos - GOOD_MS / msPerBeat());
 }
 
-function keyText(color) { // how to hit a colour: "Z  CYAN" at the keyboard, "CYAN" by touch (the button's label)
+function keyText(color) { // how to hit a beat of `color`: "Z  CYAN" or "SPACE  GATE" at the keyboard, and by touch
+    // the button's label
     var a = ACTIONS[color];
-    return inputMode == "touch" ? a.label : a.keys[0].toUpperCase() + "  " + a.label;
+    return inputMode == "touch" ? a.label : (a.keys[0] == " " ? "SPACE" : a.keys[0].toUpperCase()) + "  " + a.label;
 }
 
 function timingText() { // how this attempt's presses sat against the beat, on average, or "" with too few to say
@@ -327,7 +446,19 @@ function levelProgress() { // 0..1 through the level, count-in included
 function startLevel() { // a level is about to be played: from the start, or again after a death
     wave = levelDef(level);
     timeline = buildTimeline(level);
-    nextEvent = 0;
+    spawnQueue = timeline.slice().sort(function (a, b) {
+        return (a.fire - eventLead(a, wave.warn)) - (b.fire - eventLead(b, wave.warn));
+    });
+    nextSpawn = 0;
+    gateTo = {};
+    timeline.forEach(function (ev) {
+        if (ev.axis == "gate") {
+            gateTo[ev.fire] = ev.to;
+        }
+    });
+    form = "wave";
+    formAt = -Infinity;
+    pops = [];
     totalBeats = (COUNT_IN_BARS + wave.bars) * BEATS_PER_BAR;
     beatPos = 0;
     lastBeat = -1;
@@ -376,16 +507,17 @@ function scheduleBeats() { // hand the audio clock every beat due within the loo
         }
         synthKick(delay, b % BEATS_PER_BAR == 0);
         synthHat(delay + mpb / 2000); // and the off-beat
-        if (timeline.some(function (ev) { return ev.fire == b; })) {
+        if (timeline.some(function (ev) { return ev.fire == b && (ev.axis == "h" || ev.axis == "v"); })) {
             synthZap(delay); // a beam fires on this one
         }
     }
 }
 
-function spawnDue() { // put up every beam whose warning has begun
-    while (nextEvent < timeline.length && beatPos >= timeline[nextEvent].fire - wave.warn) {
-        hazards.push(new Beam(timeline[nextEvent], wave.warn));
-        nextEvent++;
+function spawnDue() { // put up everything whose time to show has come
+    while (nextSpawn < spawnQueue.length
+        && beatPos >= spawnQueue[nextSpawn].fire - eventLead(spawnQueue[nextSpawn], wave.warn)) {
+        hazards.push(makeHazard(spawnQueue[nextSpawn], wave.warn));
+        nextSpawn++;
     }
 }
 
@@ -432,14 +564,23 @@ function hitBeat(time, color) { // a hit in `color`: judge it against the neares
         breakCombo(true, signed);
         return;
     }
-    judged[n] = true;
     var want = beatColor(n);
     if (want && color != want) { // on the beat, in the wrong colour: the beat is spent
+        judged[n] = "wrong";
         strays++;
         combo = 0;
         judge("wrong", signed, want);
         return;
     }
+    var target = onBeatOf(Target, n);
+    if (target && !linedUp(target)) { // on the beat and in its colour, but the beam isn't on it: spent as WRONG is
+        judged[n] = "wide";
+        strays++;
+        combo = 0;
+        judge("wide", signed, color);
+        return;
+    }
+    judged[n] = "hit";
     var grade = off <= PERFECT_MS ? "perfect" : "good";
     if (grade == "perfect") {
         perfects++;
@@ -453,16 +594,30 @@ function hitBeat(time, color) { // a hit in `color`: judge it against the neares
     score += POINTS[grade] * pointsMult();
     judge(grade, signed, color);
     playerHitFlash(grade, color);
+    if (target) { // the beam strikes it
+        target.hitX = target.center().x;
+        target.hitAt = beatPos;
+        synthShot(0);
+    }
+    if (want == "gate") {
+        passGate(n);
+    }
 }
 
-function checkMissed() { // beats that have gone by past the window unhit break the combo
+function checkMissed() { // beats that have gone by past the window unhit break the combo, and a gate gone by
+    // unpassed switches the form anyway and costs a shield. True if that was the last one
     var mpb = msPerBeat();
+    var dead = false;
     while (nextJudge < totalBeats && (beatPos - nextJudge) * mpb > GOOD_MS) {
         if (!judged[nextJudge]) {
             breakCombo(false);
         }
+        if (beatColor(nextJudge) == "gate" && judged[nextJudge] != "hit") {
+            dead = missGate(nextJudge) || dead;
+        }
         nextJudge++;
     }
+    return dead;
 }
 
 function takeHit() { // a laser got the piece: returns true if that was the last shield
@@ -479,11 +634,12 @@ function takeHit() { // a laser got the piece: returns true if that was the last
     return hp <= 0;
 }
 
-function onActionPress(name, time) { // an action went down while playing, at real time `time`
-    if (ACTIONS[name].beat) {
-        hitBeat(time, ACTIONS[name].beat);
-    } else if (name == "overdrive") {
+function onActionPress(name, time) { // an action went down while playing, at real time `time`. SPACE hits a gate
+    // when the beat nearest the press is one, and spends overdrive when it isn't
+    if (name == "gate" && beatColor(Math.round(pressBeat(time))) != "gate") {
         spendDrive(time);
+    } else {
+        hitBeat(time, ACTIONS[name].beat);
     }
 }
 
@@ -525,6 +681,47 @@ function drawDriveCall() { // OVERDRIVE across the screen as it starts, gone by 
     ctx.restore();
 }
 
+function drawStrikeLine() { // laser form: the line down the screen where each target meets the beam on its beat
+    var reach = beamReach();
+    if (reach <= 0) {
+        return;
+    }
+    var x = TARGET_X * gameArea.canvas.width;
+    ctx.save();
+    ctx.globalAlpha = 0.25 * reach;
+    ctx.strokeStyle = COLORS.laserCore;
+    ctx.lineWidth = 2;
+    ctx.setLineDash([4, 10]);
+    ctx.beginPath();
+    ctx.moveTo(x, 0);
+    ctx.lineTo(x, gameArea.canvas.height);
+    ctx.stroke();
+    ctx.restore();
+}
+
+function drawFormCall() { // the form it has just switched to, across the top, gone by the end of the beat
+    if (beatPos - formAt >= 1) {
+        return;
+    }
+    var W = gameArea.canvas.width, H = gameArea.canvas.height;
+    var s = Math.min(1, W / 900, H / 500);
+    var name = form == "laser" ? "LASER FORM" : "WAVE FORM";
+    var y = H * 0.3;
+    ctx.save();
+    ctx.textAlign = "center";
+    ctx.globalAlpha = 1 - (beatPos - formAt);
+    ctx.font = Math.round(64 * s) + "px Arial";
+    ctx.fillStyle = COLORS.cyan;
+    ctx.fillText(name, W / 2 - 4, y - 2);
+    ctx.fillStyle = COLORS.magenta;
+    ctx.fillText(name, W / 2 + 4, y + 2);
+    ctx.fillStyle = COLORS.laserCore;
+    ctx.fillText(name, W / 2, y);
+    ctx.font = Math.round(24 * s) + "px Arial";
+    ctx.fillText(form == "laser" ? "レーザー" : "ウェーブ", W / 2, y + 36 * s);
+    ctx.restore();
+}
+
 function drawCountIn() { // 4, 3, 2, 1 over the count-in, the level's name and tempo with it, then GO
     var first = firstPlayBeat();
     if (beatPos >= first + 1) {
@@ -559,7 +756,8 @@ function drawCountIn() { // 4, 3, 2, 1 over the count-in, the level's name and t
 
 // A hit is shown in the colour it was hit in (a style's colour of null); WRONG, in its own, says what the beat wanted
 const JUDGE_STYLE = { perfect: ["PERFECT", null], good: ["GOOD", null], miss: ["MISS", COLORS.dim],
-    hit: ["HIT!", COLORS.laser], wrong: ["WRONG", COLORS.warn] };
+    hit: ["HIT!", COLORS.laser], wrong: ["WRONG", COLORS.warn], wide: ["OFF TARGET", COLORS.dim],
+    gate: ["MISSED GATE", COLORS.laser] };
 
 function drawJudgment() { // the last grade, rising off the piece and fading
     if (!judgment || judgment.age >= JUDGE_SHOW) {
@@ -582,9 +780,9 @@ function drawJudgment() { // the last grade, rising off the piece and fading
     ctx.fillStyle = st[1] || COLORS[judgment.color] || COLORS.text;
     line(st[0], jy);
     ctx.lineWidth = 3;
-    if (judgment.grade == "wrong") { // the key it wanted, in its colour
+    if (judgment.grade == "wrong") { // the key it wanted, in its colour (a gate's is white)
         ctx.font = "bold 15px Arial";
-        ctx.fillStyle = COLORS[judgment.color];
+        ctx.fillStyle = COLORS[judgment.color] || COLORS.laserCore;
         line(keyText(judgment.color), jy + 18);
     } else if (judgment.off !== undefined && judgment.grade != "perfect") { // which way it was off, and by how much
         ctx.font = "15px Arial";
@@ -597,17 +795,39 @@ function drawJudgment() { // the last grade, rising off the piece and fading
 function drawLevel() { // draw the level as it stands, without moving anything (also used while paused)
     gameArea.clear();
     drawBeatPulse();
+    drawStrikeLine();
     drawWorld();
     drawProgress();
     drawCountIn();
     drawDriveCall();
+    drawFormCall();
     useHud();
     drawStats(COLORS.text, COLORS.cyan);
     useWindow();
     drawTouchControls(); // over the HUD, under the piece
     gamePiece.update(); // the two waves: where they meet is the beat
     drawJudgment();
+    drawPops();
     fxDrawScreen(fxLook()); // the CRT last, over the finished picture
+}
+
+function steerPiece() { // move the piece toward where it is steered; true if that ran it into a laser, and that was
+    // the last shield. In laser form it is held to its line, and for a moment after a switch it glides, through anything
+    var w = gamePiece.width, h = gamePiece.height;
+    var cx = gamePiece.x + w / 2, cy = gamePiece.y + h / 2;
+    var tx = gameArea.x !== undefined ? gameArea.x : cx;
+    var ty = gameArea.y !== undefined ? gameArea.y : cy;
+    if (form == "laser") {
+        tx = LASER_X * gameArea.canvas.width;
+    }
+    if (beatPos - formAt < LASER_SLIDE_BEATS) {
+        movePiece(cx + (tx - cx) * LASER_SLIDE - w / 2, cy + (ty - cy) * LASER_SLIDE - h / 2, true);
+        return false;
+    }
+    if (form == "wave" && gameArea.x === undefined) {
+        return false; // nothing has steered it yet
+    }
+    return movePiece(tx - w / 2, ty - h / 2, invuln > 0 || driveOn() || form == "laser") && takeHit();
 }
 
 function updateGameArea() {
@@ -628,7 +848,10 @@ function updateGameArea() {
     while (lastBeat < Math.floor(beatPos)) {
         onBeat(++lastBeat);
     }
-    checkMissed();
+    if (checkMissed()) { // a gate gone by took the last shield
+        gameOver();
+        return;
+    }
     driveStep();
     if (invuln > 0) {
         invuln--;
@@ -636,14 +859,14 @@ function updateGameArea() {
     if (judgment) {
         judgment.age++;
     }
+    agePops();
     if (driveOn()) { // a laser can't hurt it: it eats them
         absorbHazards();
-    } else if (hitHazard() && takeHit()) { // a beam fired on the piece
+    } else if (form == "wave" && hitHazard() && takeHit()) { // a beam fired on the piece (none can touch a laser)
         gameOver();
         return;
     }
-    if (gameArea.x !== undefined && movePiece(gameArea.x - gamePiece.width / 2, gameArea.y - gamePiece.height / 2,
-        invuln > 0 || driveOn()) && takeHit()) { // the piece was steered into one
+    if (steerPiece()) { // the piece was steered into one, and that was the last shield
         gameOver();
         return;
     }
