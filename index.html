@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no">
+    <title>Lazer Wave</title>
+    <style>
+        html, body { margin: 0; padding: 0; background: #0a0014; } /* canvas fills the window so page and canvas coordinates match */
+        html { overflow: hidden; } /* no scrollbars; not on body, which would clip the turned canvas to its untransformed box */
+        canvas { display: block; }
+        /* touch play: no scrolling, pull-to-refresh, zooming, text selection, long-press menu or tap highlight */
+        html, body, canvas { touch-action: none; overscroll-behavior: none; -webkit-user-select: none; user-select: none;
+            -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; }
+    </style>
+</head>
+<body onload="onLoad()" onresize="windowResize()" oncontextmenu="return false;">
+<!-- Plain scripts, one file each, reached as globals: the game opens straight off disk as often as it is served, and a
+     file:// page can load a plain script but not a module. Data first, the loop last; nothing in any of them runs at
+     load beyond building its tables, and the start screen's timers begin in onLoad -->
+<script src="audio.js"></script> <!-- the playlist, the song clock and the sound effects -->
+<script src="layout.js"></script> <!-- the palette; frames, bands and the HUD transform; the banners; the resize -->
+<script src="waves.js"></script> <!-- the levels, the phrases they are built from, and the Beam -->
+<script src="run.js"></script> <!-- difficulty and lives, records and splits -->
+<script src="world.js"></script> <!-- the player piece, hazards, collisions, movement, the random helpers -->
+<script src="hud.js"></script> <!-- stats, the progress stripe -->
+<script src="fx.js"></script> <!-- the effects setting and the CRT: they read the game and never write to it -->
+<script src="player.js"></script> <!-- the player: two sine waves and their trail, meeting on the beat -->
+<script src="menu.js"></script> <!-- the start screen and its menus -->
+<script src="levels.js"></script> <!-- a level's beginning and end: the starts, the waits, the screens between -->
+<script src="input.js"></script> <!-- keys, mouse and touch, actions, the pause, the touch buttons; bound by gameArea.load -->
+<script src="loop.js"></script> <!-- the game's state, the boot, the fixed-step loop and the step: the last one -->
+</body>
+</html>
