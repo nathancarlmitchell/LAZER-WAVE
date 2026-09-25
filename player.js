@@ -9,7 +9,9 @@
 
 var TRAIL_STEPS = 120; // steps of position history the trail is drawn from (1.2s)
 var TRAIL_DRIFT = 3; // px a step the trail drifts left: the waves travel away behind the piece even when it holds still
-var WAVE_GAP = 26; // px from the centre line to each wave at the widest point of a beat
+var WAVE_GAP = 12; // px from the centre line to each wave at the widest point of a beat, with no combo...
+var WAVE_GAP_MAX = 24; // ...growing with every hit in a row up to this, at the combo that maxes the multiplier
+var WAVE_GROW = 0.08; // of the way to the size the combo calls for, a step: it swells and shrinks, never jumps
 var WAVE_RIPPLE = 0; // px the waves wiggle by, both together, so they are sine waves and not just two lines
 var WAVE_CYCLES = 2; // wiggles per beat
 var TRAIL_CHUNKS = 10; // the trail is stroked in this many pieces, each fainter than the one in front
@@ -18,12 +20,19 @@ var FLASH_STEPS = 18; // how long a good hit lights the head up
 
 var trail = { samples: [], next: 0, count: 0 }; // a ring of reused { x, y, beat } records
 while (trail.samples.length < TRAIL_STEPS) {
-    trail.samples.push({ x: 0, y: 0, beat: 0 });
+    trail.samples.push({ x: 0, y: 0, beat: 0, gap: 0 });
 }
 var playerFlash = { age: FLASH_STEPS, color: COLORS.cyan };
+var waveSize = WAVE_GAP; // the waves' size as it stands, easing toward waveTarget()
+
+function waveTarget() { // the size the combo calls for: a little more for every hit in a row, up to the max
+    var full = COMBO_STEP * (MULT_MAX - 1); // the combo at which the multiplier stops climbing
+    return WAVE_GAP + (WAVE_GAP_MAX - WAVE_GAP) * Math.min(combo, full) / full;
+}
 
 function playerReset() { // a level starts: no trail from wherever the piece was before
     trail.count = 0;
+    waveSize = WAVE_GAP;
     playerFlash.age = FLASH_STEPS;
 }
 
@@ -32,6 +41,8 @@ function playerRecord() { // each step, after the piece has moved: where it is n
     s.x = gamePiece.x + gamePiece.width / 2;
     s.y = gamePiece.y + gamePiece.height / 2;
     s.beat = beatPos;
+    waveSize += (waveTarget() - waveSize) * WAVE_GROW;
+    s.gap = waveSize; // each point keeps the size it was made at, so the trail shows the combo growing
     trail.next = (trail.next + 1) % TRAIL_STEPS;
     trail.count = Math.min(trail.count + 1, TRAIL_STEPS);
     if (playerFlash.age < FLASH_STEPS) {
@@ -48,14 +59,14 @@ function trailSample(age) { // the sample `age` steps ago (0: the newest)
     return trail.samples[(trail.next - 1 - age + 2 * TRAIL_STEPS) % TRAIL_STEPS];
 }
 
-function waveGap(beat) { // how far each wave sits from the centre: 0 on the beat, widest halfway between
-    return WAVE_GAP * Math.sin(Math.PI * (beat - Math.floor(beat)));
+function waveGap(beat, size) { // how far each wave sits from the centre: 0 on the beat, `size` halfway between
+    return size * Math.sin(Math.PI * (beat - Math.floor(beat)));
 }
 
 function wavePoint(age, side) { // where wave `side` (-1 above, +1 below) passes through the sample `age` steps back
     var s = trailSample(age);
-    var ripple = WAVE_RIPPLE * Math.sin(2 * Math.PI * WAVE_CYCLES * s.beat);
-    return { x: s.x - age * TRAIL_DRIFT, y: s.y + side * waveGap(s.beat) + ripple };
+    var ripple = WAVE_RIPPLE * (s.gap / WAVE_GAP) * Math.sin(2 * Math.PI * WAVE_CYCLES * s.beat);
+    return { x: s.x - age * TRAIL_DRIFT, y: s.y + side * waveGap(s.beat, s.gap) + ripple };
 }
 
 function strokeWave(side, color, dim) { // one wave from the head back, fading as it goes, a wide glow under a thin line

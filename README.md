@@ -16,6 +16,9 @@ Open `index.html`, or serve the folder (`node .claude/serve.js`, then http://loc
    Every 8 in a row raises the multiplier, up to x4. A missed beat, or a press off the beat, resets it.
  - Three shields per attempt. A laser takes one and breaks your combo; the last one restarts the level.
  - Survive every bar to clear the level. Five levels, 100 to 132 BPM, each the same every attempt.
+ - A cleared level is ranked F, D, C, B, A, S or S+ on how its beats were hit: a PERFECT counts the beat, a GOOD half
+   of it, a press off the beat takes half back, and a lost shield costs 5%. S+ needs every beat hit, nothing off the
+   beat, and no shield lost.
 
 ### Controls:
 
@@ -31,7 +34,7 @@ Open `index.html`, or serve the folder (`node .claude/serve.js`, then http://loc
 | `audio.js` | The synthesized beat track (kick, hat, count-in tick, laser zap on Web Audio), the playlist (`TRACKS`, empty until the game has its own music), sound effects |
 | `layout.js` | The palette (`COLORS`), the 1280x800 layout frame, band fitting for phones, the HUD transform, banners, resize handling |
 | `waves.js` | `LEVELS` (bpm, bars, warning lead, phrases), the `PHRASES` that fill a bar, the seeded timeline, and `Beam` |
-| `run.js` | Difficulties (lives), records per difficulty in localStorage: best run, per-level splits, furthest level |
+| `run.js` | Difficulties (lives), records per difficulty in localStorage: best run, per-level splits and best ranks, furthest level |
 | `world.js` | `component`, the player piece's stepped movement, the `hazards` list and hit testing |
 | `player.js` | The player's look: two sine waves drawn off its position history, drifting into a glowing trail, meeting on each beat |
 | `hud.js` | Score / deaths / level readout and the progress stripe |

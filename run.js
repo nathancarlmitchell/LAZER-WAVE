@@ -1,5 +1,5 @@
 // Lazer Wave -- the run. The difficulties and the lives they give, and the records: the best run and what it cost,
-// a best split per level, and the furthest level reached, kept per difficulty in localStorage and read defensively.
+// a best split and a best rank per level, and the furthest level reached, kept per difficulty in localStorage and read defensively.
 // And the m:ss the finish and the start screen print. index.html loads this with a plain <script src>, as globals
 // rather than modules, so the game still opens straight off disk.
 
@@ -44,6 +44,7 @@ function rec() { // the record set for the difficulty now selected
             run: null, // fastest completed run, in ms
             runDeaths: 0, // and what it cost
             level: {}, // fastest clear of each level, in ms: the split
+            rank: {}, // best rank each level has been cleared with, "F" to "S+"
             reached: 0, // furthest level started, so a run that never finishes still leaves a mark
         };
     }
@@ -52,6 +53,8 @@ function rec() { // the record set for the difficulty now selected
 var levelStart = 0; // when the level being played began (ms), moved forward by time spent paused, as startTime is
 var levelBeat = 0; // how long the level just cleared took, and whether that is the best it has been
 var levelRecord = false;
+var levelGrade = ""; // the rank the level just cleared was given, and whether that is the best it has had
+var gradeRecord = false;
 
 var RECORD_MAX_MS = 86400000; // a day: past this a stored time is not a run, and printing it would look broken
 
@@ -73,12 +76,19 @@ function loadRecords() { // whatever previous runs left, if the browser will tel
                 continue; // a mode never played, or something that isn't a record set
             }
             var to = { run: storedTime(from.run), runDeaths: storedTime(from.runDeaths) || 0,
-                reached: Math.min(RUN_LEVELS, storedTime(from.reached) || 0), level: {} };
+                reached: Math.min(RUN_LEVELS, storedTime(from.reached) || 0), level: {}, rank: {} };
             if (from.level && typeof from.level == "object") {
                 for (var n = 1; n <= RUN_LEVELS; n++) {
                     var split = storedTime(from.level[n]);
                     if (split) {
                         to.level[n] = split;
+                    }
+                }
+            }
+            if (from.rank && typeof from.rank == "object") {
+                for (var r = 1; r <= RUN_LEVELS; r++) {
+                    if (rankValue(from.rank[r]) >= 0) { // a grade there is, and nothing else
+                        to.rank[r] = from.rank[r];
                     }
                 }
             }
@@ -102,11 +112,18 @@ function reachedLevel(n) { // a level began: the furthest one reached is a recor
     }
 }
 
-function recordLevel(n) { // a level was cleared: its split, and whether that is the fastest it has been flown
+function recordLevel(n) { // a level was cleared: its split and its rank, and whether each is the best it has been
     levelBeat = Date.now() - levelStart;
     levelRecord = !rec().level[n] || levelBeat < rec().level[n];
     if (levelRecord) {
         rec().level[n] = levelBeat;
+    }
+    levelGrade = levelRank().grade;
+    gradeRecord = rankValue(levelGrade) > rankValue(rec().rank[n]); // nothing stored is below every grade
+    if (gradeRecord) {
+        rec().rank[n] = levelGrade;
+    }
+    if (levelRecord || gradeRecord) {
         saveRecords();
     }
 }

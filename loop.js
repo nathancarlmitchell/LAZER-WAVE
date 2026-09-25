@@ -126,6 +126,7 @@ var MULT_MAX = 4;
 var SURVIVE_POINTS = 10; // for every beat of the level lived through
 var combo = 0;
 var bestCombo = 0; // this level's longest
+var perfects = 0, goods = 0, strays = 0; // this attempt's hits by grade, and presses off the beat, for its rank
 var judged = {}; // beat number -> hit, so a beat can only be hit once
 var nextJudge = 0; // the next beat to check for having gone by unhit
 var judgment = null; // the last grade, shown over the piece: { grade, age }
@@ -162,6 +163,52 @@ function timingText() { // how this attempt's presses sat against the beat, on a
         + " on average";
 }
 
+function timingColor() { // the average's colour: early, late, or on the beat
+    var avg = timingSum / Math.max(1, timingCount);
+    return Math.abs(avg) < 10 ? COLORS.good : avg < 0 ? COLORS.early : COLORS.late;
+}
+
+// The rank for a cleared level, from how its beats were hit: a PERFECT is worth the beat, a GOOD half of it (as their
+// points are), a press off the beat takes half a beat back, and each shield lost costs RANK_SHIELD_COST of the whole.
+// S+ is an S with nothing missed at all: every beat hit, no press off one, no shield lost
+var RANKS = [
+    { grade: "S", min: 0.90 }, // an S or S+ is printed as the title is, and needs no colour
+    { grade: "A", min: 0.80, color: COLORS.good },
+    { grade: "B", min: 0.65, color: COLORS.early },
+    { grade: "C", min: 0.50, color: COLORS.late },
+    { grade: "D", min: 0.35, color: COLORS.dim },
+];
+var RANK_TOP = { grade: "S+", min: 0.95 };
+var RANK_FAIL = { grade: "F", color: COLORS.warn };
+var RANK_SHIELD_COST = 0.05;
+
+function rankValue(grade) { // where a grade stands, F lowest; -1 for anything that isn't one (nothing recorded yet)
+    return [RANK_FAIL].concat(RANKS.slice().reverse(), [RANK_TOP]).map(function (r) { return r.grade; }).indexOf(grade);
+}
+
+function levelRating() { // 0..1: how well this attempt's beats were hit
+    var beats = totalBeats - firstPlayBeat();
+    if (beats <= 0) {
+        return 0;
+    }
+    var hitWorth = (perfects + goods / 2 - strays / 2) / beats;
+    return Math.max(0, Math.min(1, hitWorth - (HP_MAX - hp) * RANK_SHIELD_COST));
+}
+
+function levelRank() { // this attempt's rank: { grade, color }
+    var r = levelRating();
+    var flawless = perfects + goods == totalBeats - firstPlayBeat() && strays == 0 && hp == HP_MAX;
+    if (flawless && r >= RANK_TOP.min) {
+        return RANK_TOP;
+    }
+    for (let i = 0; i < RANKS.length; i++) {
+        if (r >= RANKS[i].min) {
+            return RANKS[i];
+        }
+    }
+    return RANK_FAIL;
+}
+
 function levelComplete() { // every bar survived
     return !!wave && beatPos >= totalBeats;
 }
@@ -179,6 +226,7 @@ function startLevel() { // a level is about to be played: from the start, or aga
     lastBeat = -1;
     scheduledBeat = -1;
     combo = bestCombo = 0;
+    perfects = goods = strays = 0;
     judged = {};
     nextJudge = firstPlayBeat();
     judgment = null;
@@ -258,17 +306,24 @@ function hitBeat(time) { // the HIT action: judge it against the nearest beat
     var signed = (b - n) * msPerBeat(); // negative early, positive late
     var off = Math.abs(signed);
     if (judged[n]) { // mashing one already hit
+        strays++;
         breakCombo(true);
         return;
     }
     timingSum += signed;
     timingCount++;
     if (off > GOOD_MS) { // off the beat
+        strays++;
         breakCombo(true, signed);
         return;
     }
     judged[n] = true;
     var grade = off <= PERFECT_MS ? "perfect" : "good";
+    if (grade == "perfect") {
+        perfects++;
+    } else {
+        goods++;
+    }
     combo++;
     bestCombo = Math.max(bestCombo, combo);
     score += POINTS[grade] * multiplier();
@@ -364,7 +419,7 @@ function drawJudgment() { // the last grade, rising off the piece and fading
     ctx.fillText(st[0], jx, jy);
     if (judgment.off !== undefined && judgment.grade != "perfect") { // which way it was off, and by how much
         ctx.font = "15px Arial";
-        ctx.fillStyle = COLORS.text;
+        ctx.fillStyle = judgment.off < 0 ? COLORS.early : COLORS.late;
         ctx.fillText((judgment.off < 0 ? "EARLY " : "LATE ") + Math.round(Math.abs(judgment.off)) + "ms", jx, jy + 18);
     }
     ctx.restore();

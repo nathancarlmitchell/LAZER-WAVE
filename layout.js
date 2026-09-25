@@ -12,6 +12,8 @@ const COLORS = {
     cyan: "#00FFFF",
     magenta: "#ff00ff",
     good: "#48D1CC", // a new best, a life kept
+    early: "#4da6ff", // a press before the beat: cool blue...
+    late: "#ffb020", // ...and one after it, warm amber. Neither is the lasers' colour
     warn: "#ff3355",
     piece: "#00FFFF", // the player
     laser: "#ff2a6d", // the lasers, and nothing else: anything in this colour can hurt you

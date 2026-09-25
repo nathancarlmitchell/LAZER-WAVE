@@ -116,6 +116,26 @@ function showSplit() { // the level's time under the message, and what it was be
         msgBottom() + 80);
 }
 
+function showRank() { // the cleared level's rank, large, under everything else on the screen: an S is printed as the
+    // title is, the rest in their own colour. Under it, the best this level has had (recordLevel has taken this one)
+    var rank = levelRank();
+    var best = rec().rank[level - 1]; // level has already moved on
+    var dy = msgBottom() + 160;
+    ctx.font = "30px Arial";
+    ctx.fillStyle = COLORS.dim;
+    centerText("RANK ランク", dy - 95);
+    ctx.font = "100px Arial";
+    if (rank.grade.charAt(0) == "S") {
+        printText(rank.grade, dy);
+    } else {
+        ctx.fillStyle = rank.color;
+        centerText(rank.grade, dy, 3);
+    }
+    ctx.font = "30px Arial";
+    ctx.fillStyle = gradeRecord ? COLORS.good : COLORS.text;
+    centerText(gradeRecord ? "NEW BEST" : "best " + best, dy + 50);
+}
+
 function showMessage() { // draw the queued lines centred and as large as this screen allows, and return that scale
     if (!msgBlock.length) {
         return 1;
@@ -184,13 +204,14 @@ function gameOver() { // the level was cleared or the player died
             ctx.fillStyle = runBest ? COLORS.good : COLORS.text;
             centerText(runBest ? "NEW BEST" : "best " + millisToMinutesAndSeconds(rec().run)
                 + "   " + mistakes(rec().runDeaths), 45);
+            showRank(); // the last level's
             ctx.fillStyle = COLORS.text;
             if (inputMode == "touch") {
                 ctx.font = "40px Arial";
-                centerText("Tap to play again", 100);
+                centerText("Tap to play again", msgBottom() + 70);
             } else {
                 ctx.font = "30px Arial";
-                centerText("Click or press R to play again", 100);
+                centerText("Click or press R to play again", msgBottom() + 60);
             }
             showMessage();
             runFinished = true;
@@ -209,10 +230,11 @@ function gameOver() { // the level was cleared or the player died
         ctx.fillStyle = COLORS.text;
         centerText("Score " + score + "   best combo " + bestCombo, 0);
         if (timingText()) {
-            ctx.fillStyle = COLORS.dim;
+            ctx.fillStyle = timingColor();
             centerText(timingText(), 40);
         }
         showSplit();
+        showRank();
         showMessage();
         useWindow();
         ctx.fillStyle = COLORS.magenta;
@@ -243,7 +265,7 @@ function drawDeathMessage(shown) { // the message after a death
     printText("再試行する", 45);
     if (timingText()) {
         ctx.font = "30px Arial";
-        ctx.fillStyle = COLORS.dim;
+        ctx.fillStyle = timingColor();
         centerText(timingText(), msgBottom() + 70);
     }
     if (lifeSpent) {
