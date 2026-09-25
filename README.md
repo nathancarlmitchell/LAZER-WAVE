@@ -11,19 +11,23 @@ Open `index.html`, or serve the folder (`node .claude/serve.js`, then http://loc
 ### How to play:
 
  - Lasers flicker as a warning, then fire **on the beat**. Steer out of them.
- - You are two sine waves trailing neon. The gap between them closes as each beat comes, and they meet on it: tap HIT
-   **on the beat**, when they meet. PERFECT 100, GOOD 50, times your multiplier.
-   Every 8 in a row raises the multiplier, up to x4. A missed beat, or a press off the beat, resets it.
+ - You are two sine waves trailing neon. The gap between them closes as each beat comes, and they meet on it: hit
+   **on the beat**, when they meet, **in its colour**. A laser's colour is its beat's: **Z** for cyan, **X** for
+   magenta. The wave of the coming beat's colour stays lit (cyan on top, magenta below) and the other dims. A beat with
+   no laser takes either key, and Level 1 has no colours at all. PERFECT 100, GOOD 50, times your multiplier.
+   Every 8 in a row raises the multiplier, up to x4. A missed beat, a press off the beat, or the wrong colour (WRONG)
+   resets it.
  - Three shields per attempt. A laser takes one and breaks your combo; the last one restarts the level.
  - Survive every bar to clear the level. Five levels, 100 to 132 BPM, each the same every attempt.
  - A cleared level is ranked F, D, C, B, A, S or S+ on how its beats were hit: a PERFECT counts the beat, a GOOD half
-   of it, a press off the beat takes half back, and a lost shield costs 5%. S+ needs every beat hit, nothing off the
-   beat, and no shield lost.
+   of it, a press off the beat or in the wrong colour takes half back, and a lost shield costs 5%. S+ needs every beat
+   hit, nothing off the beat or WRONG, and no shield lost.
 
 ### Controls:
 
 	- Mouse: your piece follows the cursor.  Touch: drag anywhere to steer (relative, like a trackpad).
-	- SPACE, Z, X or LEFT MOUSE BUTTON = HIT.  Touch: the HIT button.
+	- Z or LEFT MOUSE BUTTON = hit a cyan beat.  X or RIGHT MOUSE BUTTON = hit a magenta beat.  Touch: the CYAN and
+	  MAGENTA buttons.  SPACE is kept for a power to come.
 	- P = PAUSE.  H = instructions, from the start screen or a pause.  After the final level, click or press R to play again.
 	- Phones and tablets always play in landscape.
 
@@ -33,10 +37,10 @@ Open `index.html`, or serve the folder (`node .claude/serve.js`, then http://loc
 |---|---|
 | `audio.js` | The synthesized beat track (kick, hat, count-in tick, laser zap on Web Audio), the playlist (`TRACKS`, empty until the game has its own music), sound effects |
 | `layout.js` | The palette (`COLORS`), the 1280x800 layout frame, band fitting for phones, the HUD transform, banners, resize handling |
-| `waves.js` | `LEVELS` (bpm, bars, warning lead, phrases), the `PHRASES` that fill a bar, the seeded timeline, and `Beam` |
+| `waves.js` | `LEVELS` (bpm, bars, warning lead, phrases, colours), the `PHRASES` that fill a bar, the `COLOR_PATTERNS` that paint one, the seeded timeline, and `Beam` |
 | `run.js` | Difficulties (lives), records per difficulty in localStorage: best run, per-level splits and best ranks, furthest level |
 | `world.js` | `component`, the player piece's stepped movement, the `hazards` list and hit testing |
-| `player.js` | The player's look: two sine waves drawn off its position history, drifting into a glowing trail, meeting on each beat |
+| `player.js` | The player's look: two sine waves drawn off its position history, drifting into a glowing trail, meeting on each beat, the coming beat's colour lit |
 | `hud.js` | Score / deaths / level readout and the progress stripe |
 | `fx.js` | The effects setting (auto / full / reduced / off, honouring reduced motion), `fxHash`, the CRT overlay |
 | `menu.js` | Start, options and help screens, settings persistence, hover flash, slogans, start-screen glitches |
@@ -48,11 +52,17 @@ Open `index.html`, or serve the folder (`node .claude/serve.js`, then http://loc
 
 - A new pattern is a function in `PHRASES` (waves.js) that fills one bar with `add(fireBeat, axis, pos, size)`; list
   its name in a level's `phrases`.
+- A level's `colors` lists the `COLOR_PATTERNS` its bars are painted from (`solid`, `pairs`, `alt`), the knob for how
+  hard the colours are to read; none makes it colourless. The colours come from a random stream of their own, so
+  changing them never moves a beam.
 - A new hazard is anything with `x, y, width, height, update()`, plus `step()` (return `false` when done), `hits(piece)`
   and `fit()`; `Beam` is the model. Read time from `beatPos`, not steps.
 - Add an action by adding an entry to `ACTIONS` in `input.js`; it gets keys, a mouse button, a touch button and a help line.
 
 ### Ideas flagged for later
+
+- **SPACE, a power:** Overdrive (PERFECTs fill a meter; SPACE on a downbeat turns the piece into a laser for two bars,
+  untouchable, double points) or a full Wave / Laser state switch, with gates in the chart where SPACE has to land.
 
 - **Ride the wave:** a waveform line the piece rides, synced to the beat, with lasers crossing it. It fits the same
   way: a new hazard/track type and the phrases that place it, on the same beat clock and judging.

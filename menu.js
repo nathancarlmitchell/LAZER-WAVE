@@ -435,9 +435,11 @@ function helpPages() { // every page: a heading is a line of its own, and the li
     return [controls, [
         { t: "RHYTHM リズム", title: true },
         { t: "Lasers flicker as a warning, then fire on the beat" },
-        { t: "HIT ON THE BEAT", head: true },
+        { t: touch ? "and their colour is the button to tap on it"
+            : "and their colour is the key to hit it with: " + keyText("cyan") + "   " + keyText("magenta") },
+        { t: "HIT ON THE BEAT, IN ITS COLOUR", head: true },
         { t: "PERFECT 100, GOOD 50, times your multiplier" },
-        { t: "every " + COMBO_STEP + " in a row raises it, up to x" + MULT_MAX + ". A missed beat resets it" },
+        { t: "every " + COMBO_STEP + " in a row raises it, up to x" + MULT_MAX + ". A missed or WRONG beat resets it" },
         { t: "SHIELDS", head: true },
         { t: HP_MAX + " per attempt. A laser takes one and breaks your combo" },
         { t: "Survive every bar to clear a level. There are " + RUN_LEVELS + " of them." },

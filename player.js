@@ -1,8 +1,10 @@
 // Lazer Wave -- the player. Two sine waves, cyan and magenta, drawn off the piece's recent positions and drifting
 // away behind it like a trace across an oscilloscope, so moving leaves a glowing trail. The gap between them is the
 // beat: it opens after each beat and closes as the next one comes, and on the beat the two meet in one line -- that
-// is when to hit. The hitbox is the small core where they meet. index.html loads this with a plain <script src>, as
-// globals rather than modules, so the game still opens straight off disk.
+// is when to hit. The hitbox is the small core where they meet. The waves are also the two keys: while a coloured
+// beat is coming, the wave of its colour stays lit and the other dims, so the top wave says Z and the bottom X.
+// index.html loads this with a plain <script src>, as globals rather than modules, so the game still opens straight
+// off disk.
 //
 // Like the effects, this only draws: it reads the piece and beatPos, and nothing here changes what the game does.
 // The history is recorded every step (playerRecord) so the trail is the same whether a step was painted or not.
@@ -17,6 +19,7 @@ var WAVE_CYCLES = 2; // wiggles per beat
 var TRAIL_CHUNKS = 10; // the trail is stroked in this many pieces, each fainter than the one in front
 var CORE_R = 4; // px: the glowing core at the head, which is the hitbox
 var FLASH_STEPS = 18; // how long a good hit lights the head up
+var WAVE_UNLIT = 0.3; // how bright the wave of the other colour stays while a coloured beat is coming
 
 var trail = { samples: [], next: 0, count: 0 }; // a ring of reused { x, y, beat } records
 while (trail.samples.length < TRAIL_STEPS) {
@@ -50,9 +53,10 @@ function playerRecord() { // each step, after the piece has moved: where it is n
     }
 }
 
-function playerHitFlash(grade) { // a hit on the beat: the head lights up in the grade's colour
+function playerHitFlash(grade, color) { // a hit on the beat: the head lights up, white for a PERFECT, else in the
+    // colour it was hit in
     playerFlash.age = 0;
-    playerFlash.color = grade == "perfect" ? COLORS.laserCore : COLORS.magenta;
+    playerFlash.color = grade == "perfect" ? COLORS.laserCore : COLORS[color] || COLORS.magenta;
 }
 
 function trailSample(age) { // the sample `age` steps ago (0: the newest)
@@ -106,12 +110,13 @@ function drawPlayer(o) { // the two waves and the core, flickering while a hit h
     ctx.globalCompositeOperation = "lighter"; // light adds up: where the waves meet on the beat, they burn white
     ctx.lineCap = "round";
     ctx.lineJoin = "round";
-    strokeWave(-1, COLORS.cyan, dim);
-    strokeWave(1, COLORS.magenta, dim);
+    var want = wave ? beatColor(cueBeat()) : null; // the coming beat's colour: its wave stays lit, the other dims
+    strokeWave(-1, COLORS.cyan, dim * (want == "magenta" ? WAVE_UNLIT : 1));
+    strokeWave(1, COLORS.magenta, dim * (want == "cyan" ? WAVE_UNLIT : 1));
     var head = trailSample(0);
     var flash = playerFlash.age < FLASH_STEPS ? 1 - playerFlash.age / FLASH_STEPS : 0;
     ctx.globalAlpha = (0.25 + 0.5 * flash) * dim; // the core's glow, and a burst of it on a good hit
-    ctx.fillStyle = flash > 0 ? playerFlash.color : COLORS.cyan;
+    ctx.fillStyle = flash > 0 ? playerFlash.color : want ? COLORS[want] : COLORS.cyan;
     ctx.beginPath();
     ctx.arc(head.x, head.y, CORE_R * (2.2 + 2.5 * flash), 0, Math.PI * 2);
     ctx.fill();

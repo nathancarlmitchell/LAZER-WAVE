@@ -15,9 +15,13 @@
 // events, since a release during a pause or between levels is recorded but not announced.
 //   keys:  keyName() values ("Shift", " ", "z", ...)     mouse: a MouseEvent.button (0 left, 1 middle, 2 right)
 //   label: the touch button's text and the help screen's name for it
+//   beat:  the colour of beat it hits (waves.js), which is also its name, so a colour finds the action that hits it
+// SPACE is bound to nothing yet: it is kept for a power to come.
 const ACTIONS = {
-    hit: { label: "HIT", keys: [" ", "z", "x"], mouse: 0, color: "#00FFFF",
-        help: "on the beat: the moment your two waves meet in one line" },
+    cyan: { label: "CYAN", keys: ["z"], mouse: 0, color: COLORS.cyan, beat: "cyan",
+        help: "on a cyan beat, as your waves meet: the top wave lights up for it" },
+    magenta: { label: "MAGENTA", keys: ["x"], mouse: 2, color: COLORS.magenta, beat: "magenta",
+        help: "on a magenta beat: the bottom wave lights. A beat with no laser takes either" },
 };
 const ACTION_NAMES = Object.keys(ACTIONS); // in the order they are laid out, first in the corner
 
@@ -369,7 +373,7 @@ function drawTouchControls() { // touch play: the action buttons and pause icon,
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
         ctx.fillStyle = COLORS.text;
-        ctx.fillText(a.label, c.x, c.y);
+        ctx.fillText(a.label, c.x, c.y, 1.7 * c.r); // squeezed to fit the circle rather than spill out of it
     });
     var p = tb.pause; // pause icon: two bars
     ctx.globalAlpha = 0.6;
@@ -668,6 +672,9 @@ function bindInput() { // the touch, mouse, keyboard and page listeners, registe
             if (!e.repeat) { // holding P shouldn't flip pause on every key repeat
                 setPause(!pause);
             }
+        }
+        if (key == " ") {
+            e.preventDefault(); // SPACE is kept for a power to come; meanwhile it must not scroll a page the game is in
         }
         var action = actionForKey(key);
         if (action) {

@@ -21,14 +21,27 @@ var BEAM_CORE_MAX = 8; // px: the white line down a beam's middle, at most
 var BEAM_INSET = 0.15; // of a beam's thickness on each side that is glow rather than hitbox: grazes are forgiven
 
 // The levels. bpm is the tempo; bars is how long the level runs after the count-in; warn is how many beats ahead a
-// beam shows its outline; phrases is what the level's bars are drawn from (a repeat makes that one more common).
+// beam shows its outline; phrases is what the level's bars are drawn from (a repeat makes that one more common);
+// colors is the colour patterns its bars are painted from (see COLOR_PATTERNS), none for a colourless level.
 const LEVELS = [null,
-    { name: "Signal", bpm: 100, bars: 12, warn: 2, phrases: ["rain", "rain", "rest"] },
-    { name: "Carrier", bpm: 108, bars: 14, warn: 2, phrases: ["rain", "wall", "rain", "rest"] },
-    { name: "Interference", bpm: 116, bars: 16, warn: 1.5, phrases: ["rain", "wall", "cross", "stairs"] },
-    { name: "Overdrive", bpm: 124, bars: 16, warn: 1.5, phrases: ["rain", "wall", "cross", "stairs", "double"] },
-    { name: "Lazer Wave", bpm: 132, bars: 20, warn: 1, phrases: ["wall", "cross", "stairs", "double", "double"] },
+    { name: "Signal", bpm: 100, bars: 12, warn: 2, phrases: ["rain", "rain", "rest"], colors: [] },
+    { name: "Carrier", bpm: 108, bars: 14, warn: 2, phrases: ["rain", "wall", "rain", "rest"], colors: ["solid"] },
+    { name: "Interference", bpm: 116, bars: 16, warn: 1.5, phrases: ["rain", "wall", "cross", "stairs"],
+        colors: ["solid", "pairs"] },
+    { name: "Overdrive", bpm: 124, bars: 16, warn: 1.5, phrases: ["rain", "wall", "cross", "stairs", "double"],
+        colors: ["solid", "pairs", "alt"] },
+    { name: "Lazer Wave", bpm: 132, bars: 20, warn: 1, phrases: ["wall", "cross", "stairs", "double", "double"],
+        colors: ["pairs", "alt"] },
 ];
+
+// Colour. A beat a beam fires on is cyan or magenta, and that is the key that hits it: Z for cyan, X for magenta (the
+// actions, input.js). Every beam on a beat has the beat's colour, and a beat with no beam has none, so either key
+// hits it and a rest bar is still a rest. A pattern paints a bar's four beats, c cyan and m magenta: "solid" changes
+// colour only at a bar line, "pairs" every two beats, "alt" every beat. Each bar is flipped or not so that, more
+// often than not, it opens on the other colour from the last beam before it: the bar line is where the keys change.
+var COLOR_PATTERNS = { solid: "cccc", pairs: "ccmm", alt: "cmcm" };
+var BEAT_COLORS = { c: "cyan", m: "magenta" }; // the colours by name, each a key of COLORS (layout.js)
+var COLOR_TURN = 0.75; // how often a bar opens on the other colour
 
 function seededRandom(seed) { // a repeatable 0..1 stream (mulberry32): the same seed builds the same level
     var a = seed >>> 0;
@@ -103,12 +116,16 @@ function levelDef(n) { // the level's table entry; past the last, the last one a
     return LEVELS[Math.max(1, Math.min(n, LEVELS.length - 1))];
 }
 
-function buildTimeline(n) { // every beam the level will fire, in firing order: { fire, axis, pos, size }
+function buildTimeline(n) { // every beam the level will fire, in firing order: { fire, axis, pos, size, color }
     var def = levelDef(n);
     var rnd = seededRandom(n * 9973 + 17);
+    var paint = seededRandom(n * 7919 + 101); // the colours' own stream, so painting a level never moves its beams
+    var colors = def.colors || [];
+    var b0 = 0, pattern = null; // the bar being filled, and its colours
     var out = [];
-    var add = function (fire, axis, pos, size) {
-        out.push({ fire: fire, axis: axis, pos: pos, size: size });
+    var add = function (fire, axis, pos, size) { // a beam off the beat takes the colour of the beat before it
+        var c = pattern ? BEAT_COLORS[pattern.charAt(Math.floor(fire) - b0)] : null;
+        out.push({ fire: fire, axis: axis, pos: pos, size: size, color: c || null });
     };
     var previous = "rest";
     for (var bar = 0; bar < def.bars; bar++) {
@@ -119,18 +136,31 @@ function buildTimeline(n) { // every beam the level will fire, in firing order: 
             } while (name == "rest" && previous == "rest"); // never two rests running
         }
         previous = name;
-        PHRASES[name]((COUNT_IN_BARS + bar) * BEATS_PER_BAR, rnd, add);
+        pattern = null;
+        if (colors.length) {
+            pattern = COLOR_PATTERNS[colors[Math.floor(paint() * colors.length)]];
+            var last = out.length ? out[out.length - 1].color : null; // the colour the player saw last
+            var turn = paint() < COLOR_TURN;
+            if ((BEAT_COLORS[pattern.charAt(0)] == last) == turn) { // the flip: cyan for magenta
+                pattern = pattern.replace(/c/g, "x").replace(/m/g, "c").replace(/x/g, "m");
+            }
+        }
+        b0 = (COUNT_IN_BARS + bar) * BEATS_PER_BAR;
+        PHRASES[name](b0, rnd, add);
     }
     out.sort(function (a, b) { return a.fire - b.fire; });
     return out;
 }
 
 // A laser. It shows its outline from `fire - warn` beats, burns from `fire` for BEAM_FIRE beats (the only time it
-// can hit), and fades for BEAM_FADE more. Its place is kept as fractions of the screen, so a resize refits it.
+// can hit), and fades for BEAM_FADE more. Its place is kept as fractions of the screen, so a resize refits it. A
+// coloured beam warns in its colour -- cyan in a solid line, magenta dashed, so the two differ by more than colour --
+// and burns with a glow of it round the laser core, which stays the laser's own colour: that is what can hit.
 function Beam(ev, warn) {
     this.axis = ev.axis;
     this.pos = ev.pos;
     this.size = ev.size;
+    this.color = ev.color; // "cyan", "magenta" or null
     this.warnAt = ev.fire - warn;
     this.fireAt = ev.fire;
     this.endAt = ev.fire + BEAM_FIRE;
@@ -170,25 +200,27 @@ Beam.prototype.hits = function (piece) { // only while it burns, and only its co
 };
 
 Beam.prototype.update = function () { // draw it: an outline that sharpens as it comes due, then the beam
+    var tint = this.color ? COLORS[this.color] : COLORS.laser;
     ctx.save();
     if (beatPos < this.fireAt) { // the warning
         var t = Math.max(0, Math.min(1, (beatPos - this.warnAt) / (this.fireAt - this.warnAt)));
         var blink = (beatPos * 4) % 1 < 0.5 ? 1 : 0.6; // flickers in sixteenths, so it reads as live
         ctx.globalAlpha = (0.05 + 0.12 * t) * blink;
-        ctx.fillStyle = COLORS.laser;
+        ctx.fillStyle = tint;
         ctx.fillRect(this.x, this.y, this.width, this.height);
         ctx.globalAlpha = (0.3 + 0.6 * t) * blink;
-        ctx.strokeStyle = COLORS.laser;
-        ctx.lineWidth = 2;
-        ctx.setLineDash([12, 8]);
+        ctx.strokeStyle = tint;
+        ctx.lineWidth = this.color ? 3 : 2;
+        ctx.setLineDash(this.color == "cyan" ? [] : [12, 8]);
         ctx.strokeRect(this.x + 1, this.y + 1, this.width - 2, this.height - 2);
     } else { // burning, then its afterglow
         var fade = beatPos < this.endAt ? 1 : Math.max(0, 1 - (beatPos - this.endAt) / BEAM_FADE);
         var across = this.axis == "h" ? this.height : this.width;
         ctx.globalAlpha = 0.45 * fade; // the glow, the whole band
-        ctx.fillStyle = COLORS.laser;
+        ctx.fillStyle = tint;
         ctx.fillRect(this.x, this.y, this.width, this.height);
         ctx.globalAlpha = 0.95 * fade; // the core: what can actually hit
+        ctx.fillStyle = COLORS.laser;
         var inset = across * BEAM_INSET;
         this.band(inset);
         ctx.fillStyle = COLORS.laserCore; // and a hot white line down its middle, thin however wide the beam

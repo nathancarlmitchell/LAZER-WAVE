@@ -118,6 +118,8 @@ var AUDIO_LOOKAHEAD_MS = 80; // how far ahead beats are scheduled: enough to rid
 
 // Hitting on the beat. A press is judged against the nearest beat: inside PERFECT_MS or GOOD_MS it scores, times the
 // multiplier; outside, or a second press on a beat already hit, is a miss. A beat that goes by unhit breaks the combo.
+// A coloured beat also wants the key of its colour: the other one, on the beat, is WRONG -- it spends the beat and
+// breaks the combo, and the rank counts it as a press off the beat.
 var PERFECT_MS = 50;
 var GOOD_MS = 110;
 var POINTS = { perfect: 100, good: 50 };
@@ -128,6 +130,7 @@ var combo = 0;
 var bestCombo = 0; // this level's longest
 var perfects = 0, goods = 0, strays = 0; // this attempt's hits by grade, and presses off the beat, for its rank
 var judged = {}; // beat number -> hit, so a beat can only be hit once
+var beatColors = {}; // beat number -> the colour its beams give it, "cyan" or "magenta"; a beat not in it takes either
 var nextJudge = 0; // the next beat to check for having gone by unhit
 var judgment = null; // the last grade, shown over the piece: { grade, age }
 var JUDGE_SHOW = 45; // steps it stays up
@@ -152,6 +155,19 @@ function msPerBeat() {
 
 function multiplier() {
     return Math.min(MULT_MAX, 1 + Math.floor(combo / COMBO_STEP));
+}
+
+function beatColor(n) { // the colour beat n wants, or null for either
+    return beatColors[n] || null;
+}
+
+function cueBeat() { // the beat the player is heading for: the next one, once the last is past its window
+    return Math.ceil(beatPos - GOOD_MS / msPerBeat());
+}
+
+function keyText(color) { // how to hit a colour: "Z  CYAN" at the keyboard, "CYAN" by touch (the button's label)
+    var a = ACTIONS[color];
+    return inputMode == "touch" ? a.label : a.keys[0].toUpperCase() + "  " + a.label;
 }
 
 function timingText() { // how this attempt's presses sat against the beat, on average, or "" with too few to say
@@ -228,6 +244,12 @@ function startLevel() { // a level is about to be played: from the start, or aga
     combo = bestCombo = 0;
     perfects = goods = strays = 0;
     judged = {};
+    beatColors = {};
+    timeline.forEach(function (ev) {
+        if (ev.color) {
+            beatColors[ev.fire] = ev.color;
+        }
+    });
     nextJudge = firstPlayBeat();
     judgment = null;
     hp = HP_MAX;
@@ -281,8 +303,9 @@ function onBeat(b) { // a whole beat just went by
     }
 }
 
-function judge(grade, off) { // off: how far off the beat, in ms (negative early), if it was a press
-    judgment = { grade: grade, age: 0, off: off };
+function judge(grade, off, color) { // off: how far off the beat, in ms (negative early), if it was a press; color:
+    // the colour it was hit in, or for WRONG the colour it wanted
+    judgment = { grade: grade, age: 0, off: off, color: color };
 }
 
 function breakCombo(show, off) { // show: say MISS even with no combo to lose (a press off the beat)
@@ -297,7 +320,7 @@ function pressBeat(time) { // the beat position of a press at real time `time`, 
     return (simNowMs(time) - audioLatencyMs() - timingOffset) / msPerBeat();
 }
 
-function hitBeat(time) { // the HIT action: judge it against the nearest beat
+function hitBeat(time, color) { // a hit in `color`: judge it against the nearest beat
     var b = pressBeat(time);
     var n = Math.round(b);
     if (n < firstPlayBeat() || n >= totalBeats) {
@@ -318,6 +341,13 @@ function hitBeat(time) { // the HIT action: judge it against the nearest beat
         return;
     }
     judged[n] = true;
+    var want = beatColor(n);
+    if (want && color != want) { // on the beat, in the wrong colour: the beat is spent
+        strays++;
+        combo = 0;
+        judge("wrong", signed, want);
+        return;
+    }
     var grade = off <= PERFECT_MS ? "perfect" : "good";
     if (grade == "perfect") {
         perfects++;
@@ -327,8 +357,8 @@ function hitBeat(time) { // the HIT action: judge it against the nearest beat
     combo++;
     bestCombo = Math.max(bestCombo, combo);
     score += POINTS[grade] * multiplier();
-    judge(grade, signed);
-    playerHitFlash(grade);
+    judge(grade, signed, color);
+    playerHitFlash(grade, color);
 }
 
 function checkMissed() { // beats that have gone by past the window unhit break the combo
@@ -356,8 +386,8 @@ function takeHit() { // a laser got the piece: returns true if that was the last
 }
 
 function onActionPress(name, time) { // an action went down while playing, at real time `time`
-    if (name == "hit") {
-        hitBeat(time);
+    if (ACTIONS[name].beat) {
+        hitBeat(time, ACTIONS[name].beat);
     }
 }
 
@@ -398,11 +428,21 @@ function drawCountIn() { // 4, 3, 2, 1 over the count-in, the level's name and t
     ctx.font = Math.round(32 * s) + "px Arial";
     ctx.fillStyle = COLORS.text;
     ctx.fillText(wave.name + "   " + wave.bpm + " BPM", W / 2, H / 2 + 70 * s);
+    if (wave.colors && wave.colors.length) { // a coloured level: which key hits which colour, each in its own
+        ctx.font = "bold " + Math.round(28 * s) + "px Arial";
+        ctx.textAlign = "right";
+        ctx.fillStyle = COLORS.cyan;
+        ctx.fillText(keyText("cyan"), W / 2 - 24 * s, H / 2 + 120 * s);
+        ctx.textAlign = "left";
+        ctx.fillStyle = COLORS.magenta;
+        ctx.fillText(keyText("magenta"), W / 2 + 24 * s, H / 2 + 120 * s);
+    }
     ctx.restore();
 }
 
-const JUDGE_STYLE = { perfect: ["PERFECT", COLORS.cyan], good: ["GOOD", COLORS.magenta], miss: ["MISS", COLORS.dim],
-    hit: ["HIT!", COLORS.laser] };
+// A hit is shown in the colour it was hit in (a style's colour of null); WRONG, in its own, says what the beat wanted
+const JUDGE_STYLE = { perfect: ["PERFECT", null], good: ["GOOD", null], miss: ["MISS", COLORS.dim],
+    hit: ["HIT!", COLORS.laser], wrong: ["WRONG", COLORS.warn] };
 
 function drawJudgment() { // the last grade, rising off the piece and fading
     if (!judgment || judgment.age >= JUDGE_SHOW) {
@@ -410,17 +450,29 @@ function drawJudgment() { // the last grade, rising off the piece and fading
     }
     var st = JUDGE_STYLE[judgment.grade];
     var t = judgment.age / JUDGE_SHOW;
+    var jx = gamePiece.x + gamePiece.width / 2, jy = gamePiece.y - 18 - 20 * t;
+    var line = function (text, y) { // edged in the ground's colour, so it still reads over a burning laser
+        ctx.strokeText(text, jx, y);
+        ctx.fillText(text, jx, y);
+    };
     ctx.save();
     ctx.textAlign = "center";
     ctx.globalAlpha = 1 - t * t;
+    ctx.strokeStyle = COLORS.bg;
+    ctx.lineJoin = "round";
+    ctx.lineWidth = 4;
     ctx.font = "bold 22px Arial";
-    ctx.fillStyle = st[1];
-    var jx = gamePiece.x + gamePiece.width / 2, jy = gamePiece.y - 18 - 20 * t;
-    ctx.fillText(st[0], jx, jy);
-    if (judgment.off !== undefined && judgment.grade != "perfect") { // which way it was off, and by how much
+    ctx.fillStyle = st[1] || COLORS[judgment.color] || COLORS.text;
+    line(st[0], jy);
+    ctx.lineWidth = 3;
+    if (judgment.grade == "wrong") { // the key it wanted, in its colour
+        ctx.font = "bold 15px Arial";
+        ctx.fillStyle = COLORS[judgment.color];
+        line(keyText(judgment.color), jy + 18);
+    } else if (judgment.off !== undefined && judgment.grade != "perfect") { // which way it was off, and by how much
         ctx.font = "15px Arial";
         ctx.fillStyle = judgment.off < 0 ? COLORS.early : COLORS.late;
-        ctx.fillText((judgment.off < 0 ? "EARLY " : "LATE ") + Math.round(Math.abs(judgment.off)) + "ms", jx, jy + 18);
+        line((judgment.off < 0 ? "EARLY " : "LATE ") + Math.round(Math.abs(judgment.off)) + "ms", jy + 18);
     }
     ctx.restore();
 }
