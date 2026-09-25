@@ -445,7 +445,7 @@ function helpPages() { // every page: a heading is a line of its own, and the li
         { t: "Survive every bar to clear a level. There are " + RUN_LEVELS + " of them." },
     ], [
         { t: "OVERDRIVE オーバードライブ", title: true },
-        { t: "Every PERFECT charges the meter beside your shields" },
+        { t: "PERFECTs charge the meter beside your shields, GOODs half as much" },
         { t: touch ? "FULL: TAP OVERDRIVE" : "FULL: PRESS SPACE", head: true },
         { t: "It starts on the bar line: the one you press it on, or the next" },
         { t: "and lasts two bars. The colours still count." },

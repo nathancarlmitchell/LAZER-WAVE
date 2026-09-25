@@ -145,14 +145,15 @@ var hp = HP_MAX;
 var invuln = 0;
 var deathProgress = 0; // how far through the level the last attempt got, for the death screen
 
-// Overdrive: PERFECTs charge a meter, and SPACE spends a full one. It always starts on a bar line -- the one it is
+// Overdrive: hits charge a meter, and SPACE spends a full one. It always starts on a bar line -- the one it is
 // pressed on, or else the next, so it never asks for SPACE and a colour at once -- and runs OVERDRIVE_BEATS. For that
 // long the piece is a laser: the lasers can't hurt it, hits score double, and a laser it flies through is absorbed
 // for ABSORB_POINTS more. The colours still count.
 var OVERDRIVE_PERFECTS = 16; // PERFECTs from empty to full; nothing charges it while it runs
+var OVERDRIVE_GOOD = 0.5; // what a GOOD charges, against a PERFECT's 1 (as their points are)
 var OVERDRIVE_BEATS = 2 * BEATS_PER_BAR;
 var OVERDRIVE_SCORE = 2; // what it multiplies the points for hits and absorbs by
-var ABSORB_POINTS = 100; // a laser absorbed, before the multipliers
+var ABSORB_POINTS = 50; // a laser absorbed, before the multipliers: half a PERFECT, a bonus rather than the point
 var drive = emptyDrive();
 
 function emptyDrive() { // meter 0..1; start and end: the beats it runs between once spent; lit: its start announced
@@ -179,14 +180,15 @@ function pointsMult() { // what a point is multiplied by: the combo's multiplier
     return multiplier() * (driveOn() ? OVERDRIVE_SCORE : 1);
 }
 
-function chargeDrive(n) { // a PERFECT on beat n charges the meter, unless it is spent over that beat
+function chargeDrive(n, worth) { // a hit on beat n charges the meter by `worth` PERFECTs, unless it is spent over
+    // that beat
     if (drive.start !== null && n < drive.end) {
         return; // waiting for its bar line, or running
     }
     if (drive.start !== null) { // it ran out before beat n, though the step hasn't put it out yet
         drive = emptyDrive();
     }
-    drive.meter = Math.min(1, drive.meter + 1 / OVERDRIVE_PERFECTS);
+    drive.meter = Math.min(1, drive.meter + worth / OVERDRIVE_PERFECTS);
 }
 
 function spendDrive(time) { // SPACE at real time `time`: a full meter starts on this bar line if the press is on it,
@@ -441,9 +443,10 @@ function hitBeat(time, color) { // a hit in `color`: judge it against the neares
     var grade = off <= PERFECT_MS ? "perfect" : "good";
     if (grade == "perfect") {
         perfects++;
-        chargeDrive(n);
+        chargeDrive(n, 1);
     } else {
         goods++;
+        chargeDrive(n, OVERDRIVE_GOOD);
     }
     combo++;
     bestCombo = Math.max(bestCombo, combo);

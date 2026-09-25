@@ -18,7 +18,7 @@ Open `index.html`, or serve the folder (`node .claude/serve.js`, then http://loc
    Every 8 in a row raises the multiplier, up to x4. A missed beat, a press off the beat, or the wrong colour (WRONG)
    resets it.
  - Three shields per attempt. A laser takes one and breaks your combo; the last one restarts the level.
- - **Overdrive:** every PERFECT charges the meter beside your shields (16 fill it). Full, press SPACE: it starts on
+ - **Overdrive:** hits charge the meter beside your shields (16 PERFECTs fill it; a GOOD counts half). Full, press SPACE: it starts on
    the bar line (the one you press it on, or else the next) and lasts two bars. You become a laser: lasers can't hurt
    you, hits score double, and flying through a laser as it fires absorbs it for a bonus. The colours still count.
  - Survive every bar to clear the level. Five levels, 100 to 132 BPM, each the same every attempt.

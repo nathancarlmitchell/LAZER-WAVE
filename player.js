@@ -4,8 +4,9 @@
 // is when to hit. The hitbox is the small core where they meet. The waves are also the two keys: while a coloured
 // beat is coming, the wave of its colour stays lit and the other dims, so the top wave says Z and the bottom X. In
 // overdrive the piece is a laser: a white beam runs down the middle of the trail, back to where the overdrive began,
-// with the waves still riding it. index.html loads this with a plain <script src>, as globals rather than modules,
-// so the game still opens straight off disk.
+// and the waves snap in tight round it -- still opening and meeting on the beat, just small -- so the trail pinches
+// into one beam where the overdrive starts. index.html loads this with a plain <script src>, as globals rather than
+// modules, so the game still opens straight off disk.
 //
 // Like the effects, this only draws: it reads the piece and beatPos, and nothing here changes what the game does.
 // The history is recorded every step (playerRecord) so the trail is the same whether a step was painted or not.
@@ -15,6 +16,8 @@ var TRAIL_DRIFT = 3; // px a step the trail drifts left: the waves travel away b
 var WAVE_GAP = 12; // px from the centre line to each wave at the widest point of a beat, with no combo...
 var WAVE_GAP_MAX = 24; // ...growing with every hit in a row up to this, at the combo that maxes the multiplier
 var WAVE_GROW = 0.08; // of the way to the size the combo calls for, a step: it swells and shrinks, never jumps
+var WAVE_DRIVE = 5; // px: the waves' size in overdrive, pulled in round the beam
+var WAVE_PULL = 0.2; // of the way there a step as they pull in: a snap, where the swell back out is slow
 var WAVE_RIPPLE = 0; // px the waves wiggle by, both together, so they are sine waves and not just two lines
 var WAVE_CYCLES = 2; // wiggles per beat
 var TRAIL_CHUNKS = 10; // the trail is stroked in this many pieces, each fainter than the one in front
@@ -29,7 +32,11 @@ while (trail.samples.length < TRAIL_STEPS) {
 var playerFlash = { age: FLASH_STEPS, color: COLORS.cyan };
 var waveSize = WAVE_GAP; // the waves' size as it stands, easing toward waveTarget()
 
-function waveTarget() { // the size the combo calls for: a little more for every hit in a row, up to the max
+function waveTarget() { // the size the combo calls for: a little more for every hit in a row, up to the max; in
+    // overdrive, tight round the beam
+    if (driveOn()) {
+        return WAVE_DRIVE;
+    }
     var full = COMBO_STEP * (MULT_MAX - 1); // the combo at which the multiplier stops climbing
     return WAVE_GAP + (WAVE_GAP_MAX - WAVE_GAP) * Math.min(combo, full) / full;
 }
@@ -45,7 +52,7 @@ function playerRecord() { // each step, after the piece has moved: where it is n
     s.x = gamePiece.x + gamePiece.width / 2;
     s.y = gamePiece.y + gamePiece.height / 2;
     s.beat = beatPos;
-    waveSize += (waveTarget() - waveSize) * WAVE_GROW;
+    waveSize += (waveTarget() - waveSize) * (driveOn() ? WAVE_PULL : WAVE_GROW);
     s.gap = waveSize; // each point keeps the size it was made at, so the trail shows the combo growing
     s.drive = driveOn(); // and whether it was made in overdrive, so the beam starts where the overdrive did
     trail.next = (trail.next + 1) % TRAIL_STEPS;
