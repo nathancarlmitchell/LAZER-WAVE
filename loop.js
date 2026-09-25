@@ -145,6 +145,95 @@ var hp = HP_MAX;
 var invuln = 0;
 var deathProgress = 0; // how far through the level the last attempt got, for the death screen
 
+// Overdrive: PERFECTs charge a meter, and SPACE spends a full one. It always starts on a bar line -- the one it is
+// pressed on, or else the next, so it never asks for SPACE and a colour at once -- and runs OVERDRIVE_BEATS. For that
+// long the piece is a laser: the lasers can't hurt it, hits score double, and a laser it flies through is absorbed
+// for ABSORB_POINTS more. The colours still count.
+var OVERDRIVE_PERFECTS = 16; // PERFECTs from empty to full; nothing charges it while it runs
+var OVERDRIVE_BEATS = 2 * BEATS_PER_BAR;
+var OVERDRIVE_SCORE = 2; // what it multiplies the points for hits and absorbs by
+var ABSORB_POINTS = 100; // a laser absorbed, before the multipliers
+var drive = emptyDrive();
+
+function emptyDrive() { // meter 0..1; start and end: the beats it runs between once spent; lit: its start announced
+    return { meter: 0, start: null, end: null, lit: false };
+}
+
+function driveReady() { // full, and not yet spent
+    return drive.start === null && drive.meter >= 1;
+}
+
+function driveArmed() { // spent, waiting for its bar line
+    return drive.start !== null && beatPos < drive.start;
+}
+
+function driveOn() { // running
+    return drive.start !== null && beatPos >= drive.start && beatPos < drive.end;
+}
+
+function driveMeter() { // how full to show it: charging, full while it waits for its bar, then running down
+    return driveOn() ? Math.max(0, (drive.end - beatPos) / OVERDRIVE_BEATS) : drive.meter;
+}
+
+function pointsMult() { // what a point is multiplied by: the combo's multiplier, doubled in overdrive
+    return multiplier() * (driveOn() ? OVERDRIVE_SCORE : 1);
+}
+
+function chargeDrive(n) { // a PERFECT on beat n charges the meter, unless it is spent over that beat
+    if (drive.start !== null && n < drive.end) {
+        return; // waiting for its bar line, or running
+    }
+    if (drive.start !== null) { // it ran out before beat n, though the step hasn't put it out yet
+        drive = emptyDrive();
+    }
+    drive.meter = Math.min(1, drive.meter + 1 / OVERDRIVE_PERFECTS);
+}
+
+function spendDrive(time) { // SPACE at real time `time`: a full meter starts on this bar line if the press is on it,
+    // or else on the next
+    if (!driveReady()) {
+        return;
+    }
+    var b = pressBeat(time);
+    var one = Math.round(b / BEATS_PER_BAR) * BEATS_PER_BAR;
+    if (Math.abs(b - one) * msPerBeat() > GOOD_MS) {
+        one = Math.ceil(b / BEATS_PER_BAR) * BEATS_PER_BAR;
+    }
+    if (one >= totalBeats) {
+        return; // no bar left to run it in: the meter keeps
+    }
+    drive.start = one;
+    drive.end = one + OVERDRIVE_BEATS;
+    drive.lit = false;
+}
+
+function driveStep() { // each step: announce it when its bar comes, and put it out when its time is up
+    if (drive.start === null) {
+        return;
+    }
+    if (!drive.lit && beatPos >= drive.start) {
+        drive.lit = true;
+        playSound(aud_powerUp);
+    }
+    if (beatPos >= drive.end) {
+        drive = emptyDrive();
+    }
+}
+
+function absorbHazards() { // in overdrive: every laser the piece is in is absorbed, for points
+    var n = 0;
+    hazards.forEach(function (h) {
+        if (h.absorb && h.hits(gamePiece)) {
+            h.absorb();
+            n++;
+        }
+    });
+    if (n > 0) {
+        score += n * ABSORB_POINTS * pointsMult();
+        playSound(aud_pickupCoin);
+    }
+}
+
 function firstPlayBeat() { // the first beat after the count-in: the first one that is judged and scored
     return COUNT_IN_BARS * BEATS_PER_BAR;
 }
@@ -254,6 +343,7 @@ function startLevel() { // a level is about to be played: from the start, or aga
     judgment = null;
     hp = HP_MAX;
     invuln = 0;
+    drive = emptyDrive(); // every attempt charges its own
     timingSum = timingCount = 0;
     playerReset();
 }
@@ -351,12 +441,13 @@ function hitBeat(time, color) { // a hit in `color`: judge it against the neares
     var grade = off <= PERFECT_MS ? "perfect" : "good";
     if (grade == "perfect") {
         perfects++;
+        chargeDrive(n);
     } else {
         goods++;
     }
     combo++;
     bestCombo = Math.max(bestCombo, combo);
-    score += POINTS[grade] * multiplier();
+    score += POINTS[grade] * pointsMult();
     judge(grade, signed, color);
     playerHitFlash(grade, color);
 }
@@ -388,6 +479,8 @@ function takeHit() { // a laser got the piece: returns true if that was the last
 function onActionPress(name, time) { // an action went down while playing, at real time `time`
     if (ACTIONS[name].beat) {
         hitBeat(time, ACTIONS[name].beat);
+    } else if (name == "overdrive") {
+        spendDrive(time);
     }
 }
 
@@ -398,13 +491,34 @@ function beatFrac() { // how far through the current beat, 0 on it
     return beatPos - Math.floor(beatPos);
 }
 
-function drawBeatPulse() { // a stripe under each banner flashes on every beat, harder on the bar
+function drawBeatPulse() { // a stripe under each banner flashes on every beat, harder on the bar, white in overdrive
     var kick = Math.max(0, 1 - beatFrac() * 4);
     var bar = Math.floor(beatPos) % BEATS_PER_BAR == 0 ? 1 : 0.5;
     ctx.save();
     ctx.globalAlpha = 0.2 + 0.6 * kick * bar;
-    ctx.fillStyle = COLORS.magenta;
+    ctx.fillStyle = driveOn() ? COLORS.laserCore : COLORS.magenta;
     drawBanners(70, 4);
+    ctx.restore();
+}
+
+function drawDriveCall() { // OVERDRIVE across the screen as it starts, gone by the end of its first beat
+    if (!driveOn() || beatPos >= drive.start + 1) {
+        return;
+    }
+    var W = gameArea.canvas.width, H = gameArea.canvas.height;
+    var s = Math.min(1, W / 900, H / 500);
+    ctx.save();
+    ctx.textAlign = "center";
+    ctx.globalAlpha = 1 - (beatPos - drive.start);
+    ctx.font = Math.round(110 * s) + "px Arial";
+    ctx.fillStyle = COLORS.cyan; // split either side of a white one, like a beam through a prism
+    ctx.fillText("OVERDRIVE", W / 2 - 5, H / 2 - 3);
+    ctx.fillStyle = COLORS.magenta;
+    ctx.fillText("OVERDRIVE", W / 2 + 5, H / 2 + 3);
+    ctx.fillStyle = COLORS.laserCore;
+    ctx.fillText("OVERDRIVE", W / 2, H / 2);
+    ctx.font = Math.round(32 * s) + "px Arial";
+    ctx.fillText("オーバードライブ", W / 2, H / 2 + 60 * s);
     ctx.restore();
 }
 
@@ -483,6 +597,7 @@ function drawLevel() { // draw the level as it stands, without moving anything (
     drawWorld();
     drawProgress();
     drawCountIn();
+    drawDriveCall();
     useHud();
     drawStats(COLORS.text, COLORS.cyan);
     useWindow();
@@ -511,18 +626,21 @@ function updateGameArea() {
         onBeat(++lastBeat);
     }
     checkMissed();
+    driveStep();
     if (invuln > 0) {
         invuln--;
     }
     if (judgment) {
         judgment.age++;
     }
-    if (hitHazard() && takeHit()) { // a beam fired on the piece
+    if (driveOn()) { // a laser can't hurt it: it eats them
+        absorbHazards();
+    } else if (hitHazard() && takeHit()) { // a beam fired on the piece
         gameOver();
         return;
     }
-    if (gameArea.x !== undefined && movePiece(gameArea.x - gamePiece.width / 2, gameArea.y - gamePiece.height / 2, invuln > 0)
-        && takeHit()) { // the piece was steered into one
+    if (gameArea.x !== undefined && movePiece(gameArea.x - gamePiece.width / 2, gameArea.y - gamePiece.height / 2,
+        invuln > 0 || driveOn()) && takeHit()) { // the piece was steered into one
         gameOver();
         return;
     }

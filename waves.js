@@ -19,6 +19,7 @@ var BEAM_SIZE = 0.13; // how much of the screen a horizontal beam covers, as a f
 var BEAM_SIZE_V = 0.09; // and a vertical one, of the width
 var BEAM_CORE_MAX = 8; // px: the white line down a beam's middle, at most
 var BEAM_INSET = 0.15; // of a beam's thickness on each side that is glow rather than hitbox: grazes are forgiven
+var BEAM_ABSORB = 0.3; // beats an absorbed beam takes to collapse (overdrive, loop.js)
 
 // The levels. bpm is the tempo; bars is how long the level runs after the count-in; warn is how many beats ahead a
 // beam shows its outline; phrases is what the level's bars are drawn from (a repeat makes that one more common);
@@ -155,7 +156,8 @@ function buildTimeline(n) { // every beam the level will fire, in firing order: 
 // A laser. It shows its outline from `fire - warn` beats, burns from `fire` for BEAM_FIRE beats (the only time it
 // can hit), and fades for BEAM_FADE more. Its place is kept as fractions of the screen, so a resize refits it. A
 // coloured beam warns in its colour -- cyan in a solid line, magenta dashed, so the two differ by more than colour --
-// and burns with a glow of it round the laser core, which stays the laser's own colour: that is what can hit.
+// and burns with a glow of it round the laser core, which stays the laser's own colour: that is what can hit. A
+// beam the piece absorbs in overdrive can't hit any more, and collapses to a white line and goes.
 function Beam(ev, warn) {
     this.axis = ev.axis;
     this.pos = ev.pos;
@@ -164,8 +166,13 @@ function Beam(ev, warn) {
     this.warnAt = ev.fire - warn;
     this.fireAt = ev.fire;
     this.endAt = ev.fire + BEAM_FIRE;
+    this.absorbedAt = null; // the beat it was absorbed on, if it has been
     this.fit();
 }
+
+Beam.prototype.absorb = function () {
+    this.absorbedAt = beatPos;
+};
 
 Beam.prototype.fit = function () { // its rectangle on this window
     var W = gameArea.canvas.width, H = gameArea.canvas.height;
@@ -176,12 +183,15 @@ Beam.prototype.fit = function () { // its rectangle on this window
     }
 };
 
-Beam.prototype.step = function () { // false once its afterglow is gone
+Beam.prototype.step = function () { // false once its afterglow is gone, or it has been absorbed
+    if (this.absorbedAt !== null) {
+        return beatPos < this.absorbedAt + BEAM_ABSORB;
+    }
     return beatPos < this.endAt + BEAM_FADE;
 };
 
 Beam.prototype.firing = function () {
-    return beatPos >= this.fireAt && beatPos < this.endAt;
+    return this.absorbedAt === null && beatPos >= this.fireAt && beatPos < this.endAt;
 };
 
 Beam.prototype.hits = function (piece) { // only while it burns, and only its core: the outer glow is forgiven
@@ -202,7 +212,12 @@ Beam.prototype.hits = function (piece) { // only while it burns, and only its co
 Beam.prototype.update = function () { // draw it: an outline that sharpens as it comes due, then the beam
     var tint = this.color ? COLORS[this.color] : COLORS.laser;
     ctx.save();
-    if (beatPos < this.fireAt) { // the warning
+    if (this.absorbedAt !== null) { // absorbed: white, narrowing to its middle line as it goes
+        var gone = Math.min(1, (beatPos - this.absorbedAt) / BEAM_ABSORB);
+        ctx.globalAlpha = 0.9 * (1 - gone);
+        ctx.fillStyle = COLORS.laserCore;
+        this.band((this.axis == "h" ? this.height : this.width) * 0.5 * gone);
+    } else if (beatPos < this.fireAt) { // the warning
         var t = Math.max(0, Math.min(1, (beatPos - this.warnAt) / (this.fireAt - this.warnAt)));
         var blink = (beatPos * 4) % 1 < 0.5 ? 1 : 0.6; // flickers in sixteenths, so it reads as live
         ctx.globalAlpha = (0.05 + 0.12 * t) * blink;

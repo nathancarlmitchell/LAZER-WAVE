@@ -16,12 +16,15 @@
 //   keys:  keyName() values ("Shift", " ", "z", ...)     mouse: a MouseEvent.button (0 left, 1 middle, 2 right)
 //   label: the touch button's text and the help screen's name for it
 //   beat:  the colour of beat it hits (waves.js), which is also its name, so a colour finds the action that hits it
-// SPACE is bound to nothing yet: it is kept for a power to come.
+//   lit:   when its touch button should stand out, if ever
 const ACTIONS = {
     cyan: { label: "CYAN", keys: ["z"], mouse: 0, color: COLORS.cyan, beat: "cyan",
         help: "on a cyan beat, as your waves meet: the top wave lights up for it" },
     magenta: { label: "MAGENTA", keys: ["x"], mouse: 2, color: COLORS.magenta, beat: "magenta",
         help: "on a magenta beat: the bottom wave lights. A beat with no laser takes either" },
+    overdrive: { label: "OVERDRIVE", keys: [" "], mouse: 1, color: COLORS.laserCore,
+        lit: function () { return driveReady(); },
+        help: "when the meter beside your shields is full: two bars untouchable, double points" },
 };
 const ACTION_NAMES = Object.keys(ACTIONS); // in the order they are laid out, first in the corner
 
@@ -359,7 +362,7 @@ function drawTouchControls() { // touch play: the action buttons and pause icon,
     useWindow();
     ACTION_NAMES.forEach(function (name) {
         var a = ACTIONS[name], c = tb.buttons[name];
-        ctx.globalAlpha = actionHeld(name) ? 0.45 : 0.15;
+        ctx.globalAlpha = actionHeld(name) ? 0.45 : a.lit && a.lit() ? 0.35 : 0.15;
         ctx.fillStyle = a.color;
         ctx.beginPath();
         ctx.arc(c.x, c.y, c.r, 0, Math.PI * 2);
@@ -672,9 +675,6 @@ function bindInput() { // the touch, mouse, keyboard and page listeners, registe
             if (!e.repeat) { // holding P shouldn't flip pause on every key repeat
                 setPause(!pause);
             }
-        }
-        if (key == " ") {
-            e.preventDefault(); // SPACE is kept for a power to come; meanwhile it must not scroll a page the game is in
         }
         var action = actionForKey(key);
         if (action) {

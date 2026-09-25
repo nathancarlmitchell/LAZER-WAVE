@@ -2,9 +2,10 @@
 // away behind it like a trace across an oscilloscope, so moving leaves a glowing trail. The gap between them is the
 // beat: it opens after each beat and closes as the next one comes, and on the beat the two meet in one line -- that
 // is when to hit. The hitbox is the small core where they meet. The waves are also the two keys: while a coloured
-// beat is coming, the wave of its colour stays lit and the other dims, so the top wave says Z and the bottom X.
-// index.html loads this with a plain <script src>, as globals rather than modules, so the game still opens straight
-// off disk.
+// beat is coming, the wave of its colour stays lit and the other dims, so the top wave says Z and the bottom X. In
+// overdrive the piece is a laser: a white beam runs down the middle of the trail, back to where the overdrive began,
+// with the waves still riding it. index.html loads this with a plain <script src>, as globals rather than modules,
+// so the game still opens straight off disk.
 //
 // Like the effects, this only draws: it reads the piece and beatPos, and nothing here changes what the game does.
 // The history is recorded every step (playerRecord) so the trail is the same whether a step was painted or not.
@@ -21,9 +22,9 @@ var CORE_R = 4; // px: the glowing core at the head, which is the hitbox
 var FLASH_STEPS = 18; // how long a good hit lights the head up
 var WAVE_UNLIT = 0.3; // how bright the wave of the other colour stays while a coloured beat is coming
 
-var trail = { samples: [], next: 0, count: 0 }; // a ring of reused { x, y, beat } records
+var trail = { samples: [], next: 0, count: 0 }; // a ring of reused { x, y, beat, gap, drive } records
 while (trail.samples.length < TRAIL_STEPS) {
-    trail.samples.push({ x: 0, y: 0, beat: 0, gap: 0 });
+    trail.samples.push({ x: 0, y: 0, beat: 0, gap: 0, drive: false });
 }
 var playerFlash = { age: FLASH_STEPS, color: COLORS.cyan };
 var waveSize = WAVE_GAP; // the waves' size as it stands, easing toward waveTarget()
@@ -46,6 +47,7 @@ function playerRecord() { // each step, after the piece has moved: where it is n
     s.beat = beatPos;
     waveSize += (waveTarget() - waveSize) * WAVE_GROW;
     s.gap = waveSize; // each point keeps the size it was made at, so the trail shows the combo growing
+    s.drive = driveOn(); // and whether it was made in overdrive, so the beam starts where the overdrive did
     trail.next = (trail.next + 1) % TRAIL_STEPS;
     trail.count = Math.min(trail.count + 1, TRAIL_STEPS);
     if (playerFlash.age < FLASH_STEPS) {
@@ -101,6 +103,38 @@ function strokeWave(side, color, dim) { // one wave from the head back, fading a
     }
 }
 
+function strokeBeam(dim) { // overdrive: a white beam down the middle of the trail, from the head back to where the
+    // overdrive began, fading along its length like the waves
+    var n = 0;
+    while (n < trail.count && trailSample(n).drive) {
+        n++;
+    }
+    var per = Math.ceil(n / TRAIL_CHUNKS);
+    ctx.strokeStyle = COLORS.laserCore;
+    for (var c = 0; c * per < n - 1; c++) {
+        var from = c * per, to = Math.min(n - 1, from + per);
+        var fade = Math.pow(1 - c / TRAIL_CHUNKS, 1.2) * dim;
+        ctx.beginPath();
+        for (var k = from; k <= to; k++) {
+            var p = wavePoint(k, 0);
+            if (k == from) {
+                ctx.moveTo(p.x, p.y);
+            } else {
+                ctx.lineTo(p.x, p.y);
+            }
+        }
+        ctx.globalAlpha = 0.12 * fade; // wider and hotter than a wave: it is the laser
+        ctx.lineWidth = 24;
+        ctx.stroke();
+        ctx.globalAlpha = 0.35 * fade;
+        ctx.lineWidth = 9;
+        ctx.stroke();
+        ctx.globalAlpha = 0.95 * fade;
+        ctx.lineWidth = 3;
+        ctx.stroke();
+    }
+}
+
 function drawPlayer(o) { // the two waves and the core, flickering while a hit has made it untouchable
     if (trail.count < 2) {
         return;
@@ -110,15 +144,19 @@ function drawPlayer(o) { // the two waves and the core, flickering while a hit h
     ctx.globalCompositeOperation = "lighter"; // light adds up: where the waves meet on the beat, they burn white
     ctx.lineCap = "round";
     ctx.lineJoin = "round";
+    var laser = wave && driveOn();
+    if (laser) {
+        strokeBeam(dim);
+    }
     var want = wave ? beatColor(cueBeat()) : null; // the coming beat's colour: its wave stays lit, the other dims
     strokeWave(-1, COLORS.cyan, dim * (want == "magenta" ? WAVE_UNLIT : 1));
     strokeWave(1, COLORS.magenta, dim * (want == "cyan" ? WAVE_UNLIT : 1));
     var head = trailSample(0);
     var flash = playerFlash.age < FLASH_STEPS ? 1 - playerFlash.age / FLASH_STEPS : 0;
     ctx.globalAlpha = (0.25 + 0.5 * flash) * dim; // the core's glow, and a burst of it on a good hit
-    ctx.fillStyle = flash > 0 ? playerFlash.color : want ? COLORS[want] : COLORS.cyan;
+    ctx.fillStyle = flash > 0 ? playerFlash.color : laser ? COLORS.laserCore : want ? COLORS[want] : COLORS.cyan;
     ctx.beginPath();
-    ctx.arc(head.x, head.y, CORE_R * (2.2 + 2.5 * flash), 0, Math.PI * 2);
+    ctx.arc(head.x, head.y, CORE_R * (2.2 + 2.5 * flash + (laser ? 1.5 : 0)), 0, Math.PI * 2);
     ctx.fill();
     ctx.globalAlpha = dim;
     ctx.fillStyle = COLORS.laserCore;

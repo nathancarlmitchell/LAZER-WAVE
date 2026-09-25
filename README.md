@@ -18,6 +18,9 @@ Open `index.html`, or serve the folder (`node .claude/serve.js`, then http://loc
    Every 8 in a row raises the multiplier, up to x4. A missed beat, a press off the beat, or the wrong colour (WRONG)
    resets it.
  - Three shields per attempt. A laser takes one and breaks your combo; the last one restarts the level.
+ - **Overdrive:** every PERFECT charges the meter beside your shields (16 fill it). Full, press SPACE: it starts on
+   the bar line (the one you press it on, or else the next) and lasts two bars. You become a laser: lasers can't hurt
+   you, hits score double, and flying through a laser as it fires absorbs it for a bonus. The colours still count.
  - Survive every bar to clear the level. Five levels, 100 to 132 BPM, each the same every attempt.
  - A cleared level is ranked F, D, C, B, A, S or S+ on how its beats were hit: a PERFECT counts the beat, a GOOD half
    of it, a press off the beat or in the wrong colour takes half back, and a lost shield costs 5%. S+ needs every beat
@@ -27,7 +30,8 @@ Open `index.html`, or serve the folder (`node .claude/serve.js`, then http://loc
 
 	- Mouse: your piece follows the cursor.  Touch: drag anywhere to steer (relative, like a trackpad).
 	- Z or LEFT MOUSE BUTTON = hit a cyan beat.  X or RIGHT MOUSE BUTTON = hit a magenta beat.  Touch: the CYAN and
-	  MAGENTA buttons.  SPACE is kept for a power to come.
+	  MAGENTA buttons.
+	- SPACE or MIDDLE MOUSE BUTTON = OVERDRIVE, once its meter is full.  Touch: the OVERDRIVE button, which lights up.
 	- P = PAUSE.  H = instructions, from the start screen or a pause.  After the final level, click or press R to play again.
 	- Phones and tablets always play in landscape.
 
@@ -41,12 +45,12 @@ Open `index.html`, or serve the folder (`node .claude/serve.js`, then http://loc
 | `run.js` | Difficulties (lives), records per difficulty in localStorage: best run, per-level splits and best ranks, furthest level |
 | `world.js` | `component`, the player piece's stepped movement, the `hazards` list and hit testing |
 | `player.js` | The player's look: two sine waves drawn off its position history, drifting into a glowing trail, meeting on each beat, the coming beat's colour lit |
-| `hud.js` | Score / deaths / level readout and the progress stripe |
+| `hud.js` | Score / deaths / level readout, the overdrive meter and the progress stripe |
 | `fx.js` | The effects setting (auto / full / reduced / off, honouring reduced motion), `fxHash`, the CRT overlay |
 | `menu.js` | Start, options and help screens, settings persistence, hover flash, slogans, start-screen glitches |
 | `levels.js` | Level start / end flow, the between-level and death messages, the finish screen |
 | `input.js` | `ACTIONS` (key / mouse / touch bindings), mouse & multi-touch steering, touch buttons, pause and resume countdown |
-| `loop.js` | Game state, the fixed 10ms step loop, the beat clock (`beatPos`) and audio scheduling, hit judging, combo and shields |
+| `loop.js` | Game state, the fixed 10ms step loop, the beat clock (`beatPos`) and audio scheduling, hit judging, combo, shields and overdrive |
 
 ### Adding gameplay
 
@@ -56,13 +60,13 @@ Open `index.html`, or serve the folder (`node .claude/serve.js`, then http://loc
   hard the colours are to read; none makes it colourless. The colours come from a random stream of their own, so
   changing them never moves a beam.
 - A new hazard is anything with `x, y, width, height, update()`, plus `step()` (return `false` when done), `hits(piece)`
-  and `fit()`; `Beam` is the model. Read time from `beatPos`, not steps.
+  and `fit()`; `Beam` is the model. Read time from `beatPos`, not steps. Give it `absorb()` and overdrive can eat it.
 - Add an action by adding an entry to `ACTIONS` in `input.js`; it gets keys, a mouse button, a touch button and a help line.
 
 ### Ideas flagged for later
 
-- **SPACE, a power:** Overdrive (PERFECTs fill a meter; SPACE on a downbeat turns the piece into a laser for two bars,
-  untouchable, double points) or a full Wave / Laser state switch, with gates in the chart where SPACE has to land.
+- **Wave / Laser as two ways to play:** a full state switch instead of a power, with gates in the chart where SPACE
+  has to land, and Laser form played differently (locked to an axis, sweeping targets on the beat).
 
 - **Ride the wave:** a waveform line the piece rides, synced to the beat, with lasers crossing it. It fits the same
   way: a new hazard/track type and the phrases that place it, on the same beat clock and judging.
