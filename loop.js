@@ -284,8 +284,9 @@ function drawPops() {
 // Wave and laser. A level switches between two ways to play at its gates (waves.js). In wave form the piece is
 // steered anywhere and the lasers are dodged, as ever. In laser form it locks to LASER_X, steers only up and down, and
 // fires a beam across the screen; each beat brings a target, and a hit counts only lined up with it, and in its
-// colour. The lasers can't touch a laser. A gate is a beat SPACE hits, and passing it switches the form; one gone by
-// unpassed switches it anyway, and costs a shield.
+// colour. Lasers still fire in laser form, across the path from one target to the next (waves.js), so the piece
+// holds on the target it hit while one burns, and crosses after. A gate is a beat SPACE hits, and passing it switches
+// the form; one gone by unpassed switches it anyway, and costs a shield.
 var LASER_X = 0.3; // where the piece locks in laser form, as a fraction of the width: clear of the HUD's column
 var LASER_REACH = 8; // px past a target's own size that still counts as lined up with it; overdrive doubles the lot
 var LASER_SLIDE = 0.2; // of the way to its place a step, while the piece slides into or out of laser form...
@@ -827,7 +828,8 @@ function steerPiece() { // move the piece toward where it is steered; true if th
     if (form == "wave" && gameArea.x === undefined) {
         return false; // nothing has steered it yet
     }
-    return movePiece(tx - w / 2, ty - h / 2, invuln > 0 || driveOn() || form == "laser") && takeHit();
+    return movePiece(tx - w / 2, ty - h / 2, invuln > 0 || driveOn()) && takeHit(); // stepped, so a laser can't be
+    // crossed while it burns, in either form
 }
 
 function updateGameArea() {
@@ -862,7 +864,7 @@ function updateGameArea() {
     agePops();
     if (driveOn()) { // a laser can't hurt it: it eats them
         absorbHazards();
-    } else if (form == "wave" && hitHazard() && takeHit()) { // a beam fired on the piece (none can touch a laser)
+    } else if (hitHazard() && takeHit()) { // a beam fired on the piece
         gameOver();
         return;
     }

@@ -26,18 +26,20 @@ var BEAM_ABSORB = 0.3; // beats an absorbed beam takes to collapse (overdrive, l
 // beam shows its outline; phrases is what the level's bars are drawn from (a repeat makes that one more common);
 // colors is the colour patterns its bars are painted from (see COLOR_PATTERNS), none for a colourless level; laser
 // is the bars played in laser form, as [first bar, bars] pairs, each opened and closed by a gate; targets is what
-// those bars are drawn from (TARGET_PHRASES).
+// those bars are drawn from (TARGET_PHRASES); dodges is how many lasers each of them fires across the path between
+// its targets, at most.
 const LEVELS = [null,
     { name: "Signal", bpm: 100, bars: 12, warn: 2, phrases: ["rain", "rain", "rest"], colors: [],
-        laser: [[6, 4]], targets: ["hold", "steps"] },
+        laser: [[6, 4]], targets: ["hold", "jump"], dodges: 1 },
     { name: "Carrier", bpm: 108, bars: 14, warn: 2, phrases: ["rain", "wall", "rain", "rest"], colors: ["solid"],
-        laser: [[7, 4]], targets: ["hold", "steps"] },
+        laser: [[7, 4]], targets: ["hold", "steps", "jump"], dodges: 1 },
     { name: "Interference", bpm: 116, bars: 16, warn: 1.5, phrases: ["rain", "wall", "cross", "stairs"],
-        colors: ["solid", "pairs"], laser: [[6, 4]], targets: ["steps", "zigzag"] },
+        colors: ["solid", "pairs"], laser: [[6, 4]], targets: ["steps", "zigzag", "jump"], dodges: 1 },
     { name: "Overdrive", bpm: 124, bars: 16, warn: 1.5, phrases: ["rain", "wall", "cross", "stairs", "double"],
-        colors: ["solid", "pairs", "alt"], laser: [[4, 3], [11, 3]], targets: ["steps", "zigzag", "scatter"] },
+        colors: ["solid", "pairs", "alt"], laser: [[4, 3], [11, 3]], targets: ["steps", "zigzag", "scatter"],
+        dodges: 2 },
     { name: "Lazer Wave", bpm: 132, bars: 20, warn: 1, phrases: ["wall", "cross", "stairs", "double", "double"],
-        colors: ["pairs", "alt"], laser: [[5, 4], [13, 4]], targets: ["zigzag", "scatter", "scatter"] },
+        colors: ["pairs", "alt"], laser: [[5, 4], [13, 4]], targets: ["zigzag", "scatter", "scatter"], dodges: 2 },
 ];
 
 // Laser form (loop.js has the rules). A target slides in from the right edge and reaches TARGET_X on its beat, at
@@ -49,6 +51,11 @@ var TARGET_GONE = 0.5; // beats a missed target takes to slide on out and go
 var TARGET_BURST = 0.4; // beats a hit target's burst lasts
 var GATE_LEAD = BEATS_PER_BAR; // a gate shows a bar ahead
 var GATE_GONE = 0.5; // beats a gate takes to go after its beat
+// A laser to dodge in laser form fires on a target's beat, across the path to the next one: it burns while the piece
+// holds on the target it just hit, and is out before the next is due. It only goes where the two are far enough
+// apart for it, and keeps DODGE_MARGIN clear round each, so lining up with a target never touches it
+var DODGE_GAP = 0.3; // how far apart two targets must be for a laser between them, as a fraction of the height
+var DODGE_MARGIN = 0.08; // clear round each target's height: its size, the reach of lining up, and the piece's own
 
 // Colour. A beat a beam fires on is cyan or magenta, and that is the key that hits it: Z for cyan, X for magenta (the
 // actions, input.js). Every beam on a beat has the beat's colour, and a beat with no beam has none, so either key
@@ -143,6 +150,12 @@ const TARGET_PHRASES = {
             add(b0 + i, "target", up ? 0.78 - i * 0.16 : 0.22 + i * 0.16, TARGET_R);
         }
     },
+    jump: function (b0, rnd, add) { // two at one height, then a leap to two at another: a laser's room, in the leap
+        var high = 0.2 + rnd() * 0.12, low = 0.68 + rnd() * 0.12, down = rnd() < 0.5;
+        for (var i = 0; i < BEATS_PER_BAR; i++) {
+            add(b0 + i, "target", (i < 2) == down ? high : low, TARGET_R);
+        }
+    },
     zigzag: function (b0, rnd, add) { // top, bottom, top, bottom
         var top = 0.18 + rnd() * 0.12, low = 0.7 + rnd() * 0.12;
         for (var i = 0; i < BEATS_PER_BAR; i++) {
@@ -225,8 +238,38 @@ function buildTimeline(n) { // everything the level holds, in beat order: beams 
     out = out.filter(function (ev) {
         return !gates.some(function (g) { return g.fire == ev.fire; });
     }).concat(gates);
+    out = out.concat(dodgeLasers(out, def, n));
     out.sort(function (a, b) { return a.fire - b.fire; });
     return out;
+}
+
+function dodgeLasers(events, def, n) { // laser form's lasers: in each laser bar, up to def.dodges of them, each on a
+    // target's beat across the path to the next target, where the two are far enough apart
+    var pick = seededRandom(n * 4099 + 53); // a stream of their own, so they never move a target
+    var target = {}; // beat -> the target due on it
+    events.forEach(function (ev) {
+        if (ev.axis == "target") {
+            target[ev.fire] = ev;
+        }
+    });
+    var lasers = [];
+    for (var bar in laserBars(def)) {
+        var b0 = (COUNT_IN_BARS + Number(bar)) * BEATS_PER_BAR;
+        var spots = []; // the beats in the bar a laser could go on
+        for (var b = b0; b < b0 + BEATS_PER_BAR; b++) {
+            if (target[b] && target[b + 1] && Math.abs(target[b].pos - target[b + 1].pos) >= DODGE_GAP) {
+                spots.push(b);
+            }
+        }
+        for (var k = 0; k < (def.dodges || 0) && spots.length; k++) {
+            var at = spots.splice(Math.floor(pick() * spots.length), 1)[0];
+            var lo = Math.min(target[at].pos, target[at + 1].pos) + DODGE_MARGIN;
+            var hi = Math.max(target[at].pos, target[at + 1].pos) - DODGE_MARGIN;
+            var size = Math.min(BEAM_SIZE, hi - lo);
+            lasers.push({ fire: at, axis: "h", pos: (lo + hi - size) / 2, size: size, color: target[at].color });
+        }
+    }
+    return lasers;
 }
 
 function eventLead(ev, warn) { // how many beats ahead of its beat an event comes on screen

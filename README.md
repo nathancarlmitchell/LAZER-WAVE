@@ -24,8 +24,9 @@ Open `index.html`, or serve the folder (`node .claude/serve.js`, then http://loc
  - **Wave / laser:** every level switches to laser form for a few bars. A **gate** (a white line) sweeps in: press
    SPACE as it reaches you, on the beat, to switch; one gone by unpassed switches anyway and costs a shield. In laser
    form you lock to the left third of the screen, steer only up and down, and fire across it: each beat brings a
-   target, and a hit counts only lined up with it (OFF TARGET otherwise) and in its colour. Lasers can't touch you,
-   and overdrive widens your beam. Another gate switches you back.
+   target, and a hit counts only lined up with it (OFF TARGET otherwise) and in its colour. Lasers fire across your
+   path, on a target's beat, between it and the next: hit it, hold while the laser burns, then cross. Overdrive makes
+   you untouchable and widens your beam. Another gate switches you back.
  - Survive every bar to clear the level. Five levels, 100 to 132 BPM, each the same every attempt.
  - A cleared level is ranked F, D, C, B, A, S or S+ on how its beats were hit: a PERFECT counts the beat, a GOOD half
    of it, a press off the beat or in the wrong colour takes half back, and a lost shield costs 5%. S+ needs every beat
@@ -68,14 +69,14 @@ Open `index.html`, or serve the folder (`node .claude/serve.js`, then http://loc
 - A level's `laser` lists its laser sections as `[first bar, bars]`; a gate opens and closes each. Their bars are drawn
   from its `targets`, names in `TARGET_PHRASES`, whose functions fill a bar with `add(fireBeat, "target", height, size)`.
   Laser form has a random stream of its own too, so adding or moving a section leaves the wave bars around it alone.
+  Its `dodges` is how many lasers each laser bar fires across the path between targets; they only go where two
+  targets are at least `DODGE_GAP` apart, keeping `DODGE_MARGIN` clear round each, and have a stream of their own.
 - A new hazard is anything with `x, y, width, height, update()`, plus `step()` (return `false` when done), `hits(piece)`
   and `fit()`; `Beam` is the model. Read time from `beatPos`, not steps. Give it `absorb()` and overdrive can eat it.
 - Add an action by adding an entry to `ACTIONS` in `input.js`; it gets keys, a mouse button, a touch button and a help line.
 
 ### Ideas flagged for later
 
-- **Something to dodge in laser form:** it is all aim for now; a laser sweeping down the screen while you line up
-  would bring the two halves of the game together.
 - **Ride the wave:** a waveform line the piece rides, synced to the beat, with lasers crossing it. It fits the same
   way: a new hazard/track type and the phrases that place it, on the same beat clock and judging.
 - Real music: give `TRACKS` a bpm and offset and drive `beatPos` from the song instead of the step count.

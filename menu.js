@@ -460,7 +460,8 @@ function helpPages() { // every page: a heading is a line of its own, and the li
         { t: "LASER FORM", head: true },
         { t: "You lock to the left and fire across the screen: steer up and down" },
         { t: "Line up with each target and hit it in its colour, on its beat" },
-        { t: "Lasers can't touch you, and overdrive widens your beam" },
+        { t: "A laser can fire across your path: hold until it's out, then go" },
+        { t: "Overdrive makes you untouchable, and widens your beam" },
     ]];
 }
 
