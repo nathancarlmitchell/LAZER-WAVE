@@ -1,0 +1,63 @@
+/* The embed around the game's iframe. Colours match the game, and work under any theme. */
+.lazer-wave-game {
+    margin: 1.5em 0;
+    max-width: 100%;
+}
+.lazer-wave-game__frame {
+    position: relative;
+    width: 100%;
+    background: #0a0014;
+    border: 2px solid #00ffff;
+    box-shadow: 0 0 24px -8px #00ffff;
+    overflow: hidden;
+}
+.lazer-wave-game__frame iframe {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    border: 0;
+    display: block;
+}
+.lazer-wave-game__bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5em 1em;
+    margin-top: 0.5em;
+    font-size: 0.85em;
+    color: #8a7a9e;
+    text-align: left;
+}
+.lazer-wave-game__buttons {
+    display: flex;
+    gap: 0.5em;
+}
+.lazer-wave-game__fullscreen,
+.lazer-wave-game__open {
+    display: inline-block;
+    padding: 0.35em 0.9em;
+    background: #0a0014;
+    color: #ff00ff;
+    border: 2px solid #00ffff;
+    border-radius: 0;
+    font: inherit;
+    text-transform: uppercase;
+    text-decoration: none;
+    cursor: pointer;
+}
+.lazer-wave-game__fullscreen:hover,
+.lazer-wave-game__open:hover {
+    border-color: #ff00ff;
+    color: #ff00ff;
+    text-decoration: none;
+}
+.lazer-wave-game__fullscreen[hidden] {
+    display: none;
+}
+
+/* On a phone, a small box is too tight to steer in: point at fullscreen instead of the keyboard hint */
+@media (hover: none) and (pointer: coarse) {
+    .lazer-wave-game__hint { display: none; }
+}

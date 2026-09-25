@@ -1,0 +1,22 @@
+{
+    "$schema": "https://schemas.wp.org/trunk/block.json",
+    "apiVersion": 3,
+    "name": "lazer-wave/game",
+    "title": "Lazer Wave Game",
+    "category": "embed",
+    "icon": "games",
+    "description": "Play Lazer Wave, the neon rhythm arcade game.",
+    "keywords": [ "game", "rhythm", "arcade", "lazer" ],
+    "textdomain": "lazer-wave-game",
+    "attributes": {
+        "aspect": { "type": "string", "default": "16:10" },
+        "controls": { "type": "boolean", "default": true }
+    },
+    "supports": {
+        "html": false,
+        "multiple": false,
+        "align": [ "wide", "full" ]
+    },
+    "editorScript": "file:./editor.js",
+    "render": "file:./render.php"
+}
