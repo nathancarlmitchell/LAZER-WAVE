@@ -206,16 +206,22 @@ function drawStartButtonText() { // the START button's label, in the current fil
     ctx.restore();
 }
 
-function drawTitle(shadowColor, passes) { // the title: stacked shadow copies, then magenta on top
-    ctx.font = "80px Arial";
-    ctx.fillStyle = shadowColor;
-    for (let count = 130 - passes; count < 130; count++){ // Bold effect
-        ctx.fillText(GAME_TITLE, count, count + 80);
-        ctx.fillText(GAME_TITLE_JP, count + 100, count + 180);
+// The title's two lines, each at its magenta face's baseline in layout coordinates, and how deep the stack of shadow
+// copies under them runs: shared with the laser that sweeps behind it (titlelight.js), which has to know its shape
+const TITLE_LINES = [{ text: GAME_TITLE, x: 130, y: 210 }, { text: GAME_TITLE_JP, x: 230, y: 310 }];
+const TITLE_FONT = "80px Arial";
+const TITLE_DEPTH = 10;
+
+function drawTitle(shadowColor, passes, c) { // the title: stacked shadow copies, then magenta on top; on the game's
+    // canvas unless given another context
+    c = c || ctx;
+    c.font = TITLE_FONT;
+    c.fillStyle = shadowColor;
+    for (let k = passes; k > 0; k--) { // Bold effect: copies trailing up and left, a pixel apart
+        TITLE_LINES.forEach(function (l) { c.fillText(l.text, l.x - k, l.y - k); });
     }
-    ctx.fillStyle = COLORS.magenta;
-    ctx.fillText(GAME_TITLE, 130, 210);
-    ctx.fillText(GAME_TITLE_JP, 230, 310);
+    c.fillStyle = COLORS.magenta;
+    TITLE_LINES.forEach(function (l) { c.fillText(l.text, l.x, l.y); });
 }
 
 function title_colors(){ // Flashing colors on start screen
@@ -330,7 +336,7 @@ function drawStartScreen() { // draw the start screen, or whichever menu screen 
 
     // Title
     useLayout();
-    drawTitle(COLORS.cyan, 10);
+    drawTitle(COLORS.cyan, TITLE_DEPTH);
 
     // start button
     var g = geom("start");
@@ -362,6 +368,7 @@ function drawStartScreen() { // draw the start screen, or whichever menu screen 
     drawRecords();
     drawSoundNote();
     useWindow();
+    titleLight(); // the laser behind the title (titlelight.js), if it isn't already sweeping: it stops by itself
 }
 
 function drawSoundNote() { // with a controller, until the page has had a click or a key: browsers let sound start only
