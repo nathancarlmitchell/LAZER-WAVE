@@ -274,6 +274,9 @@ function setInputMode(mode) { // switch between mouse and touch play, redrawing 
     } else if (alive && mode == "mouse") {
         drawLevel(); // without the touch controls
         setPause(true); // the cursor is somewhere else: pause so the player can line it up with the piece
+    } else if (resultsUp) { // a cleared level's results: their buttons, in this input's size and wording
+        resultsHover = "";
+        drawResultsScreen();
     }
 }
 
@@ -457,6 +460,14 @@ function onTouchStart(e) {
             if (Date.now() - finishTime >= 1000) {
                 restartArmed = true; // same rule as a mouse click: only a touch that starts on the finish screen, after 1s
             }
+        } else if (resultsUp) { // a cleared level's results: a touch that starts on a button, once they take one, and
+            // not one that only switched them to the touch layout
+            var choice = wasTouch && resultsReady() ? resultButtonAt(p.x, p.y) : "";
+            if (choice) {
+                info.role = "result";
+                info.result = choice;
+                setResultsHover(choice);
+            }
         } else {
             // the buttons also work between levels, so an action held into the next level is held in it (as with the
             // mouse); a touch that switches from mouse play steers, as the buttons weren't showing
@@ -491,6 +502,8 @@ function onTouchMove(e) {
         info.y = p.y;
         if (menuUp() || !gameStart) {
             setHovered(buttonAt(p.x, p.y));
+        } else if (info.role == "result") { // lit while the finger is still on the button it came down on
+            setResultsHover(resultButtonAt(p.x, p.y) == info.result ? info.result : "");
         } else if (t.identifier === touch.steerId) {
             var dx = p.x - touch.lastX;
             var dy = p.y - touch.lastY;
@@ -521,6 +534,12 @@ function onTouchEnd(e) { // touchend and touchcancel
         }
         if (info.role == "pause" && (!pause || resumeTimer) && touchButtonAt(p.x, p.y) == "pause") { // also stops a countdown
             setPause(true);
+        } else if (info.role == "result") { // lifted on the button it came down on: that's the choice
+            if (resultButtonAt(p.x, p.y) == info.result) {
+                chooseResult(info.result);
+            } else {
+                setResultsHover("");
+            }
         } else if (info.role == "phelp" && pauseHelpAt(p.x, p.y)) {
             openMenu("help"); // over the frozen level; closing it puts the panel back
         } else if (pause && info.pausedAt == pauseNo && Date.now() - pauseStart > 300) { // began during this pause
@@ -532,6 +551,7 @@ function onTouchEnd(e) { // touchend and touchcancel
         if (!gameStart && e.touches.length === 0) {
             setHovered(""); // no start-screen button stays pressed
         }
+        setResultsHover(""); // nor a results one
         if (alive) {
             releaseAll(); // a system gesture took the touch: pause rather than let the player die
         }
@@ -595,6 +615,8 @@ function bindInput() { // the touch, mouse, keyboard and page listeners, registe
             cycleSetting(START_BUTTONS[button].setting);
         } else if (runFinished && restartArmed) { // play again from the finish screen
             restartRun();
+        } else if (resultsArmed && resultButtonAt(p.x, p.y)) { // CONTINUE or RETRY, from a cleared level's results
+            chooseResult(resultButtonAt(p.x, p.y));
         }
     });
     window.addEventListener('mousedown', function (e) {
@@ -602,7 +624,8 @@ function bindInput() { // the touch, mouse, keyboard and page listeners, registe
         if (touchEcho(e)) {
             return;
         }
-        layoutClick = !gameStart && !activeTouches && inputMode != "mouse";
+        var wasMouse = inputMode == "mouse";
+        layoutClick = !gameStart && !activeTouches && !wasMouse;
         if (!activeTouches) {
             setInputMode("mouse");
         }
@@ -612,6 +635,8 @@ function bindInput() { // the touch, mouse, keyboard and page listeners, registe
             // so a press held as the last level ends doesn't wipe the results before they're seen
             restartArmed = true;
         }
+        // and a cleared level's buttons take a click that starts once they are ready, on the layout that was showing
+        resultsArmed = e.button == 0 && wasMouse && resultsReady();
         var action = actionForMouse(e.button);
         if (action) {
             pressAction(action, "mouse", eventTime(e));
@@ -638,6 +663,10 @@ function bindInput() { // the touch, mouse, keyboard and page listeners, registe
             return;
         }
         mouseMove(e); // start-screen hover
+        if (resultsUp) { // and a cleared level's buttons'
+            var over = toGame(e.pageX, e.pageY);
+            setResultsHover(resultButtonAt(over.x, over.y));
+        }
         ACTION_NAMES.forEach(function (name) { // catch buttons released outside the window
             var b = ACTIONS[name].mouse;
             if (b === undefined) {
@@ -670,6 +699,15 @@ function bindInput() { // the touch, mouse, keyboard and page listeners, registe
         }
         if (key == "r" && runFinished && !e.repeat && !e.ctrlKey && !e.metaKey) { // R = play again (Ctrl+R still reloads)
             restartRun();
+        }
+        if (resultsUp && (key == "r" || key == "Enter" || key == " ") && !e.ctrlKey && !e.metaKey) {
+            // a cleared level's results: R = RETRY, ENTER or SPACE = CONTINUE. Nothing else hears the key, not even
+            // the action SPACE is bound to
+            e.preventDefault();
+            if (!e.repeat) {
+                chooseResult(key == "r" ? "retry" : "next");
+            }
+            return;
         }
         if (key == "p") {
             e.preventDefault();

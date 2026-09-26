@@ -147,6 +147,8 @@ function windowResize() {
             drawLevel();
             drawPauseScreen();
         }
+    } else if (resultsUp) { // a cleared level's results wait on their buttons: laid out again, so each is where it looks
+        drawResultsScreen();
     } else if (restFrame) {
         gameArea.clear();
         gameArea.context.drawImage(restFrame, 0, 0);

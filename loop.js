@@ -17,7 +17,8 @@ var gameStart = false;
 var alive = false;
 var pause = false;
 
-var score = 0;
+var score = 0; // the points of the level being played
+var runScore = 0; // the run's total: every level it has continued past (levels.js)
 var deaths = 0;
 var runFinished = false; // the last level cleared; the finish screen is showing
 var restartArmed = false; // a click began on the finish screen

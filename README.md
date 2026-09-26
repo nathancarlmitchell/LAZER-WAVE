@@ -31,7 +31,11 @@ Open `index.html`, or serve the folder (`node .claude/serve.js`, then http://loc
  - A cleared level is ranked F, D, C, B, A, S or S+ on how its beats were hit: a PERFECT counts the beat, a GOOD half
    of it, a press off the beat or in the wrong colour takes half back, and a lost shield costs 5%. S+ needs every beat
    hit, nothing off the beat or WRONG, and no shield lost. Beside the rank, the level's beats are broken down: how
-   many were PERFECT, GOOD and MISS (gone by unhit, WRONG or OFF TARGET), and each one's share of them.
+   many were PERFECT, GOOD and MISS (gone by unhit, WRONG or OFF TARGET), and each one's share of them; and so is its
+   score: its points, its longest combo, and the run's TOTAL with them.
+ - The results wait for you: **CONTINUE** adds the level's points to the total and goes on, **RETRY** plays the level
+   again from nothing, and the total only ever keeps the attempt you continue from. The finish shows the run's total.
+   The time the results are up is left off the run's time, as a pause is.
 
 ### Controls:
 
@@ -40,7 +44,8 @@ Open `index.html`, or serve the folder (`node .claude/serve.js`, then http://loc
 	  MAGENTA buttons.
 	- SPACE or MIDDLE MOUSE BUTTON = on a gate, switch between wave and laser; anywhere else, OVERDRIVE once its meter
 	  is full (the beat nearest the press decides).  Touch: the white button, which says GATE or OVERDRIVE.
-	- P = PAUSE.  H = instructions, from the start screen or a pause.  After the final level, click or press R to play again.
+	- P = PAUSE.  H = instructions, from the start screen or a pause.  After a level, ENTER or SPACE = CONTINUE and
+	  R = RETRY (or click or tap them).  After the final level, click or press R to play again.
 	- Phones and tablets always play in landscape.
 
 ### The engine, file by file
@@ -56,7 +61,7 @@ Open `index.html`, or serve the folder (`node .claude/serve.js`, then http://loc
 | `hud.js` | Score / deaths / level readout, the overdrive meter and the progress stripe |
 | `fx.js` | The effects setting (auto / full / reduced / off, honouring reduced motion), `fxHash`, the CRT overlay |
 | `menu.js` | Start, options and help screens, settings persistence, hover flash, slogans, start-screen glitches |
-| `levels.js` | Level start / end flow, the between-level and death messages, a cleared level's results (the beat breakdown and the rank), the finish screen |
+| `levels.js` | Level start / end flow, the death message, a cleared level's results (the beat breakdown, the rank, the score and the run's total) and their CONTINUE and RETRY, the finish screen |
 | `input.js` | `ACTIONS` (key / mouse / touch bindings), mouse & multi-touch steering, touch buttons, pause and resume countdown |
 | `loop.js` | Game state, the fixed 10ms step loop, the beat clock (`beatPos`) and audio scheduling, hit judging, combo, shields, overdrive, and wave / laser form |
 

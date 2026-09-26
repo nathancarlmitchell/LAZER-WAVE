@@ -1,8 +1,8 @@
-// Lazer Wave -- a level's beginning and its end. startGame and the touch start that seeds it, the waits between
-// levels and the restart from the finish, the message block that lays out the screens between levels and the finish
-// itself (measured, centred and fitted to the window), and gameOver, which is where a level cleared or lost becomes
-// records, messages and the next level. index.html loads this with a plain <script src>, as globals rather than
-// modules, so the game still opens straight off disk.
+// Lazer Wave -- a level's beginning and its end. startGame and the touch start that seeds it, the wait after a death,
+// a cleared level's results and the CONTINUE and RETRY they wait on, the restart from the finish, the message block
+// that lays out the screens between levels and the finish itself (measured, centred and fitted to the window), and
+// gameOver, which is where a level cleared or lost becomes records, messages and the next level. index.html loads
+// this with a plain <script src>, as globals rather than modules, so the game still opens straight off disk.
 //
 // It drives the game rather than reading it: startGame sets it running, gameOver stops it. Both reach into the loop
 // (gameArea, startLevel), the world (clearObjects, component), the records and the effects (fxReset).
@@ -70,6 +70,7 @@ function restartRun() { // after the finish screen, start a fresh run from level
     level = 1;
     deaths = 0;
     score = 0;
+    runScore = 0;
     startRunLives();
     startTime = Date.now();
     startNextLevel();
@@ -106,39 +107,88 @@ function printText(text, dy, x) { // queue a line printed as the title is: cyan 
 
 var LEFT_OF_X = { left: 0, center: 0.5, right: 1 }; // how much of a line's width lies left of its x, by its alignment
 
-function msgBottom() { // the lowest line queued so far, so another can be put under whatever a branch put up
+var msgButtons = []; // the last message's buttons, where the fit put them in window pixels: { name, left, top, right,
+                     // bottom }, for the clicks and taps on them
+
+function buttonText(name, text, sub, x, dy, w, h, lit, primary) { // queue a button: a w x h box, its top dy and its
+    // middle x from the block's middle, framed as the menus' are, its label in the font set now over a smaller line;
+    // lit is the one under the mouse or a finger, and primary the way on, filled as START is
+    msgBlock.push({ button: name, text: text, sub: sub, x: x, align: "center", dy: dy, w: w, h: h, lit: lit,
+        primary: primary, passes: 1, font: ctx.font });
+}
+
+function msgButtonAt(px, py) { // the button of the last message at a window point, or ""
+    for (var i = 0; i < msgButtons.length; i++) {
+        var b = msgButtons[i];
+        if (px >= b.left && px <= b.right && py >= b.top && py <= b.bottom) {
+            return b.name;
+        }
+    }
+    return "";
+}
+
+function drawMsgButton(b, dx, dy, s) { // a queued button, in the block's frame, and a note of where it landed
+    var bx = dx + b.x - b.w / 2, by = dy + b.dy;
+    ctx.fillStyle = COLORS.cyan;
+    ctx.fillRect(bx, by, b.w, b.h);
+    ctx.fillStyle = COLORS.bg;
+    ctx.fillRect(bx + 2, by + 2, b.w - 4, b.h - 4);
+    var glow = b.lit ? 0.35 : b.primary ? 0.2 : 0; // START's fill, and more of it under the mouse or a finger
+    if (glow) {
+        ctx.globalAlpha = glow;
+        ctx.fillStyle = COLORS.cyan;
+        ctx.fillRect(bx + 2, by + 2, b.w - 4, b.h - 4);
+        ctx.globalAlpha = 1;
+    }
+    var size = parseInt(b.font, 10); // "30px Arial"
+    ctx.textAlign = "center";
+    ctx.font = b.font;
+    ctx.fillStyle = glow ? COLORS.text : COLORS.magenta;
+    ctx.fillText(b.text, bx + b.w / 2, by + b.h * 0.56, b.w - 16);
+    ctx.font = Math.round(size * 0.6) + "px Arial";
+    ctx.fillStyle = COLORS.dim;
+    ctx.fillText(b.sub, bx + b.w / 2, by + b.h * 0.86, b.w - 16);
+    var W = gameArea.canvas.width, H = gameArea.canvas.height;
+    msgButtons.push({ name: b.button, left: W / 2 + s * bx, top: H / 2 + s * by, right: W / 2 + s * (bx + b.w),
+        bottom: H / 2 + s * (by + b.h) });
+}
+
+function msgBottom() { // the lowest line queued so far, so another can be put under whatever a branch put up: a
+    // line's baseline, or a button's foot
     var low = 0;
     for (let i = 0; i < msgBlock.length; i++) {
-        low = Math.max(low, msgBlock[i].dy);
+        low = Math.max(low, msgBlock[i].dy + (msgBlock[i].button ? msgBlock[i].h : 0));
     }
     return low;
 }
 
-function showSplit() { // the level's time under the message, and what it was before, on every cleared screen
+function showSplit(dy) { // the level's time, and what it was before, on every cleared screen
     if (levelBeat <= 0) {
         return; // nothing timed: a level that was never played can't have a split
     }
-    var best = rec().level[level - 1]; // recordLevel has already taken it, and level has already moved on
+    var best = rec().level[level]; // recordLevel has already taken it
     ctx.font = "30px Arial";
     ctx.fillStyle = levelRecord ? COLORS.good : COLORS.text;
-    centerText(splitText(levelBeat) + (levelRecord ? "   NEW BEST" : "   best " + splitText(best)),
-        msgBottom() + 80);
+    centerText(splitText(levelBeat) + (levelRecord ? "   NEW BEST" : "   best " + splitText(best)), dy);
 }
 
 // The cleared level's results, under everything else on the screen and side by side, as a rhythm game's are: its beats
-// broken down on the left, and the rank they earned on the right. x is from the middle of the block, whose bounds keep
-// the two balanced about it; the lines are placed from the grade's baseline
-var RESULTS_LABEL_X = -295; // the breakdown: where its names start,
-var RESULTS_COUNT_X = -80; // where its counts end,
-var RESULTS_SHARE_X = 30; // and where its shares end
-var RESULTS_RANK_X = 205; // the rank's middle
-var RESULTS_TOP = -95, RESULTS_BOTTOM = 50; // both columns' first and last lines: over the grade, RANK, level with how
-                                            // many beats there were; under it, the best, level with the last row
+// broken down on the left, the rank they earned in the middle, and what it scored on the right. x is from the middle
+// of the block, the two tables mirroring each other about the rank; the lines are placed from the grade's baseline
+var RESULTS_LABEL_X = -490; // the breakdown: where its names start,
+var RESULTS_COUNT_X = -275; // where its counts end,
+var RESULTS_SHARE_X = -165; // and where its shares end
+var RESULTS_RANK_X = 0; // the rank's middle
+var RESULTS_SCORE_X = 165; // the score: where its names start,
+var RESULTS_POINTS_X = 490; // and where its points end
+var RESULTS_TOP = -95, RESULTS_BOTTOM = 50; // every column's first and last lines: over the grade, RANK, level with
+                                            // the tables' headings; under it, the best, level with their last rows
 
-function showResults() { // the two columns, under whatever the screen has put up so far
+function showResults() { // the three columns, under whatever the screen has put up so far
     var dy = msgBottom() + 160;
     showBreakdown(dy);
     showRank(dy);
+    showScore(dy);
 }
 
 function shareTexts(counts) { // the counts as whole percentages of their total that add up to 100, as a breakdown's
@@ -190,7 +240,7 @@ function showBreakdown(dy) { // how the cleared level's beats went, which is wha
 function showRank(dy) { // the cleared level's rank, large: an S is printed as the title is, the rest in their own
     // colour. Under it, the best this level has had (recordLevel has taken this one)
     var rank = levelRank();
-    var best = rec().rank[level - 1]; // level has already moved on
+    var best = rec().rank[level];
     ctx.font = "30px Arial";
     ctx.fillStyle = COLORS.dim;
     centerText("RANK ランク", dy + RESULTS_TOP, 1, RESULTS_RANK_X);
@@ -206,13 +256,40 @@ function showRank(dy) { // the cleared level's rank, large: an S is printed as t
     centerText(gradeRecord ? "NEW BEST" : "best " + best, dy + RESULTS_BOTTOM, 1, RESULTS_RANK_X);
 }
 
+function showScore(dy) { // what the cleared level scored, the breakdown's mirror: its points, its longest combo, and
+    // the run's total with its points in, which is what CONTINUE banks
+    var rows = [["LEVEL " + level, score], ["MAX COMBO", bestCombo], ["TOTAL", runScore + score]];
+    var pitch = (RESULTS_BOTTOM - RESULTS_TOP) / rows.length;
+    ctx.font = "30px Arial";
+    ctx.fillStyle = COLORS.dim;
+    columnText("SCORE スコア", RESULTS_SCORE_X, dy + RESULTS_TOP, "left");
+    rows.forEach(function (row, i) {
+        var at = dy + RESULTS_TOP + (i + 1) * pitch;
+        var total = i == rows.length - 1; // the one that matters most, set apart
+        ctx.font = "bold 30px Arial";
+        ctx.fillStyle = total ? COLORS.text : COLORS.dim;
+        columnText(row[0], RESULTS_SCORE_X, at, "left");
+        ctx.font = (total ? "bold 36px" : "30px") + " Arial";
+        ctx.fillStyle = total ? COLORS.cyan : COLORS.text;
+        columnText(String(row[1]), RESULTS_POINTS_X, at, "right");
+    });
+}
+
 function showMessage() { // draw the queued lines centred and as large as this screen allows, and return that scale
+    msgButtons = [];
     if (!msgBlock.length) {
         return 1;
     }
     var left = Infinity, right = -Infinity, top = Infinity, bottom = -Infinity;
     for (let i = 0; i < msgBlock.length; i++) {
         var line = msgBlock[i];
+        if (line.button) { // a box: its own edges
+            left = Math.min(left, line.x - line.w / 2);
+            right = Math.max(right, line.x + line.w / 2);
+            top = Math.min(top, line.dy);
+            bottom = Math.max(bottom, line.dy + line.h);
+            continue;
+        }
         ctx.font = line.font;
         var m = ctx.measureText(line.text);
         var start = line.x - m.width * LEFT_OF_X[line.align]; // where the line begins
@@ -227,6 +304,10 @@ function showMessage() { // draw the queued lines centred and as large as this s
     ctx.setTransform(s, 0, 0, s, gameArea.canvas.width / 2, gameArea.canvas.height / 2);
     for (let i = 0; i < msgBlock.length; i++) {
         var l = msgBlock[i];
+        if (l.button) {
+            drawMsgButton(l, dx, dy, s);
+            continue;
+        }
         ctx.font = l.font;
         ctx.textAlign = l.align;
         if (l.trail) { // a printed line: the copies trailing up and left first, then the line over them
@@ -245,6 +326,135 @@ function showMessage() { // draw the queued lines centred and as large as this s
     return s;
 }
 
+// A cleared level's results wait for the player. CONTINUE adds the level's score to the run's total and goes on to the
+// next level, or after the last to the finish; RETRY plays the level again from nothing, and the total doesn't take
+// this attempt's points. Neither takes a press for the first RESULTS_GRACE_MS, so a press held or mashed as the level
+// ends can't skip them unseen, and the time they are up is left off the run's clock, as a pause's is.
+var RESULTS_GRACE_MS = 1000;
+var resultsUp = false; // a cleared level's results are showing
+var resultsAt = 0; // when they came up
+var resultsHover = ""; // the button under the mouse, or under a finger held on it
+var resultsArmed = false; // a mouse press began on them once they could take one
+const RESULT_BUTTONS = { // left to right: where each sits (-1 left, 1 right), and the line under its label, which is
+    // its keys at a keyboard and its name in Japanese by touch. CONTINUE is the way on, lit as START is
+    retry: { side: -1, label: "RETRY", keys: "R", jp: "リトライ" },
+    next: { side: 1, label: "CONTINUE", keys: "ENTER / SPACE", jp: "次へ", primary: true },
+};
+
+function showLevelResults() { // the level was cleared: its results come up and wait
+    resultsUp = true;
+    resultsAt = Date.now();
+    resultsHover = "";
+    resultsArmed = false;
+    playSound(aud_menuSound);
+    drawResultsScreen();
+}
+
+function drawResultsScreen() { // drawn as they come up, and again on a resize, a hover or a change of input
+    gameArea.clear();
+    ctx.font = "80px Arial";
+    printText("Level " + level + " Clear", -175);
+    ctx.font = "60px Arial";
+    printText("クリア", -75);
+    var line = 0; // the stats under the title, a line apart
+    if (timingText()) {
+        ctx.font = "30px Arial";
+        ctx.fillStyle = timingColor();
+        centerText(timingText(), line);
+        line += 40;
+    }
+    showSplit(line);
+    showResults();
+    showResultButtons();
+    showMessage();
+    useWindow();
+    ctx.fillStyle = COLORS.magenta;
+    drawBanners(40, 20, bannerScale());
+}
+
+function showResultButtons() { // RETRY and CONTINUE, side by side under the results: finger-sized by touch
+    var touch = inputMode == "touch";
+    var w = touch ? 360 : 300, h = touch ? 100 : 76;
+    var top = msgBottom() + 50;
+    ctx.font = (touch ? 40 : 30) + "px Arial";
+    for (var name in RESULT_BUTTONS) {
+        var b = RESULT_BUTTONS[name];
+        buttonText(name, b.label, touch ? b.jp : b.keys, b.side * (w / 2 + 20), top, w, h, resultsHover == name,
+            b.primary);
+    }
+}
+
+function resultsReady() { // up, and past the moment a stray press could skip them
+    return resultsUp && Date.now() - resultsAt >= RESULTS_GRACE_MS;
+}
+
+function resultButtonAt(px, py) { // the button at a window point, "retry" or "next", or ""
+    return resultsUp ? msgButtonAt(px, py) : "";
+}
+
+function setResultsHover(name) { // light the button under the mouse or a finger, and put out the last
+    if (resultsUp && name != resultsHover) {
+        resultsHover = name;
+        drawResultsScreen();
+    }
+}
+
+function chooseResult(name) { // CONTINUE ("next") or RETRY ("retry")
+    if (!resultsReady()) {
+        return;
+    }
+    resultsUp = false;
+    resultsHover = "";
+    playSound(aud_click);
+    startTime += Date.now() - resultsAt; // off the run's clock
+    if (name == "next") {
+        runScore += score;
+        level++;
+    }
+    score = 0; // the next level, or this one again, starts from nothing
+    if (level > RUN_LEVELS) {
+        showFinish();
+    } else {
+        startNextLevel();
+    }
+}
+
+function showFinish() { // the last level continued past: the run's time and its total, until a click or R
+    var runMs = Date.now() - startTime;
+    var runBest = recordRun(runMs, deaths);
+    restFrame = null; // a resize copies this screen, not the results under it
+    gameArea.clear();
+    ctx.font = "80px Arial";
+    if (deaths == 0) {
+        printText("Flawless Victory", -175);
+    } else {
+        printText("You continued.", -175);
+        ctx.font = "60px Arial";
+        printText("It cost you " + mistakes(deaths) + ".", -87);
+    }
+    ctx.font = "60px Arial";
+    printText("Time: " + millisToMinutesAndSeconds(runMs), 0);
+    ctx.font = "30px Arial";
+    ctx.fillStyle = runBest ? COLORS.good : COLORS.text;
+    centerText(runBest ? "NEW BEST" : "best " + millisToMinutesAndSeconds(rec().run)
+        + "   " + mistakes(rec().runDeaths), 45);
+    ctx.font = "60px Arial";
+    printText("Total score: " + runScore, msgBottom() + 100);
+    ctx.fillStyle = COLORS.text;
+    if (inputMode == "touch") {
+        ctx.font = "40px Arial";
+        centerText("Tap to play again", msgBottom() + 70);
+    } else {
+        ctx.font = "30px Arial";
+        centerText("Click or press R to play again", msgBottom() + 60);
+    }
+    showMessage();
+    runFinished = true;
+    finishTime = Date.now();
+    restartArmed = false; // a click already in progress shouldn't restart
+    useWindow();
+}
+
 function gameOver() { // the level was cleared or the player died
     gameArea.stop();
     var levelCleared = levelComplete();
@@ -255,75 +465,22 @@ function gameOver() { // the level was cleared or the player died
     clearObjects();
     fxReset();
     gameArea.canvas.style.cursor = "default";
-    if (levelCleared) { // Next level
-        recordLevel(level); // the split for the one just played, before level moves on
-        level++;
-        if (level > RUN_LEVELS) { // the finish
-            var runMs = Date.now() - startTime;
-            var runBest = recordRun(runMs, deaths);
-            ctx.font = "80px Arial";
-            if (deaths == 0) {
-                printText("Flawless Victory", -175);
-            } else {
-                printText("You continued.", -175);
-                ctx.font = "60px Arial";
-                printText("It cost you " + mistakes(deaths) + ".", -87);
-            }
-            ctx.font = "60px Arial";
-            printText("Time: " + millisToMinutesAndSeconds(runMs), 0);
-            ctx.font = "30px Arial";
-            ctx.fillStyle = runBest ? COLORS.good : COLORS.text;
-            centerText(runBest ? "NEW BEST" : "best " + millisToMinutesAndSeconds(rec().run)
-                + "   " + mistakes(rec().runDeaths), 45);
-            showResults(); // the last level's
-            ctx.fillStyle = COLORS.text;
-            if (inputMode == "touch") {
-                ctx.font = "40px Arial";
-                centerText("Tap to play again", msgBottom() + 70);
-            } else {
-                ctx.font = "30px Arial";
-                centerText("Click or press R to play again", msgBottom() + 60);
-            }
-            showMessage();
-            runFinished = true;
-            finishTime = Date.now();
-            restartArmed = false; // a click already in progress shouldn't restart
-            useWindow();
-            score = 0;
-            return;
-        }
-        playSound(aud_menuSound);
-        ctx.font = "80px Arial";
-        printText("Level " + (level - 1) + " Clear", -175);
-        ctx.font = "60px Arial";
-        printText("クリア", -75);
-        ctx.font = "30px Arial";
-        ctx.fillStyle = COLORS.text;
-        centerText("Score " + score + "   best combo " + bestCombo, 0);
-        if (timingText()) {
-            ctx.fillStyle = timingColor();
-            centerText(timingText(), 40);
-        }
-        showSplit();
-        showResults();
-        showMessage();
-        useWindow();
-        ctx.fillStyle = COLORS.magenta;
-        drawBanners(40, 20, bannerScale());
-        wait(3000);
-    } else { // you lose
-        deaths += 1;
-        lifeSpent = runLives > 0;
-        if (lifeSpent) { // a life buys the level's progress back: the death reads as a transition, not a reset
-            runLives--;
-        }
-        playSound(aud_death);
-        drawDeathMessage(score);
-        wait(2500);
+    if (levelCleared) {
+        recordLevel(level); // its split and its rank
+        showLevelResults(); // which keep its score up until CONTINUE banks it or RETRY lets it go
+        return;
     }
+    deaths += 1;
+    lifeSpent = runLives > 0;
+    if (lifeSpent) { // a life buys the level's progress back: the death reads as a transition, not a reset
+        runLives--;
+    }
+    playSound(aud_death);
+    drawDeathMessage(score);
+    wait(2500);
     useWindow();
     if (!lifeSpent) {
-        score = 0; // a cleared level starts the next one at nothing; a life is what keeps a death from doing it
+        score = 0; // the level starts again from nothing; a life is what keeps a death from doing it
     }
 }
 
