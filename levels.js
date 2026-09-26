@@ -80,22 +80,31 @@ function startNextLevel() {
     startGame();
 }
 
-// A message is collected line by line, measured, and drawn as one block: every line truly centred, the block centred
-// on the screen, and the whole thing scaled to fill the room it has -- the lines it holds depend on the level, the
-// score and the deaths, so it is the one band that has to be measured at draw time rather than written down.
+// A message is collected line by line, measured, and drawn as one block: every line truly centred (or, in a column,
+// lined up), the block centred on the screen, and the whole thing scaled to fill the room it has -- the lines it holds
+// depend on the level, the score and the deaths, so it is the one band that has to be measured at draw time rather
+// than written down.
 var msgBlock = []; // the lines queued so far, measured and drawn by showMessage
 
-function centerText(text, dy, passes) { // queue a line dy from the block's baseline, in the font and fill set now;
-    // passes > 1 repeats it 1px down and right for a bold look
-    msgBlock.push({ text: text, dy: dy, passes: passes || 1, font: ctx.font, fill: ctx.fillStyle });
+function centerText(text, dy, passes, x) { // queue a line dy from the block's baseline, in the font and fill set now,
+    // centred x from the block's middle (on it, by default); passes > 1 repeats it 1px down and right for a bold look
+    msgBlock.push({ text: text, x: x || 0, align: "center", dy: dy, passes: passes || 1, font: ctx.font, fill: ctx.fillStyle });
+}
+
+function columnText(text, x, dy, align) { // queue a line that ends at x instead of centring on it: its left end there
+    // ("left") or its right ("right"), so the lines of a column line up
+    msgBlock.push({ text: text, x: x, align: align, dy: dy, passes: 1, font: ctx.font, fill: ctx.fillStyle });
 }
 
 var PRINT_TRAIL = 8; // copies a printed line trails
 
-function printText(text, dy) { // queue a line printed as the title is: cyan copies trailing up and left, a pixel apart,
-    // and magenta over them, in the font set now
-    msgBlock.push({ text: text, dy: dy, passes: 1, font: ctx.font, fill: COLORS.magenta, print: COLORS.cyan, trail: PRINT_TRAIL });
+function printText(text, dy, x) { // queue a line printed as the title is: cyan copies trailing up and left, a pixel
+    // apart, and magenta over them, in the font set now, centred x from the block's middle (on it, by default)
+    msgBlock.push({ text: text, x: x || 0, align: "center", dy: dy, passes: 1, font: ctx.font, fill: COLORS.magenta,
+        print: COLORS.cyan, trail: PRINT_TRAIL });
 }
+
+var LEFT_OF_X = { left: 0, center: 0.5, right: 1 }; // how much of a line's width lies left of its x, by its alignment
 
 function msgBottom() { // the lowest line queued so far, so another can be put under whatever a branch put up
     var low = 0;
@@ -116,24 +125,85 @@ function showSplit() { // the level's time under the message, and what it was be
         msgBottom() + 80);
 }
 
-function showRank() { // the cleared level's rank, large, under everything else on the screen: an S is printed as the
-    // title is, the rest in their own colour. Under it, the best this level has had (recordLevel has taken this one)
-    var rank = levelRank();
-    var best = rec().rank[level - 1]; // level has already moved on
+// The cleared level's results, under everything else on the screen and side by side, as a rhythm game's are: its beats
+// broken down on the left, and the rank they earned on the right. x is from the middle of the block, whose bounds keep
+// the two balanced about it; the lines are placed from the grade's baseline
+var RESULTS_LABEL_X = -295; // the breakdown: where its names start,
+var RESULTS_COUNT_X = -80; // where its counts end,
+var RESULTS_SHARE_X = 30; // and where its shares end
+var RESULTS_RANK_X = 205; // the rank's middle
+var RESULTS_TOP = -95, RESULTS_BOTTOM = 50; // both columns' first and last lines: over the grade, RANK, level with how
+                                            // many beats there were; under it, the best, level with the last row
+
+function showResults() { // the two columns, under whatever the screen has put up so far
     var dy = msgBottom() + 160;
+    showBreakdown(dy);
+    showRank(dy);
+}
+
+function shareTexts(counts) { // the counts as whole percentages of their total that add up to 100, as a breakdown's
+    // should: each rounded down, then the points that leaves over handed to the ones rounded down furthest. None shows
+    // 0% while it has any, which would read as none at all: it takes 1% from the largest, which can spare it
+    var total = counts.reduce(function (sum, n) { return sum + n; }, 0);
+    var p = counts.map(function (n) { return Math.floor(100 * n / total); });
+    var cut = counts.map(function (n) { return 100 * n % total; }); // what rounding down cut off, exactly, so a tie
+                                                                     // goes to the one listed first
+    var over = 100 - p.reduce(function (sum, v) { return sum + v; }, 0);
+    counts.map(function (n, i) { return i; })
+        .sort(function (a, b) { return cut[b] - cut[a]; })
+        .slice(0, over).forEach(function (i) { p[i]++; });
+    counts.forEach(function (n, i) {
+        if (n > 0 && p[i] == 0) {
+            p[p.indexOf(Math.max.apply(null, p))]--;
+            p[i] = 1;
+        }
+    });
+    return p.map(function (v) { return v + "%"; });
+}
+
+function showBreakdown(dy) { // how the cleared level's beats went, which is what its rank is worked out from: how
+    // many there were, then a row for each way a beat can go, with how many went that way and what share
+    var beats = playBeats();
+    if (beats <= 0) {
+        return; // nothing judged, nothing to break down
+    }
+    var rows = [["PERFECT", perfects, COLORS.cyan], ["GOOD", goods, COLORS.magenta],
+        ["MISS", beats - perfects - goods, COLORS.dim]]; // every other beat: gone by unhit, or spent WRONG or OFF TARGET
+    var shares = shareTexts(rows.map(function (row) { return row[1]; }));
+    var pitch = (RESULTS_BOTTOM - RESULTS_TOP) / rows.length;
     ctx.font = "30px Arial";
     ctx.fillStyle = COLORS.dim;
-    centerText("RANK ランク", dy - 95);
+    columnText(beats + " BEATS", RESULTS_LABEL_X, dy + RESULTS_TOP, "left");
+    rows.forEach(function (row, i) {
+        var at = dy + RESULTS_TOP + (i + 1) * pitch;
+        ctx.font = "bold 30px Arial";
+        ctx.fillStyle = row[2];
+        columnText(row[0], RESULTS_LABEL_X, at, "left");
+        ctx.font = "30px Arial";
+        ctx.fillStyle = COLORS.text;
+        columnText(String(row[1]), RESULTS_COUNT_X, at, "right");
+        ctx.fillStyle = COLORS.dim;
+        columnText(shares[i], RESULTS_SHARE_X, at, "right");
+    });
+}
+
+function showRank(dy) { // the cleared level's rank, large: an S is printed as the title is, the rest in their own
+    // colour. Under it, the best this level has had (recordLevel has taken this one)
+    var rank = levelRank();
+    var best = rec().rank[level - 1]; // level has already moved on
+    ctx.font = "30px Arial";
+    ctx.fillStyle = COLORS.dim;
+    centerText("RANK ランク", dy + RESULTS_TOP, 1, RESULTS_RANK_X);
     ctx.font = "100px Arial";
     if (rank.grade.charAt(0) == "S") {
-        printText(rank.grade, dy);
+        printText(rank.grade, dy, RESULTS_RANK_X);
     } else {
         ctx.fillStyle = rank.color;
-        centerText(rank.grade, dy, 3);
+        centerText(rank.grade, dy, 3, RESULTS_RANK_X);
     }
     ctx.font = "30px Arial";
     ctx.fillStyle = gradeRecord ? COLORS.good : COLORS.text;
-    centerText(gradeRecord ? "NEW BEST" : "best " + best, dy + 50);
+    centerText(gradeRecord ? "NEW BEST" : "best " + best, dy + RESULTS_BOTTOM, 1, RESULTS_RANK_X);
 }
 
 function showMessage() { // draw the queued lines centred and as large as this screen allows, and return that scale
@@ -145,8 +215,9 @@ function showMessage() { // draw the queued lines centred and as large as this s
         var line = msgBlock[i];
         ctx.font = line.font;
         var m = ctx.measureText(line.text);
-        left = Math.min(left, -m.width / 2 - (line.trail || 0)); // a print's trail reaches up and left, as far as it is long
-        right = Math.max(right, m.width / 2 + line.passes - 1); // the bold passes reach 1px further for each repeat
+        var start = line.x - m.width * LEFT_OF_X[line.align]; // where the line begins
+        left = Math.min(left, start - (line.trail || 0)); // a print's trail reaches up and left, as far as it is long
+        right = Math.max(right, start + m.width + line.passes - 1); // the bold passes reach 1px further for each repeat
         top = Math.min(top, line.dy - m.actualBoundingBoxAscent - (line.trail || 0));
         bottom = Math.max(bottom, line.dy + m.actualBoundingBoxDescent + line.passes - 1);
     }
@@ -154,19 +225,19 @@ function showMessage() { // draw the queued lines centred and as large as this s
     var dx = -(left + right) / 2;
     var dy = -(top + bottom) / 2; // the lines sit mostly above their baseline, so the block has to come down to the middle
     ctx.setTransform(s, 0, 0, s, gameArea.canvas.width / 2, gameArea.canvas.height / 2);
-    ctx.textAlign = "center";
     for (let i = 0; i < msgBlock.length; i++) {
         var l = msgBlock[i];
         ctx.font = l.font;
+        ctx.textAlign = l.align;
         if (l.trail) { // a printed line: the copies trailing up and left first, then the line over them
             ctx.fillStyle = l.print;
             for (let q = l.trail; q > 0; q--) {
-                ctx.fillText(l.text, dx - q, l.dy + dy - q);
+                ctx.fillText(l.text, dx + l.x - q, l.dy + dy - q);
             }
         }
         ctx.fillStyle = l.fill;
         for (let p = 0; p < l.passes; p++) {
-            ctx.fillText(l.text, dx + p, l.dy + dy + p);
+            ctx.fillText(l.text, dx + l.x + p, l.dy + dy + p);
         }
     }
     ctx.textAlign = "start"; // the rest of the game draws left-aligned text
@@ -204,7 +275,7 @@ function gameOver() { // the level was cleared or the player died
             ctx.fillStyle = runBest ? COLORS.good : COLORS.text;
             centerText(runBest ? "NEW BEST" : "best " + millisToMinutesAndSeconds(rec().run)
                 + "   " + mistakes(rec().runDeaths), 45);
-            showRank(); // the last level's
+            showResults(); // the last level's
             ctx.fillStyle = COLORS.text;
             if (inputMode == "touch") {
                 ctx.font = "40px Arial";
@@ -234,7 +305,7 @@ function gameOver() { // the level was cleared or the player died
             centerText(timingText(), 40);
         }
         showSplit();
-        showRank();
+        showResults();
         showMessage();
         useWindow();
         ctx.fillStyle = COLORS.magenta;

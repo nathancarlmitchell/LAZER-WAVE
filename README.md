@@ -30,7 +30,8 @@ Open `index.html`, or serve the folder (`node .claude/serve.js`, then http://loc
  - Survive every bar to clear the level. Five levels, 100 to 132 BPM, each the same every attempt.
  - A cleared level is ranked F, D, C, B, A, S or S+ on how its beats were hit: a PERFECT counts the beat, a GOOD half
    of it, a press off the beat or in the wrong colour takes half back, and a lost shield costs 5%. S+ needs every beat
-   hit, nothing off the beat or WRONG, and no shield lost.
+   hit, nothing off the beat or WRONG, and no shield lost. Beside the rank, the level's beats are broken down: how
+   many were PERFECT, GOOD and MISS (gone by unhit, WRONG or OFF TARGET), and each one's share of them.
 
 ### Controls:
 
@@ -55,7 +56,7 @@ Open `index.html`, or serve the folder (`node .claude/serve.js`, then http://loc
 | `hud.js` | Score / deaths / level readout, the overdrive meter and the progress stripe |
 | `fx.js` | The effects setting (auto / full / reduced / off, honouring reduced motion), `fxHash`, the CRT overlay |
 | `menu.js` | Start, options and help screens, settings persistence, hover flash, slogans, start-screen glitches |
-| `levels.js` | Level start / end flow, the between-level and death messages, the finish screen |
+| `levels.js` | Level start / end flow, the between-level and death messages, a cleared level's results (the beat breakdown and the rank), the finish screen |
 | `input.js` | `ACTIONS` (key / mouse / touch bindings), mouse & multi-touch steering, touch buttons, pause and resume countdown |
 | `loop.js` | Game state, the fixed 10ms step loop, the beat clock (`beatPos`) and audio scheduling, hit judging, combo, shields, overdrive, and wave / laser form |
 

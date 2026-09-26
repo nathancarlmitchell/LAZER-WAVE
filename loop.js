@@ -359,6 +359,10 @@ function firstPlayBeat() { // the first beat after the count-in: the first one t
     return COUNT_IN_BARS * BEATS_PER_BAR;
 }
 
+function playBeats() { // how many beats the level judges: every one after the count-in
+    return totalBeats - firstPlayBeat();
+}
+
 function msPerBeat() {
     return 60000 / wave.bpm;
 }
@@ -414,7 +418,7 @@ function rankValue(grade) { // where a grade stands, F lowest; -1 for anything t
 }
 
 function levelRating() { // 0..1: how well this attempt's beats were hit
-    var beats = totalBeats - firstPlayBeat();
+    var beats = playBeats();
     if (beats <= 0) {
         return 0;
     }
@@ -424,7 +428,7 @@ function levelRating() { // 0..1: how well this attempt's beats were hit
 
 function levelRank() { // this attempt's rank: { grade, color }
     var r = levelRating();
-    var flawless = perfects + goods == totalBeats - firstPlayBeat() && strays == 0 && hp == HP_MAX;
+    var flawless = perfects + goods == playBeats() && strays == 0 && hp == HP_MAX;
     if (flawless && r >= RANK_TOP.min) {
         return RANK_TOP;
     }
