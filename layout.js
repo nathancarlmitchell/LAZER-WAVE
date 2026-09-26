@@ -71,22 +71,10 @@ function useBand(band) { // layout coordinates again, with that band fitted in p
     ctx.setTransform(f.scale, 0, 0, f.scale, f.x, f.y);
 }
 
-// the bands each of them fills, measured rather than guessed: the settings screen and the two pause panels
+// the bands each of them fills, measured rather than guessed: the settings screen and the instructions. (The pause
+// panel is a message, measured as it is drawn: levels.js)
 const OPTIONS_BAND = { w: 760, h: 620, dy: 20 };
-const PAUSE_BAND = { w: 440, h: 160, dy: 10 };
-const TOUCH_PAUSE_BAND = { w: 560, h: 240, dy: 0 };
 const HELP_BAND = { w: 670, h: 500, dy: 34 }; // the larger of its two pages, measured; re-measure if they change
-const PAUSE_HELP = { dx: -75, dy: 66, w: 150, h: 40 }; // the touch pause panel's way into the instructions
-
-function pauseHelpAt(px, py) { // is this window point on that button? Only while the panel is actually up
-    if (!pause || !alive || inputMode != "touch" || menuUp() || resumeTimer) {
-        return false;
-    }
-    var f = bandFrame(TOUCH_PAUSE_BAND); // the frame the panel was drawn in, so the button is where it looks
-    var bx = f.x + f.scale * (LAYOUT_W / 2 + PAUSE_HELP.dx);
-    var by = f.y + f.scale * (LAYOUT_H / 2 + PAUSE_HELP.dy);
-    return px >= bx && px <= bx + f.scale * PAUSE_HELP.w && py >= by && py <= by + f.scale * PAUSE_HELP.h;
-}
 
 function screenFrame() { // the frame the screen that is up was drawn in, so a click lands where its buttons are
     return menuScreen == "options" ? bandFrame(OPTIONS_BAND)
@@ -129,8 +117,8 @@ function windowResize() {
     }
     gameArea.load();
     if (alive) {
-        if (inputMode == "touch") {
-            if (wasTall != gameArea.tall || wasRotated != rotated) {
+        if (inputMode != "mouse") { // steering that moves the piece rather than putting it under a cursor
+            if (inputMode == "touch" && (wasTall != gameArea.tall || wasRotated != rotated)) {
                 setPause(true); // the device was turned: give the player a moment
             }
             // keep the piece on the new screen and steer from there
@@ -144,8 +132,7 @@ function windowResize() {
         fitWorldToWindow();
         if (pause) { // nothing redraws while paused, so draw the refitted level and the panel once
             stopResume(); // a resize stops a touch resume countdown: the panel asks for a tap again
-            drawLevel();
-            drawPauseScreen();
+            drawPauseScreen(); // which draws the level under it
         }
     } else if (resultsUp) { // a cleared level's results wait on their buttons: laid out again, so each is where it looks
         drawResultsScreen();

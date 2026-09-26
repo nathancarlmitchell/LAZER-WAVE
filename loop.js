@@ -380,10 +380,9 @@ function cueBeat() { // the beat the player is heading for: the next one, once t
     return Math.ceil(beatPos - GOOD_MS / msPerBeat());
 }
 
-function keyText(color) { // how to hit a beat of `color`: "Z  CYAN" or "SPACE  GATE" at the keyboard, and by touch
-    // the button's label
-    var a = ACTIONS[color];
-    return inputMode == "touch" ? a.label : (a.keys[0] == " " ? "SPACE" : a.keys[0].toUpperCase()) + "  " + a.label;
+function keyText(color) { // how to hit a beat of `color`: "Z  CYAN" or "SPACE  GATE" at the keyboard, "LT  CYAN" on a
+    // controller, and by touch the button's label
+    return inputMode == "touch" ? ACTIONS[color].label : actionKey(color) + "  " + ACTIONS[color].label;
 }
 
 function timingText() { // how this attempt's presses sat against the beat, on average, or "" with too few to say

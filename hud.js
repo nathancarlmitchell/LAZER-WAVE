@@ -52,7 +52,8 @@ function drawDriveMeter(touch) { // overdrive's meter: charging, then full and t
     ctx.fillRect(METER_X, METER_Y, METER_W, METER_H);
     ctx.globalAlpha = waiting ? 0.55 + 0.45 * Math.max(0, 1 - beatFrac() * 3) : 0.9;
     ctx.fillRect(METER_X, METER_Y, METER_W * driveMeter(), METER_H);
-    var label = driveOn() ? "OVERDRIVE" : driveArmed() ? "NEXT BAR" : driveReady() ? (touch ? "READY" : "SPACE") : "";
+    var label = driveOn() ? "OVERDRIVE" : driveArmed() ? "NEXT BAR"
+        : driveReady() ? (touch ? "READY" : actionKey("gate")) : "";
     if (label) { // steady, whatever the bar is doing
         ctx.globalAlpha = 1;
         ctx.font = "bold 16px Arial";

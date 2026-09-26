@@ -493,7 +493,7 @@ Gate.prototype.update = function () {
     ctx.fillRect(gx - 2, 0, 4, H);
     ctx.globalAlpha = a;
     ctx.font = "bold 18px Arial";
-    ctx.fillText(inputMode == "touch" ? "TAP GATE" : "SPACE", gx + 12, H - 92);
+    ctx.fillText(inputMode == "touch" ? "TAP GATE" : actionKey("gate"), gx + 12, H - 92);
     ctx.font = "15px Arial";
     ctx.fillText(this.to == "laser" ? "TO LASER" : "TO WAVE", gx + 12, H - 72);
     ctx.restore();

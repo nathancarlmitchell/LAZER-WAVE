@@ -27,8 +27,9 @@ function startGame(e) {
     pause = false;
     var cx = gamePiece.x + gamePiece.width / 2;
     var cy = gamePiece.y + gamePiece.height / 2;
-    if (inputMode == "touch" && (cx < 0 || cy < 0 || cx > gameArea.canvas.width || cy > gameArea.canvas.height)) {
-        // the window shrank between levels: back to the touch start spot (the level starts empty)
+    if (inputMode != "mouse" && (cx < 0 || cy < 0 || cx > gameArea.canvas.width || cy > gameArea.canvas.height)) {
+        // the window shrank between levels: back to the touch start spot (the level starts empty). The mouse's piece
+        // goes where the cursor is anyway
         gameArea.x = gameArea.canvas.width * 0.25;
         gameArea.y = gameArea.canvas.height * 0.5;
         gamePiece.x = gameArea.x - gamePiece.width / 2;
@@ -57,6 +58,14 @@ function startTouchGame() { // start from a tap: the piece starts at the left mi
     var startY = gameArea.canvas.height * 0.5;
     startGame({ pageX: startX, pageY: startY });
     gameArea.x = startX; // the steering target starts on the piece
+    gameArea.y = startY;
+}
+
+function startPadGame() { // start from a controller: the piece starts where a touch start puts it
+    var startX = gameArea.canvas.width * 0.25;
+    var startY = gameArea.canvas.height * 0.5;
+    startGame({ pageX: startX, pageY: startY });
+    gameArea.x = startX;
     gameArea.y = startY;
 }
 
@@ -275,11 +284,13 @@ function showScore(dy) { // what the cleared level scored, the breakdown's mirro
     });
 }
 
-function showMessage() { // draw the queued lines centred and as large as this screen allows, and return that scale
+function showMessage(panel) { // draw the queued lines centred and as large as this screen allows, and return that
+    // scale; panel, if given, is how far a backing panel reaches past them, for a message over a level
     msgButtons = [];
     if (!msgBlock.length) {
         return 1;
     }
+    var pad = panel || 0;
     var left = Infinity, right = -Infinity, top = Infinity, bottom = -Infinity;
     for (let i = 0; i < msgBlock.length; i++) {
         var line = msgBlock[i];
@@ -298,10 +309,15 @@ function showMessage() { // draw the queued lines centred and as large as this s
         top = Math.min(top, line.dy - m.actualBoundingBoxAscent - (line.trail || 0));
         bottom = Math.max(bottom, line.dy + m.actualBoundingBoxDescent + line.passes - 1);
     }
-    var s = fitBand(right - left, bottom - top);
+    var s = fitBand(right - left + 2 * pad, bottom - top + 2 * pad);
     var dx = -(left + right) / 2;
     var dy = -(top + bottom) / 2; // the lines sit mostly above their baseline, so the block has to come down to the middle
     ctx.setTransform(s, 0, 0, s, gameArea.canvas.width / 2, gameArea.canvas.height / 2);
+    if (pad) {
+        ctx.fillStyle = COLORS.panel;
+        var pw = right - left + 2 * pad, ph = bottom - top + 2 * pad; // the block is centred on the origin now
+        ctx.fillRect(-pw / 2, -ph / 2, pw, ph);
+    }
     for (let i = 0; i < msgBlock.length; i++) {
         var l = msgBlock[i];
         if (l.button) {
@@ -336,7 +352,7 @@ var resultsAt = 0; // when they came up
 var resultsHover = ""; // the button under the mouse, or under a finger held on it
 var resultsArmed = false; // a mouse press began on them once they could take one
 const RESULT_BUTTONS = { // left to right: where each sits (-1 left, 1 right), and the line under its label, which is
-    // its keys at a keyboard and its name in Japanese by touch. CONTINUE is the way on, lit as START is
+    // its keys at a keyboard and its name in Japanese otherwise. CONTINUE is the way on, lit as START is
     retry: { side: -1, label: "RETRY", keys: "R", jp: "リトライ" },
     next: { side: 1, label: "CONTINUE", keys: "ENTER / SPACE", jp: "次へ", primary: true },
 };
@@ -379,8 +395,8 @@ function showResultButtons() { // RETRY and CONTINUE, side by side under the res
     ctx.font = (touch ? 40 : 30) + "px Arial";
     for (var name in RESULT_BUTTONS) {
         var b = RESULT_BUTTONS[name];
-        buttonText(name, b.label, touch ? b.jp : b.keys, b.side * (w / 2 + 20), top, w, h, resultsHover == name,
-            b.primary);
+        buttonText(name, b.label, inputMode == "mouse" ? b.keys : b.jp, b.side * (w / 2 + 20), top, w, h,
+            resultsHover == name, b.primary);
     }
 }
 
@@ -444,6 +460,9 @@ function showFinish() { // the last level continued past: the run's time and its
     if (inputMode == "touch") {
         ctx.font = "40px Arial";
         centerText("Tap to play again", msgBottom() + 70);
+    } else if (inputMode == "pad") {
+        ctx.font = "30px Arial";
+        centerText("Press A to play again", msgBottom() + 60);
     } else {
         ctx.font = "30px Arial";
         centerText("Click or press R to play again", msgBottom() + 60);
@@ -455,16 +474,49 @@ function showFinish() { // the last level continued past: the run's time and its
     useWindow();
 }
 
-function gameOver() { // the level was cleared or the player died
+function stopLevel() { // the level stops where it stands, however it ended: the loop, the lasers, the effects
     gameArea.stop();
-    var levelCleared = levelComplete();
     alive = false;
-    endLevel(); // the game's own teardown, whichever way the level ended
-    lifeSpent = false;
+    endLevel(); // the game's own teardown
     gameArea.clear();
     clearObjects();
     fxReset();
     gameArea.canvas.style.cursor = "default";
+}
+
+function leavePause() { // the pause ends some other way than resuming: its time still comes off the run's clock
+    cancelResume();
+    startTime += Date.now() - pauseStart;
+    pause = false;
+    pauseHover = "";
+}
+
+function retryLevel() { // RETRY, from the pause: the level again from its start, keeping nothing. It isn't a death:
+    // it costs the run the time it took, and that's all
+    leavePause();
+    stopLevel();
+    score = 0;
+    startNextLevel();
+}
+
+function quitRun() { // QUIT, from the pause: the run ends, unrecorded, and the start screen comes back
+    leavePause();
+    stopLevel();
+    gameStart = false; // so the next START is a first start again: a new run, its lives and its clock
+    level = 1;
+    deaths = 0;
+    score = 0;
+    runScore = 0;
+    restFrame = null;
+    hoveredButton = "";
+    startMenuTimers();
+    updateSloganText(); // which draws the start screen
+}
+
+function gameOver() { // the level was cleared or the player died
+    var levelCleared = levelComplete();
+    stopLevel();
+    lifeSpent = false;
     if (levelCleared) {
         recordLevel(level); // its split and its rank
         showLevelResults(); // which keep its score up until CONTINUE banks it or RETRY lets it go

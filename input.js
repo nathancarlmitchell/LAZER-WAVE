@@ -1,12 +1,15 @@
 // Lazer Wave -- the input. The actions and what is bound to them; the keys and mouse buttons, the touch fingers and
-// which of them steers, the on-screen touch buttons and their drawing, the pause and the touch resume countdown, the
-// input mode that follows the last real input, and the listeners that feed all of it, which gameArea.load binds once
-// through bindInput. index.html loads this with a plain <script src>, as globals rather than modules, so the game
-// still opens straight off disk. Nothing here runs at load beyond the tables and one matchMedia question.
+// which of them steers, the on-screen touch buttons and their drawing, a controller's buttons and sticks, the pause
+// panel and the touch resume countdown, the input mode that follows the last real input, and the listeners that feed
+// all of it, which gameArea.load binds once through bindInput. index.html loads this with a plain <script src>, as
+// globals rather than modules, so the game still opens straight off disk. Nothing here runs at load beyond the
+// tables and one matchMedia question.
 //
-// It reaches into the menus (buttonAt, openMenu, closeMenu, menuPress, cycleSetting), the level flow (startGame,
-// startTouchGame, restartRun), the loop (gameArea, onActionPress, onActionRelease) and the paused redraw (drawLevel);
-// the game reaches back for canAct, actionHeld, setPause, touchButtons and drawTouchControls.
+// It reaches into the menus (buttonAt, geom, openMenu, closeMenu, menuPress, cycleSetting, setHovered), the level flow
+// (startGame, startTouchGame, startPadGame, restartRun, retryLevel, quitRun, chooseResult), the message block
+// (centerText, buttonText, showMessage, msgButtons), the loop (gameArea, onActionPress, onActionRelease) and the paused
+// redraw (drawLevel); the game reaches back for canAct, actionHeld, actionKey, setPause, touchButtons and
+// drawTouchControls.
 
 // The actions: every button the game has, and what triggers it on each input. The game hears about them through
 // onActionPress and onActionRelease (loop.js), once per real change: a second source pressing an action already held
@@ -14,15 +17,26 @@
 // rhythm game judges by: a handler can run a frame late when the page is busy. A power that lasts while held should read actionHeld each step rather than trusting the
 // events, since a release during a pause or between levels is recorded but not announced.
 //   keys:  keyName() values ("Shift", " ", "z", ...)     mouse: a MouseEvent.button (0 left, 1 middle, 2 right)
+//   pad:   a controller's buttons (PAD, below);  padKeys: their names, the first the one the game shows
 //   label: the touch button's text and the help screen's name for it
 //   beat:  the kind of beat it hits (waves.js), which is also its name, so a beat finds the action that hits it
 //   lit:   when its touch button should stand out, if ever;  now: its touch button's text, when that changes
+//
+// A controller is read through the browser's Gamepad API, in its standard mapping, whose button numbers these are
+// (named as on an Xbox pad). The left side hits cyan and the right side magenta, as Z and X and the mouse buttons do:
+// triggers, bumpers or the face buttons, whichever suits the hands. A and Y are the gate and overdrive; the left stick
+// or the D-pad steers; START pauses. On a screen, the stick or D-pad moves between its buttons, A presses the one lit,
+// B backs out, and START starts, resumes or carries on
+const PAD = { a: 0, b: 1, x: 2, y: 3, lb: 4, rb: 5, lt: 6, rt: 7, start: 9, up: 12, down: 13, left: 14, right: 15 };
 const ACTIONS = {
-    cyan: { label: "CYAN", keys: ["z"], mouse: 0, color: COLORS.cyan, beat: "cyan",
+    cyan: { label: "CYAN", keys: ["z"], mouse: 0, pad: [PAD.lt, PAD.lb, PAD.x], padKeys: ["LT", "LB", "X"],
+        color: COLORS.cyan, beat: "cyan",
         help: "on a cyan beat, as your waves meet: the top wave lights up for it" },
-    magenta: { label: "MAGENTA", keys: ["x"], mouse: 2, color: COLORS.magenta, beat: "magenta",
+    magenta: { label: "MAGENTA", keys: ["x"], mouse: 2, pad: [PAD.rt, PAD.rb, PAD.b], padKeys: ["RT", "RB", "B"],
+        color: COLORS.magenta, beat: "magenta",
         help: "on a magenta beat: the bottom wave lights. A beat with no laser takes either" },
-    gate: { label: "GATE", keys: [" "], mouse: 1, color: COLORS.laserCore, beat: "gate", // off a gate, overdrive
+    gate: { label: "GATE", keys: [" "], mouse: 1, pad: [PAD.a, PAD.y], padKeys: ["A", "Y"],
+        color: COLORS.laserCore, beat: "gate", // off a gate, overdrive
         lit: function () { return gateAhead() || driveReady(); },
         now: function () { return gateAhead() ? "GATE" : "OVERDRIVE"; },
         help: "on a gate, switches wave and laser; anywhere else, spends a full overdrive meter" },
@@ -32,7 +46,8 @@ const ACTION_NAMES = Object.keys(ACTIONS); // in the order they are laid out, fi
 var held = {}; // what is holding each action down: which of its keys, the mouse, and how many fingers
 ACTION_NAMES.forEach(function (name) { held[name] = { keys: {}, mouse: false, touch: 0 }; });
 
-// Input: the mouse (with keyboard) or touch. inputMode follows the last real input and picks the labels and controls.
+// Input: the mouse (with keyboard), touch, or a controller ("pad"). inputMode follows the last real input and picks
+// the labels and controls.
 var inputMode = (window.matchMedia && window.matchMedia("(pointer: coarse)").matches) ? "touch" : "mouse";
 var lastTouchTime = 0; // when the last touch event arrived; mouse events a browser makes up after a touch are ignored
 var activeTouches = 0; // fingers down
@@ -109,6 +124,24 @@ function actionForMouse(button) { // the action bound to a mouse button, or ""
     return "";
 }
 
+function actionForPad(button) { // the action bound to a controller button, or ""
+    for (var i = 0; i < ACTION_NAMES.length; i++) {
+        if (ACTIONS[ACTION_NAMES[i]].pad.indexOf(button) >= 0) {
+            return ACTION_NAMES[i];
+        }
+    }
+    return "";
+}
+
+function actionKey(name) { // what to press for an action in the input in use: "SPACE", "Z", "A", "LT"; by touch, its
+    // button's label
+    var a = ACTIONS[name];
+    if (inputMode == "touch") {
+        return a.label;
+    }
+    return inputMode == "pad" ? a.padKeys[0] : a.keys[0] == " " ? "SPACE" : a.keys[0].toUpperCase();
+}
+
 var MOUSE_BIT = { 0: 1, 1: 4, 2: 2 }; // MouseEvent.button to its bit in MouseEvent.buttons
 
 function setPause(paused) { // pause or resume play; only while alive
@@ -124,6 +157,7 @@ function setPause(paused) { // pause or resume play; only while alive
     }
     cancelResume();
     pause = paused;
+    pauseHover = ""; // each pause's panel starts with nothing lit
     gameArea.canvas.style.cursor = pause ? "default" : "none"; // let the player line the cursor back up with their piece
     if (pause) {
         pauseStart = Date.now();
@@ -187,60 +221,98 @@ function startResumeCountdown() { // touch resume: 3, 2, 1 (400ms each), so the 
     beat();
 }
 
-function drawPauseScreen(countdown) { // drawn once over the frozen frame; countdown is the touch resume's 3-2-1
-    if (inputMode == "touch") {
-        drawTouchPauseScreen(countdown);
-        return;
-    }
-    useBand(PAUSE_BAND); // the panel, not the whole frame
-    var centerX = LAYOUT_W / 2;
-    var centerY = LAYOUT_H / 2;
-    ctx.fillStyle = COLORS.panel;
-    ctx.fillRect(centerX - 220, centerY - 70, 440, 160);
-    ctx.textAlign = "center";
-    ctx.fillStyle = COLORS.magenta;
-    ctx.font = "60px Arial";
-    ctx.fillText("PAUSED", centerX, centerY);
-    ctx.fillStyle = COLORS.text;
-    ctx.font = "25px Arial";
-    ctx.fillText("P to resume,  H for instructions", centerX, centerY + 40);
-    ctx.font = "18px Arial";
-    ctx.fillText("Move the cursor onto your piece first", centerX, centerY + 72);
-    ctx.textAlign = "start"; // the rest of the game draws left-aligned text
-    useWindow();
+// The pause panel: how to resume, and its buttons, left to right, with the line under each label, which is its key at
+// a keyboard and its name in Japanese otherwise. RESUME is the controller's alone: the mouse resumes with P once the
+// cursor is back on the piece, and a finger by tapping anywhere else
+const PAUSE_BUTTONS = {
+    resume: { label: "RESUME", keys: "P", jp: "再開" },
+    help: { label: "HELP", keys: "H", jp: "説明" },
+    retry: { label: "RETRY", keys: "R", jp: "リトライ" },
+    quit: { label: "QUIT", keys: "Q", jp: "終了" },
+};
+var PAUSE_PANEL = 28; // how far the panel reaches past what is on it
+var pauseHover = ""; // the pause button under the mouse, under a finger held on it, or picked with a controller
+var pauseArmed = false; // a mouse press began on the panel, so its click may press a button
+
+function pauseButtons() { // the pause buttons this input gets, in order
+    return inputMode == "pad" ? ["resume", "help", "retry", "quit"] : ["help", "retry", "quit"];
 }
 
-function drawTouchPauseScreen(countdown) { // touch play: tap anywhere to resume (steering is relative, so nothing to line up)
-    drawLevel(); // a clean frame under the panel
-    useBand(TOUCH_PAUSE_BAND);
-    var centerX = LAYOUT_W / 2;
-    var centerY = LAYOUT_H / 2;
-    ctx.fillStyle = COLORS.panel;
-    ctx.fillRect(centerX - 280, centerY - 120, 560, 240);
-    ctx.textAlign = "center";
+function drawPauseScreen(countdown) { // over the level, frozen as it stood: how to resume and the buttons, or by
+    // touch the resume's 3-2-1. Drawn afresh each time (a hover, a resize, a change of input), the level first
+    drawLevel();
+    var touch = inputMode == "touch", pad = inputMode == "pad";
     ctx.fillStyle = COLORS.magenta;
     if (countdown) {
         ctx.font = "140px Arial";
-        ctx.fillText(countdown, centerX, centerY + 50);
-    } else {
-        ctx.font = "72px Arial";
-        ctx.fillText("PAUSED", centerX, centerY - 40);
-        ctx.fillStyle = COLORS.text;
-        ctx.font = "40px Arial";
-        ctx.fillText("TAP TO RESUME", centerX, centerY + 18);
-        ctx.font = "24px Arial";
-        ctx.fillText("Your piece stays put. Drag to steer.", centerX, centerY + 56);
-        var h = PAUSE_HELP; // the one tap here that does something other than resume
-        ctx.fillStyle = COLORS.cyan;
-        ctx.fillRect(centerX + h.dx, centerY + h.dy, h.w, h.h);
-        ctx.fillStyle = COLORS.bg;
-        ctx.fillRect(centerX + h.dx + 2, centerY + h.dy + 2, h.w - 4, h.h - 4);
-        ctx.fillStyle = COLORS.magenta;
-        ctx.font = "26px Arial";
-        ctx.fillText("HELP 説明", centerX + h.dx + h.w / 2, centerY + h.dy + h.h / 2 + 9, h.w - 12);
+        centerText(String(countdown), 0);
+        showMessage(PAUSE_PANEL);
+        useWindow();
+        return;
     }
-    ctx.textAlign = "start";
+    ctx.font = (touch ? 64 : 60) + "px Arial";
+    centerText("PAUSED", 0);
+    if (touch) { // the buttons straight under it, so the panel's foot, near the thumb resting on the action buttons,
+        // is words: a tap meant to resume that lands low resumes. Steering is relative: nothing to line up
+        showPauseButtons(28);
+        ctx.fillStyle = COLORS.text;
+        ctx.font = "36px Arial";
+        centerText("TAP TO RESUME", msgBottom() + 50);
+        ctx.font = "22px Arial";
+        centerText("Your piece stays put. Drag to steer.", msgBottom() + 34);
+    } else {
+        ctx.fillStyle = COLORS.text;
+        ctx.font = "25px Arial";
+        centerText(pad ? "START or B to resume" : "P to resume", 40);
+        if (!pad) {
+            ctx.font = "18px Arial";
+            centerText("Move the cursor onto your piece first", 72);
+        }
+        showPauseButtons(msgBottom() + 30);
+    }
+    showMessage(PAUSE_PANEL);
     useWindow();
+}
+
+function showPauseButtons(top) { // the pause buttons in a row, their tops at `top`: finger-sized by touch
+    var touch = inputMode == "touch";
+    var names = pauseButtons();
+    var w = touch ? 176 : 170, h = touch ? 80 : 64, gap = touch ? 20 : 16;
+    ctx.font = (touch ? 30 : 26) + "px Arial";
+    names.forEach(function (name, i) {
+        var b = PAUSE_BUTTONS[name];
+        buttonText(name, b.label, inputMode == "mouse" ? b.keys : b.jp, (i - (names.length - 1) / 2) * (w + gap), top,
+            w, h, pauseHover == name);
+    });
+}
+
+function pauseButtonAt(px, py) { // the pause button at a window point, or "": only while the panel is up and still
+    return alive && pause && !menuUp() && !resumeTimer ? msgButtonAt(px, py) : "";
+}
+
+function setPauseHover(name) { // light the pause button under the mouse, a finger or the controller's pick
+    if (alive && pause && !menuUp() && !resumeTimer && name != pauseHover) {
+        pauseHover = name;
+        drawPauseScreen();
+    }
+}
+
+function pausePress(name) { // a pause button: RESUME, HELP, RETRY or QUIT
+    if (!alive || !pause || menuUp() || resumeTimer || !PAUSE_BUTTONS[name]) {
+        return;
+    }
+    if (name == "resume") {
+        setPause(false);
+    } else if (name == "help") {
+        openMenu("help"); // over the frozen level; closing it puts the panel back
+    } else {
+        playSound(aud_click);
+        if (name == "retry") {
+            retryLevel();
+        } else {
+            quitRun();
+        }
+    }
 }
 
 function keyName(e) { // the key pressed: a lowercase letter, " " (space), "Shift", "Control", "Escape", or e.key
@@ -253,7 +325,7 @@ function keyName(e) { // the key pressed: a lowercase letter, " " (space), "Shif
     }
     // anything else: an older browser without e.key, a non-Latin keyboard layout, a layout-switch key such as
     // "GroupNext", or a tool that leaves key empty
-    return { 16: "Shift", 17: "Control", 27: "Escape", 32: " ", 72: "h", 80: "p", 82: "r" }[e.keyCode] || key;
+    return { 16: "Shift", 17: "Control", 27: "Escape", 32: " ", 72: "h", 80: "p", 81: "q", 82: "r" }[e.keyCode] || key;
 }
 
 function setInputMode(mode) { // switch between mouse and touch play, redrawing whatever shows labels or controls
@@ -268,8 +340,7 @@ function setInputMode(mode) { // switch between mouse and touch play, redrawing 
         if (menuUp()) { // the instructions are up over the pause: redraw them, in the wording for this input
             drawStartScreen();
         } else {
-            drawLevel();
-            drawPauseScreen();
+            drawPauseScreen(); // over the level, in this input's wording
         }
     } else if (alive && mode == "mouse") {
         drawLevel(); // without the touch controls
@@ -454,8 +525,10 @@ function onTouchStart(e) {
         var info = { id: t.identifier, x: p.x, y: p.y, order: ++touch.order, role: "none", pausedAt: pause ? pauseNo : -1, switched: !wasTouch };
         if (menuUp() || !gameStart) {
             setHovered(buttonAt(p.x, p.y)); // press feedback, on whichever screen is up
-        } else if (pause && alive && pauseHelpAt(p.x, p.y)) {
-            info.role = "phelp"; // not an action and not a resume: it keeps the role until it lifts
+        } else if (wasTouch && pauseButtonAt(p.x, p.y)) { // a pause button, on the panel that was showing: not an
+            info.role = "pbutton"; // action and not a resume, and it keeps the role until it lifts
+            info.button = pauseButtonAt(p.x, p.y);
+            setPauseHover(info.button);
         } else if (runFinished) {
             if (Date.now() - finishTime >= 1000) {
                 restartArmed = true; // same rule as a mouse click: only a touch that starts on the finish screen, after 1s
@@ -504,6 +577,8 @@ function onTouchMove(e) {
             setHovered(buttonAt(p.x, p.y));
         } else if (info.role == "result") { // lit while the finger is still on the button it came down on
             setResultsHover(resultButtonAt(p.x, p.y) == info.result ? info.result : "");
+        } else if (info.role == "pbutton") {
+            setPauseHover(pauseButtonAt(p.x, p.y) == info.button ? info.button : "");
         } else if (t.identifier === touch.steerId) {
             var dx = p.x - touch.lastX;
             var dy = p.y - touch.lastY;
@@ -540,8 +615,12 @@ function onTouchEnd(e) { // touchend and touchcancel
             } else {
                 setResultsHover("");
             }
-        } else if (info.role == "phelp" && pauseHelpAt(p.x, p.y)) {
-            openMenu("help"); // over the frozen level; closing it puts the panel back
+        } else if (info.role == "pbutton") { // lifted on the pause button it came down on: pressed. Slid off: nothing
+            if (pauseButtonAt(p.x, p.y) == info.button) {
+                pausePress(info.button);
+            } else {
+                setPauseHover("");
+            }
         } else if (pause && info.pausedAt == pauseNo && Date.now() - pauseStart > 300) { // began during this pause
             startResumeCountdown(); // a tap anywhere resumes (after the pause has been up for a moment)
         }
@@ -552,6 +631,7 @@ function onTouchEnd(e) { // touchend and touchcancel
             setHovered(""); // no start-screen button stays pressed
         }
         setResultsHover(""); // nor a results one
+        setPauseHover(""); // nor a pause one
         if (alive) {
             releaseAll(); // a system gesture took the touch: pause rather than let the player die
         }
@@ -579,8 +659,323 @@ function onTouchEnd(e) { // touchend and touchcancel
     }
 }
 
-function bindInput() { // the touch, mouse, keyboard and page listeners, registered once by gameArea.load. The touch
-    // ones go on the canvas; the rest on the window and the document, so a press anywhere is a press
+// The controller, read every frame while one is connected: the Gamepad API has no events for its buttons, only its
+// state to poll. In play a press goes to its action, timed by when the controller last reported rather than when the
+// frame noticed, and the sticks steer as a finger does, moving where the piece is heading at a speed they set. On a
+// screen they move between its buttons, lighting one, and the buttons press it.
+var PAD_DEAD = 0.2; // of a stick's travel that does nothing: a stick at rest sits a little off centre
+var PAD_SPEED = 1.8; // the piece's top speed on the stick, in lengths of the window's shorter side a second...
+var PAD_CURVE = 1.5; // ...reached along this curve, so a small push is a fine adjustment
+var PAD_DPAD = 0.75; // how hard the D-pad pushes, as a stick would
+var PAD_PRESS = 0.5, PAD_LET_GO = 0.35; // an analogue trigger goes down past the one, and up again under the other
+var PAD_POINT = 0.5; // how far a stick must lean to point a way on a screen, or to count as picking the controller up
+var PAD_REPEAT_FIRST = 400, PAD_REPEAT = 150; // ms: a way held on a screen moves again after the first, then every
+var pads = { frame: null, last: 0, down: {}, screen: "", dir: "", repeatAt: 0 }; // the polling; each controller's
+    // buttons as they last were; and the screen and the way the last frame saw
+
+function padsNow() { // the connected controllers: none where the page isn't allowed them
+    try {
+        var list = navigator.getGamepads ? navigator.getGamepads() : [];
+        return Array.prototype.filter.call(list || [], function (p) { return p && p.connected; });
+    } catch (e) { // a frame whose permissions policy leaves controllers out throws here
+        return [];
+    }
+}
+
+function startPadPolling() { // a controller showed itself (a browser shows one to the page on its first press)
+    if (pads.frame === null && padsNow().length) {
+        pads.last = performance.now();
+        pads.frame = requestAnimationFrame(pollPads);
+    }
+}
+
+function stickPush(x, y) { // a stick's lean past the dead zone, along the curve: { x, y }, 0 to 1 long
+    var m = Math.sqrt(x * x + y * y);
+    if (!(m > PAD_DEAD)) { // NaN from a broken reading, too
+        return { x: 0, y: 0 };
+    }
+    var k = Math.pow(Math.min(1, (m - PAD_DEAD) / (1 - PAD_DEAD)), PAD_CURVE) / m;
+    return { x: x * k, y: y * k };
+}
+
+function padDirection(v) { // the way a lean points on a screen: "left", "right", "up", "down", or "" for none
+    if (Math.max(Math.abs(v.x), Math.abs(v.y)) < PAD_POINT) {
+        return "";
+    }
+    return Math.abs(v.x) > Math.abs(v.y) ? (v.x < 0 ? "left" : "right") : (v.y < 0 ? "up" : "down");
+}
+
+function pollPads(now) { // one frame of every controller: its buttons' changes, then its sticks
+    pads.frame = null;
+    var list = padsNow();
+    var real = performance.now();
+    var edges = []; // the buttons that went down or came up since the last frame, in order
+    var lean = { x: 0, y: 0 }, push = { x: 0, y: 0 }; // the sticks and D-pads, all together: as leant, and as steered
+    var seen = {};
+    list.forEach(function (p) {
+        seen[p.index] = true;
+        var was = pads.down[p.index] || {};
+        var down = {};
+        var time = typeof p.timestamp == "number" && p.timestamp > 0 && p.timestamp <= real && real - p.timestamp < 250
+            ? p.timestamp : real; // when it last reported: a press happened then, not when this frame came round
+        for (var i = 0; i < p.buttons.length; i++) {
+            var b = p.buttons[i];
+            var v = typeof b == "number" ? b : b.value || (b.pressed ? 1 : 0);
+            down[i] = v >= (was[i] ? PAD_LET_GO : PAD_PRESS);
+            if (down[i] != !!was[i]) {
+                edges.push({ button: i, down: down[i], time: time, source: "pad" + p.index + ":" + i });
+            }
+        }
+        pads.down[p.index] = down;
+        var dx = (down[PAD.right] ? 1 : 0) - (down[PAD.left] ? 1 : 0);
+        var dy = (down[PAD.down] ? 1 : 0) - (down[PAD.up] ? 1 : 0);
+        var dm = Math.sqrt(dx * dx + dy * dy) || 1;
+        var sticks = [[p.axes[0], p.axes[1]]];
+        if (p.mapping == "standard") {
+            sticks.push([p.axes[2], p.axes[3]]); // the right stick steers too, for whoever prefers it
+        }
+        sticks.forEach(function (s) {
+            var x = +s[0] || 0, y = +s[1] || 0;
+            var curved = stickPush(x, y);
+            lean.x += x;
+            lean.y += y;
+            push.x += curved.x;
+            push.y += curved.y;
+        });
+        lean.x += dx / dm;
+        lean.y += dy / dm;
+        push.x += PAD_DPAD * dx / dm;
+        push.y += PAD_DPAD * dy / dm;
+    });
+    for (var gone in pads.down) { // a controller unplugged: whatever it held, it holds no longer
+        if (!seen[gone]) {
+            for (var button in pads.down[gone]) {
+                if (pads.down[gone][button]) {
+                    edges.push({ button: Number(button), down: false, time: real, source: "pad" + gone + ":" + button });
+                }
+            }
+            delete pads.down[gone];
+        }
+    }
+    var m = Math.sqrt(push.x * push.x + push.y * push.y);
+    if (m > 1) {
+        push.x /= m;
+        push.y /= m;
+    }
+    var dir = padDirection(lean);
+    if (dir || edges.some(function (e) { return e.down; })) {
+        setInputMode("pad"); // before the presses, so what they bring up is worded for the controller
+    }
+    edges.forEach(function (e) { padButton(e.button, e.down, e.time, e.source); });
+    if (canAct()) {
+        if (inputMode == "pad") { // only then: an idle controller's drifting stick mustn't move a mouse's piece
+            padSteer(push, Math.min(0.1, Math.max(0, (now - pads.last) / 1000)));
+        }
+        pads.screen = "";
+        pads.repeatAt = Infinity; // a way held from play into a screen waits to be let go before it moves anything
+    } else {
+        var screen = padScreen();
+        if (screen != pads.screen) {
+            pads.screen = screen;
+            pads.repeatAt = Infinity; // and so does one held from one screen into the next
+        } else if (dir && dir != pads.dir) {
+            padMove(screen, dir);
+            pads.repeatAt = now + PAD_REPEAT_FIRST;
+        } else if (dir && now >= pads.repeatAt) {
+            padMove(screen, dir);
+            pads.repeatAt = now + PAD_REPEAT;
+        }
+        if (inputMode == "pad" && screen && !padFocus(screen)) { // a screen worked with the controller always has a
+            setPadFocus(screen, padDefault(screen)); // button lit, so A is never a guess
+        }
+    }
+    pads.dir = dir;
+    pads.last = now;
+    if (list.length) {
+        pads.frame = requestAnimationFrame(pollPads);
+    }
+}
+
+function padSteer(push, dt) { // the sticks move where the piece is heading, as a finger does, from wherever it is; in
+    // laser form, only up and down
+    if (!push.x && !push.y) {
+        return;
+    }
+    var W = gameArea.canvas.width, H = gameArea.canvas.height;
+    if (gameArea.x === undefined) {
+        gameArea.x = gamePiece.x + gamePiece.width / 2;
+        gameArea.y = gamePiece.y + gamePiece.height / 2;
+    }
+    var step = PAD_SPEED * Math.min(W, H) * dt;
+    if (form != "laser") {
+        gameArea.x = Math.max(0, Math.min(W, gameArea.x + push.x * step));
+    }
+    gameArea.y = Math.max(0, Math.min(H, gameArea.y + push.y * step));
+}
+
+function padButton(button, down, time, source) { // a controller button went down or came up
+    var action = actionForPad(button);
+    if (!down) {
+        if (action) {
+            releaseAction(action, source);
+        }
+        return;
+    }
+    if (canAct()) { // playing: its action, or the pause
+        if (button == PAD.start) {
+            setPause(true);
+        } else if (action) {
+            pressAction(action, source, time);
+        }
+        return;
+    }
+    var screen = padScreen();
+    if (button == PAD.a) {
+        padConfirm(screen);
+    } else if (button == PAD.b) {
+        padBack(screen);
+    } else if (button == PAD.start) {
+        padStart(screen);
+    }
+}
+
+function padScreen() { // the screen a controller is working: "menu", "start", "pause", "results", "finish", or "" for
+    // none it can (a level playing, a death, a touch resume counting down)
+    if (menuUp()) {
+        return "menu";
+    }
+    if (!gameStart) {
+        return "start";
+    }
+    if (alive) {
+        return pause && !resumeTimer ? "pause" : "";
+    }
+    return resultsUp ? "results" : runFinished ? "finish" : "";
+}
+
+function padFocus(screen) { // the button lit on it
+    return screen == "start" || screen == "menu" ? hoveredButton : screen == "pause" ? pauseHover
+        : screen == "results" ? resultsHover : "";
+}
+
+function setPadFocus(screen, name) {
+    if (screen == "start" || screen == "menu") {
+        setHovered(name);
+    } else if (screen == "pause") {
+        setPauseHover(name);
+    } else if (screen == "results") {
+        setResultsHover(name);
+    }
+}
+
+function padTargets(screen) { // its buttons and their middles, each list in one frame of reference: { name, x, y }
+    if (screen == "start" || screen == "menu") {
+        return Object.keys(buttonTable()).map(function (name) {
+            var g = geom(name);
+            return g ? { name: name, x: g.dx + g.w / 2, y: g.dy + g.h / 2 } : null;
+        }).filter(Boolean);
+    }
+    if (screen == "pause" || screen == "results") { // messages: where the fit put them
+        return msgButtons.map(function (b) {
+            return { name: b.name, x: (b.left + b.right) / 2, y: (b.top + b.bottom) / 2 };
+        });
+    }
+    return [];
+}
+
+function padDefault(screen) { // the button lit when a controller comes to a screen: the way on
+    if (screen == "start") {
+        return "start";
+    }
+    if (screen == "results") {
+        return "next";
+    }
+    var list = padTargets(screen); // the pause's RESUME, a menu's first row
+    return list.length ? list[0].name : "";
+}
+
+function padMove(screen, dir) { // light the nearest button that way, if there is one: nearest along the way, and
+    // closer to straight on counts for more
+    var list = padTargets(screen);
+    var from = null;
+    list.forEach(function (c) {
+        if (c.name == padFocus(screen)) {
+            from = c;
+        }
+    });
+    if (!from) {
+        setPadFocus(screen, padDefault(screen));
+        return;
+    }
+    var best = "", bestScore = Infinity;
+    list.forEach(function (c) {
+        var dx = c.x - from.x, dy = c.y - from.y;
+        var along = dir == "left" ? -dx : dir == "right" ? dx : dir == "up" ? -dy : dy;
+        var across = dir == "left" || dir == "right" ? Math.abs(dy) : Math.abs(dx);
+        if (along > 1 && along + 2 * across < bestScore) {
+            bestScore = along + 2 * across;
+            best = c.name;
+        }
+    });
+    if (best) {
+        setPadFocus(screen, best);
+    }
+}
+
+function padConfirm(screen) { // A: press the lit button, or the one that would be lit
+    var name = padFocus(screen) || padDefault(screen);
+    if (screen == "start") {
+        var b = START_BUTTONS[name];
+        if (name == "start") {
+            startPadGame();
+        } else if (b && b.menu) {
+            openMenu(b.menu);
+        } else if (b && b.setting) {
+            cycleSetting(b.setting);
+        }
+    } else if (screen == "menu") {
+        menuPress(name);
+    } else if (screen == "pause") {
+        pausePress(name);
+    } else if (screen == "results") {
+        chooseResult(name);
+    } else if (screen == "finish") {
+        padPlayAgain();
+    }
+}
+
+function padBack(screen) { // B: out of a menu, or back into the level from the pause
+    if (screen == "menu") {
+        closeMenu();
+    } else if (screen == "pause") {
+        pausePress("resume");
+    }
+}
+
+function padStart(screen) { // START: the way on from wherever it is pressed
+    if (screen == "start") {
+        startPadGame();
+    } else if (screen == "menu") {
+        closeMenu();
+    } else if (screen == "pause") {
+        pausePress("resume");
+    } else if (screen == "results") {
+        chooseResult("next");
+    } else if (screen == "finish") {
+        padPlayAgain();
+    }
+}
+
+function padPlayAgain() { // the finish screen's play again: as a click, not in its first second
+    if (runFinished && Date.now() - finishTime >= 1000) {
+        restartRun();
+    }
+}
+
+function bindInput() { // the touch, mouse, keyboard, controller and page listeners, registered once by gameArea.load.
+    // The touch ones go on the canvas; the rest on the window and the document, so a press anywhere is a press
+    window.addEventListener("gamepadconnected", startPadPolling); // then read every frame while one stays connected
+    startPadPolling(); // one the page can already see
     var touchOptions = { passive: false }; // so preventDefault can stop scrolling, zooming and made-up mouse events
     gameArea.canvas.addEventListener("touchstart", onTouchStart, touchOptions);
     gameArea.canvas.addEventListener("touchmove", onTouchMove, touchOptions);
@@ -617,6 +1012,8 @@ function bindInput() { // the touch, mouse, keyboard and page listeners, registe
             restartRun();
         } else if (resultsArmed && resultButtonAt(p.x, p.y)) { // CONTINUE or RETRY, from a cleared level's results
             chooseResult(resultButtonAt(p.x, p.y));
+        } else if (pauseArmed && pauseButtonAt(p.x, p.y)) { // HELP, RETRY or QUIT, from the pause panel
+            pausePress(pauseButtonAt(p.x, p.y));
         }
     });
     window.addEventListener('mousedown', function (e) {
@@ -635,8 +1032,10 @@ function bindInput() { // the touch, mouse, keyboard and page listeners, registe
             // so a press held as the last level ends doesn't wipe the results before they're seen
             restartArmed = true;
         }
-        // and a cleared level's buttons take a click that starts once they are ready, on the layout that was showing
+        // and a cleared level's buttons take a click that starts once they are ready, on the layout that was showing;
+        // the pause panel's, one that starts while it is up
         resultsArmed = e.button == 0 && wasMouse && resultsReady();
+        pauseArmed = e.button == 0 && wasMouse && alive && pause && !menuUp();
         var action = actionForMouse(e.button);
         if (action) {
             pressAction(action, "mouse", eventTime(e));
@@ -663,9 +1062,11 @@ function bindInput() { // the touch, mouse, keyboard and page listeners, registe
             return;
         }
         mouseMove(e); // start-screen hover
+        var over = toGame(e.pageX, e.pageY);
         if (resultsUp) { // and a cleared level's buttons'
-            var over = toGame(e.pageX, e.pageY);
             setResultsHover(resultButtonAt(over.x, over.y));
+        } else if (alive && pause) { // and the pause panel's
+            setPauseHover(pauseButtonAt(over.x, over.y));
         }
         ACTION_NAMES.forEach(function (name) { // catch buttons released outside the window
             var b = ACTIONS[name].mouse;
@@ -706,6 +1107,13 @@ function bindInput() { // the touch, mouse, keyboard and page listeners, registe
             e.preventDefault();
             if (!e.repeat) {
                 chooseResult(key == "r" ? "retry" : "next");
+            }
+            return;
+        }
+        if ((key == "r" || key == "q") && alive && pause && !menuUp() && !e.ctrlKey && !e.metaKey) {
+            e.preventDefault(); // the pause panel's RETRY and QUIT
+            if (!e.repeat) {
+                pausePress(key == "r" ? "retry" : "quit");
             }
             return;
         }

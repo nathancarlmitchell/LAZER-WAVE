@@ -46,6 +46,12 @@ Open `index.html`, or serve the folder (`node .claude/serve.js`, then http://loc
 	  is full (the beat nearest the press decides).  Touch: the white button, which says GATE or OVERDRIVE.
 	- P = PAUSE.  H = instructions, from the start screen or a pause.  After a level, ENTER or SPACE = CONTINUE and
 	  R = RETRY (or click or tap them).  After the final level, click or press R to play again.
+	- The pause has HELP, RETRY (the level again from its start: it costs the run the time, not a mistake) and QUIT
+	  (back to the start screen, the run abandoned). H, R and Q press them at the keyboard.
+	- Controller (a standard-mapped gamepad, named as on an Xbox pad): the left stick or the D-pad steers; LT, LB or X
+	  hit cyan; RT, RB or B hit magenta; A or Y is the gate and overdrive; START pauses. On any screen the stick or
+	  D-pad moves between the buttons, A presses the one lit, B backs out, and START starts, resumes or carries on.
+	  Most browsers only let sound start after a click or a key press, not a controller's, so click the page once first.
 	- Phones and tablets always play in landscape.
 
 ### The engine, file by file
@@ -61,8 +67,8 @@ Open `index.html`, or serve the folder (`node .claude/serve.js`, then http://loc
 | `hud.js` | Score / deaths / level readout, the overdrive meter and the progress stripe |
 | `fx.js` | The effects setting (auto / full / reduced / off, honouring reduced motion), `fxHash`, the CRT overlay |
 | `menu.js` | Start, options and help screens, settings persistence, hover flash, slogans, start-screen glitches |
-| `levels.js` | Level start / end flow, the death message, a cleared level's results (the beat breakdown, the rank, the score and the run's total) and their CONTINUE and RETRY, the finish screen |
-| `input.js` | `ACTIONS` (key / mouse / touch bindings), mouse & multi-touch steering, touch buttons, pause and resume countdown |
+| `levels.js` | Level start / end flow, the death message, a cleared level's results (the beat breakdown, the rank, the score and the run's total) and their CONTINUE and RETRY, the pause's RETRY and QUIT, the finish screen |
+| `input.js` | `ACTIONS` (key / mouse / touch / controller bindings), mouse & multi-touch steering, touch buttons, the controller (Gamepad API polling, stick steering, moving between a screen's buttons), the pause panel and the touch resume countdown |
 | `loop.js` | Game state, the fixed 10ms step loop, the beat clock (`beatPos`) and audio scheduling, hit judging, combo, shields, overdrive, and wave / laser form |
 
 ### Adding gameplay
@@ -79,7 +85,8 @@ Open `index.html`, or serve the folder (`node .claude/serve.js`, then http://loc
   targets are at least `DODGE_GAP` apart, keeping `DODGE_MARGIN` clear round each, and have a stream of their own.
 - A new hazard is anything with `x, y, width, height, update()`, plus `step()` (return `false` when done), `hits(piece)`
   and `fit()`; `Beam` is the model. Read time from `beatPos`, not steps. Give it `absorb()` and overdrive can eat it.
-- Add an action by adding an entry to `ACTIONS` in `input.js`; it gets keys, a mouse button, a touch button and a help line.
+- Add an action by adding an entry to `ACTIONS` in `input.js`; it gets keys, a mouse button, controller buttons, a touch button
+  and a help line.
 
 ### Ideas flagged for later
 

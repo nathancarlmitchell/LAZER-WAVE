@@ -16,7 +16,8 @@ var GAME_TITLE_JP = "レーザーウェーブ";
 // `touch` is the bigger layout used for touch play (labels centered in the boxes)
 const START_BUTTONS = {
     start: { dx: -410, dy: -32, w: 300, h: 60, label: "CLICK TO START", sub: "クリックして開始",
-        touch: { dx: -450, dy: -60, w: 400, h: 150 }, touchLabel: "TAP TO START", touchSub: "タップして開始" },
+        touch: { dx: -450, dy: -60, w: 400, h: 150 }, touchLabel: "TAP TO START", touchSub: "タップして開始",
+        padLabel: "PRESS A TO START", padSub: "Aボタンで開始" }, // a controller: the mouse layout, its own words
     // the run's difficulty, under START because it decides the run, and the two screens of their own
     difficulty: { dx: -410, dy: 60, w: 300, h: 44, setting: "difficulty",
         touch: { dx: -450, dy: 110, w: 400, h: 90 } },
@@ -198,9 +199,10 @@ function drawStartButtonText() { // the START button's label, in the current fil
     ctx.save();
     ctx.textAlign = "center";
     ctx.font = (touch ? 44 : 26) + "px Arial";
-    ctx.fillText(touch ? b.touchLabel : b.label, cx, cy + g.h * (touch ? 0.45 : 0.48));
+    var pad = inputMode == "pad";
+    ctx.fillText(touch ? b.touchLabel : pad ? b.padLabel : b.label, cx, cy + g.h * (touch ? 0.45 : 0.48));
     ctx.font = (touch ? 28 : 18) + "px Arial";
-    ctx.fillText(touch ? b.touchSub : b.sub, cx, cy + g.h * (touch ? 0.8 : 0.85));
+    ctx.fillText(touch ? b.touchSub : pad ? b.padSub : b.sub, cx, cy + g.h * (touch ? 0.8 : 0.85));
     ctx.restore();
 }
 
@@ -358,7 +360,18 @@ function drawStartScreen() { // draw the start screen, or whichever menu screen 
     ctx.fillText(sloganText, sloganX, sloganY);
 
     drawRecords();
+    drawSoundNote();
     useWindow();
+}
+
+function drawSoundNote() { // with a controller, until the page has had a click or a key: browsers let sound start only
+    // from those, and a controller's buttons don't count, so the beat would be silent
+    if (inputMode != "pad" || !navigator.userActivation || navigator.userActivation.hasBeenActive) {
+        return;
+    }
+    ctx.font = "22px Arial";
+    ctx.fillStyle = COLORS.dim;
+    ctx.fillText("For sound, click or press a key once: the browser won't start it from a controller", 240, 718);
 }
 
 function drawRecords() { // low on the start screen, under the buttons; nothing at all before there is any
@@ -402,7 +415,8 @@ function drawOptionsScreen() { // the settings, on a screen of their own
     ctx.fillStyle = COLORS.dim;
     ctx.fillText("Steering and Buttons are for touch play only", cx, cy + 158);
     ctx.fillText("Timing: if hits read LATE, raise it by about that much; if EARLY, lower it", cx, cy + 186);
-    ctx.fillText(inputMode == "touch" ? "Tap BACK to return" : "Click BACK, or press Escape, to return", cx, cy + 310);
+    ctx.fillText(inputMode == "touch" ? "Tap BACK to return" : inputMode == "pad" ? "Press B to return"
+        : "Click BACK, or press Escape, to return", cx, cy + 310);
     ctx.textAlign = "start";
 
     drawScreenBanners();
@@ -418,25 +432,30 @@ const HELP_BUTTONS = {
 };
 
 function helpPages() { // every page: a heading is a line of its own, and the line under it says what it does
-    var touch = inputMode == "touch";
+    var touch = inputMode == "touch", pad = inputMode == "pad";
     var controls = [
         { t: "CONTROLS 操作", title: true },
-        { t: touch ? "Drag anywhere to steer" : "Your piece follows the cursor" },
+        { t: touch ? "Drag anywhere to steer" : pad ? "The left stick or the D-pad steers"
+            : "Your piece follows the cursor" },
     ];
     ACTION_NAMES.forEach(function (name) {
         var a = ACTIONS[name];
-        controls.push({ t: touch ? "TAP " + a.label : a.keys.map(function (k) { return k == " " ? "SPACE" : k.toUpperCase(); })
-            .join(" or ") + (a.mouse !== undefined ? " or " + ["LEFT", "MIDDLE", "RIGHT"][a.mouse] + " CLICK" : "")
-            + "  -  " + a.label, head: true });
+        var keys = touch ? "TAP " + a.label
+            : pad ? a.padKeys.slice(0, -1).join(", ") + " or " + a.padKeys[a.padKeys.length - 1]
+            : a.keys.map(function (k) { return k == " " ? "SPACE" : k.toUpperCase(); }).join(" or ")
+                + (a.mouse !== undefined ? " or " + ["LEFT", "MIDDLE", "RIGHT"][a.mouse] + " CLICK" : "");
+        controls.push({ t: touch ? keys : keys + "  -  " + a.label, head: true });
         controls.push({ t: a.help });
     });
     controls.push({ t: touch ? "The pause icon is in the top " + (TOUCH_SIDE == "left" ? "left" : "right") + " corner"
+        : pad ? "START pauses. On a screen, A picks and B goes back."
         : "P pauses.  R plays again from the finish screen." });
     return [controls, [
         { t: "RHYTHM リズム", title: true },
         { t: "Lasers flicker as a warning, then fire on the beat" },
         { t: touch ? "and their colour is the button to tap on it"
-            : "and their colour is the key to hit it with: " + keyText("cyan") + "   " + keyText("magenta") },
+            : "and their colour is the " + (pad ? "button" : "key") + " to hit it with: " + keyText("cyan") + "   "
+                + keyText("magenta") },
         { t: "HIT ON THE BEAT, IN ITS COLOUR", head: true },
         { t: "PERFECT 100, GOOD 50, times your multiplier" },
         { t: "every " + COMBO_STEP + " in a row raises it, up to x" + MULT_MAX + ". A missed or WRONG beat resets it" },
@@ -446,7 +465,7 @@ function helpPages() { // every page: a heading is a line of its own, and the li
     ], [
         { t: "OVERDRIVE オーバードライブ", title: true },
         { t: "PERFECTs charge the meter beside your shields, GOODs half as much" },
-        { t: touch ? "FULL: TAP OVERDRIVE" : "FULL: PRESS SPACE", head: true },
+        { t: touch ? "FULL: TAP OVERDRIVE" : "FULL: PRESS " + actionKey("gate"), head: true },
         { t: "It starts on the bar line: the one you press it on, or the next" },
         { t: "and lasts two bars. The colours still count." },
         { t: "LASER FORM", head: true },
@@ -455,7 +474,7 @@ function helpPages() { // every page: a heading is a line of its own, and the li
     ], [
         { t: "WAVE / LASER 変形", title: true },
         { t: touch ? "A GATE sweeps in: tap GATE as it reaches you, on the beat"
-            : "A GATE sweeps in: press SPACE as it reaches you, on the beat" },
+            : "A GATE sweeps in: press " + actionKey("gate") + " as it reaches you, on the beat" },
         { t: "to switch between wave and laser. Miss one and it costs a shield" },
         { t: "LASER FORM", head: true },
         { t: "You lock to the left and fire across the screen: steer up and down" },
@@ -543,8 +562,7 @@ function closeMenu() { // and put back whatever it was covering
     playSound(aud_click);
     if (gameStart) {
         stopResume(); // a countdown can't have been running under it, but a tap may have started one since
-        drawLevel();
-        drawPauseScreen();
+        drawPauseScreen(); // the level, and the panel over it
     } else {
         drawStartScreen();
     }
