@@ -27,7 +27,9 @@ Open `index.html`, or serve the folder (`node .claude/serve.js`, then http://loc
    target, and a hit counts only lined up with it (OFF TARGET otherwise) and in its colour. Lasers fire across your
    path, on a target's beat, between it and the next: hit it, hold while the laser burns, then cross. Overdrive makes
    you untouchable and widens your beam. Another gate switches you back.
- - Survive every bar to clear the level. Five levels, 100 to 132 BPM, each the same every attempt.
+ - Survive every bar to clear the level. Five levels, 100 to 132 BPM, each the same every attempt, and each with a
+   synth song of its own over the beat: its lead comes in for the laser sections, overdrive brightens it, and a clear
+   resolves it on its last chord.
  - A cleared level is ranked F, D, C, B, A, S or S+ on how its beats were hit: a PERFECT counts the beat, a GOOD half
    of it, a press off the beat or in the wrong colour takes half back, and a lost shield costs 5%. S+ needs every beat
    hit, nothing off the beat or WRONG, and no shield lost. Beside the rank, the level's beats are broken down: how
@@ -58,9 +60,10 @@ Open `index.html`, or serve the folder (`node .claude/serve.js`, then http://loc
 
 | File | What it holds |
 |---|---|
-| `audio.js` | The synthesized beat track (kick, hat, count-in tick, laser zap, and the piece's shot and gate sweep, on Web Audio), the playlist (`TRACKS`, empty until the game has its own music), sound effects |
+| `audio.js` | The synthesized beat track (kick, hat, count-in tick, laser zap, and the piece's shot and gate sweep, on Web Audio), the playlist (`TRACKS`, for recorded songs: empty, as the levels' songs are synthesized, `music.js`), sound effects |
 | `layout.js` | The palette (`COLORS`), the 1280x800 layout frame, band fitting for phones, the HUD transform, banners, resize handling |
 | `waves.js` | `LEVELS` (bpm, bars, warning lead, phrases, colours, laser sections), the `PHRASES` that fill a bar, the `COLOR_PATTERNS` that paint one, laser form's `TARGET_PHRASES`, the seeded timeline, and what goes on screen: `Beam`, `Target`, `Gate` |
+| `music.js` | Each level's song as MIDI notes (`SONGS`: a key, the `CHORDS` of its bars, and its bass, arpeggio and lead lines), and the Web Audio synths that play it on the beat track's clock: bass, pad, arpeggio and lead, an echo, and a dip under every kick. The laser sections bring in the lead, overdrive opens the filters, a pause or a death cuts it, and a clear rings out on the key's chord |
 | `run.js` | Difficulties (lives), records per difficulty in localStorage: best run, per-level splits and best ranks, furthest level |
 | `world.js` | `component`, the player piece's stepped movement, the `hazards` list and hit testing |
 | `player.js` | The player's look: two sine waves drawn off its position history, drifting into a glowing trail, meeting on each beat, the coming beat's colour lit |
@@ -88,12 +91,18 @@ Open `index.html`, or serve the folder (`node .claude/serve.js`, then http://loc
   and `fit()`; `Beam` is the model. Read time from `beatPos`, not steps. Give it `absorb()` and overdrive can eat it.
 - Add an action by adding an entry to `ACTIONS` in `input.js`; it gets keys, a mouse button, controller buttons, a touch button
   and a help line.
+- A level's song is its entry in `SONGS` (music.js): its `key` as a MIDI note number (69 is A 440), the `chords` of its
+  wave bars and the `leadChords` of its laser sections (names in `CHORDS`), and its parts as lines of steps, `bass`
+  and `lead` in eighths and `arp` in sixteenths: a number is a note (the lead's in semitones from the key, the bass's
+  from the chord's root, the arpeggio's which of the chord's notes), `-` holds it and `.` rests. Leave a line out and
+  that part sits the song out. A new part is a line and a synth beside `playArp`.
 
 ### Ideas flagged for later
 
 - **Ride the wave:** a waveform line the piece rides, synced to the beat, with lasers crossing it. It fits the same
   way: a new hazard/track type and the phrases that place it, on the same beat clock and judging.
 - Real music: give `TRACKS` a bpm and offset and drive `beatPos` from the song instead of the step count.
+- A MUSIC setting in OPTIONS scaling `MUSIC_VOLUME` (music.js), for playing to the beat alone.
 - Audio latency calibration: a setting that shifts judging (`pressBeat`) by the player's measured offset.
 - Near-miss bonus for passing close to a burning beam.
 

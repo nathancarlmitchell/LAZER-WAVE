@@ -176,6 +176,10 @@ function driveOn() { // running
     return drive.start !== null && beatPos >= drive.start && beatPos < drive.end;
 }
 
+function driveOver(b) { // spent, and running on beat b: for the music, which is played a little ahead of the beat
+    return drive.start !== null && b >= drive.start && b < drive.end;
+}
+
 function driveMeter() { // how full to show it: charging, full while it waits for its bar, then running down
     return driveOn() ? Math.max(0, (drive.end - beatPos) / OVERDRIVE_BEATS) : drive.meter;
 }
@@ -488,6 +492,7 @@ function startLevel() { // a level is about to be played: from the start, or aga
 
 function endLevel() { // the level is over, cleared or lost
     deathProgress = levelProgress();
+    musicStop(levelComplete() ? MUSIC_RING : MUSIC_CUT); // a clear lets the last chord ring; anything else cuts it
 }
 
 function simNowMs(at) { // the level's clock, in ms, at real time `at` (performance.now()'s clock; now by default).
@@ -512,6 +517,7 @@ function scheduleBeats() { // hand the audio clock every beat due within the loo
         }
         synthKick(delay, b % BEATS_PER_BAR == 0);
         synthHat(delay + mpb / 2000); // and the off-beat
+        musicBeat(b - firstPlayBeat(), delay, mpb / 1000, driveOver(b)); // and the song over them (music.js)
         if (timeline.some(function (ev) { return ev.fire == b && (ev.axis == "h" || ev.axis == "v"); })) {
             synthZap(delay); // a beam fires on this one
         }

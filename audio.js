@@ -87,6 +87,7 @@ function setMusicVolume(volume) { // volume for all songs
 var musicHeld = false; // the pause stopped the song, so resuming should start it again
 
 function pauseMusic() { // the pause: a rhythm game's clock is the song, so it stops when the game does
+    musicStop(MUSIC_CUT); // the levels' own songs (music.js): the first beat after the pause starts theirs again
     var song = all_songs[songIndex];
     if (song && !song.paused) {
         song.pause();
@@ -101,9 +102,10 @@ function resumeMusic() {
     }
 }
 
-// The beat track. Until the levels have songs with known tempos, each level plays a synthesized kick and hat at its own
-// bpm. It is scheduled on the Web Audio clock a few steps ahead (see scheduleBeats in loop.js), so a beat sounds at the
-// moment the game judges it rather than whenever the step that crossed it happened to run.
+// The beat track. Until the levels have recorded songs with known tempos, each level plays a synthesized kick and hat
+// at its own bpm, and a synth song over them (music.js). It is scheduled on the Web Audio clock a few steps ahead (see
+// scheduleBeats in loop.js), so a beat sounds at the moment the game judges it rather than whenever the step that
+// crossed it happened to run.
 var audioCtx = null;
 var BEAT_VOLUME = 0.6;
 var noiseBuffer = null; // a quarter second of white noise, made once, for the hats
