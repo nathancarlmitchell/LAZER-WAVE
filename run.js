@@ -106,6 +106,21 @@ function saveRecords() {
     }
 }
 
+function levelBeaten(n) { // level n has been cleared, on any difficulty: which is what opens the next one
+    for (var i = 0; i < DIFFICULTIES.length; i++) {
+        var m = records.modes[DIFFICULTIES[i].name];
+        if (m && (m.rank[n] || m.level[n])) {
+            return true;
+        }
+    }
+    return false;
+}
+
+function levelUnlocked(n) { // open on the level select: the first always, and after it any level whose one before
+    // has been beaten, or that has been beaten itself
+    return n == 1 || levelBeaten(n) || levelBeaten(n - 1);
+}
+
 function reachedLevel(n) { // a level began: the furthest one reached is a record of its own for a run that never ends
     if (n > rec().reached && n <= RUN_LEVELS) {
         rec().reached = n;
@@ -129,7 +144,7 @@ function recordLevel(n) { // a level was cleared: its split and its rank, and wh
     }
 }
 
-function recordRun(ms, cost) { // every level cleared: the run's time, against the best there has been
+function recordRun(ms, cost) { // every level cleared, from the first: the run's time, against the best there has been
     var beat = !rec().run || ms < rec().run;
     if (beat) {
         rec().run = ms;

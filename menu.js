@@ -18,17 +18,21 @@ const START_BUTTONS = {
     start: { dx: -410, dy: -32, w: 300, h: 60, label: "CLICK TO START", sub: "クリックして開始",
         touch: { dx: -450, dy: -60, w: 400, h: 150 }, touchLabel: "TAP TO START", touchSub: "タップして開始",
         padLabel: "PRESS A TO START", padSub: "Aボタンで開始" }, // a controller: the mouse layout, its own words
+    // the level select, beside START: the other way into a run
+    levels: { dx: -90, dy: -32, w: 300, h: 60, menu: "levels",
+        touch: { dx: 60, dy: -60, w: 400, h: 90 } },
     // the run's difficulty, under START because it decides the run, and the two screens of their own
     difficulty: { dx: -410, dy: 60, w: 300, h: 44, setting: "difficulty",
         touch: { dx: -450, dy: 110, w: 400, h: 90 } },
     options: { dx: -410, dy: 124, w: 300, h: 44, menu: "options",
-        touch: { dx: 60, dy: -60, w: 400, h: 110 } },
+        touch: { dx: 60, dy: 50, w: 400, h: 90 } },
     help: { dx: -410, dy: 188, w: 300, h: 44, menu: "help",
-        touch: { dx: 60, dy: 80, w: 400, h: 110 } },
+        touch: { dx: 60, dy: 160, w: 400, h: 90 } },
 };
 
 var menuScreen = ""; // which menu screen is up: "" for none, "options" for the settings, "help" for the
-                     // instructions. The instructions are the one that can also come up over a paused level
+                     // instructions, "levels" for the level select. The instructions are the one that can also come
+                     // up over a paused level
 
 function menuUp() {
     return menuScreen != "";
@@ -45,7 +49,8 @@ const OPTION_BUTTONS = {
 };
 
 function buttonTable() { // whichever screen's buttons are live
-    return menuScreen == "options" ? OPTION_BUTTONS : menuScreen == "help" ? HELP_BUTTONS : START_BUTTONS;
+    return menuScreen == "options" ? OPTION_BUTTONS : menuScreen == "help" ? HELP_BUTTONS
+        : menuScreen == "levels" ? levelButtons() : START_BUTTONS;
 }
 
 function buttonDef(name) { // a live button's definition, for the things that only need its flags
@@ -269,14 +274,16 @@ function highlightControl() { // Flashing edge on the hovered button, on whichev
     if (!g) {
         return; // nothing under the cursor, or nothing shown in this layout
     }
-    var bx = LAYOUT_W / 2 + g.dx, by = LAYOUT_H / 2 + g.dy;
+    var out = menuScreen == "levels" ? 5 : 0; // the level select's tiles wear their own colours at the edge: the flash
+    var t = out ? 3 : 2; // goes round them instead, in the gap between, thicker
+    var bx = LAYOUT_W / 2 + g.dx - out, by = LAYOUT_H / 2 + g.dy - out, w = g.w + 2 * out, h = g.h + 2 * out;
     useScreenFrame(); // a menu row is fitted to its screen's band; the start screen's buttons are in the whole frame
     ctx.globalAlpha = 0.9;
     ctx.fillStyle = flashColor();
-    ctx.fillRect(bx, by, g.w, 2);
-    ctx.fillRect(bx, by + g.h - 2, g.w, 2);
-    ctx.fillRect(bx, by, 2, g.h);
-    ctx.fillRect(bx + g.w - 2, by, 2, g.h);
+    ctx.fillRect(bx, by, w, t);
+    ctx.fillRect(bx, by + h - t, w, t);
+    ctx.fillRect(bx, by, t, h);
+    ctx.fillRect(bx + w - t, by, t, h);
     ctx.globalAlpha = 1.0;
     useWindow();
 }
@@ -326,6 +333,10 @@ function drawStartScreen() { // draw the start screen, or whichever menu screen 
         drawHelpScreen();
         return;
     }
+    if (menuScreen == "levels") {
+        drawLevelsScreen();
+        return;
+    }
     var touch = startLayout() == "touch";
 
     // clear screen
@@ -348,6 +359,7 @@ function drawStartScreen() { // draw the start screen, or whichever menu screen 
     drawStartButtonText();
 
     var small = (touch ? 34 : 22) + "px Arial";
+    drawMenuButton(geom("levels"), "LEVELS レベル", touch ? small : "26px Arial");
     drawMenuButton(geom("difficulty"), mode().label, small);
     drawMenuButton(geom("options"), "OPTIONS 設定", small);
     drawMenuButton(geom("help"), "HELP 説明", small);
@@ -546,12 +558,186 @@ function helpPress(name) { // a press on the instructions: turn the page, or lea
     }
 }
 
+// The level select: every level, an act a row, each tile in its level's colour of the spectrum. A level opens when the
+// one before it has been beaten (levelUnlocked, run.js); an open one shows its name and its best rank on the difficulty
+// chosen, the next one to beat says NEXT, and a locked one is a padlock. Picking one starts a run from it (startRunAt,
+// levels.js), its act's story first if it opens one, as START's does. Its buttons are the open levels and BACK, built
+// as it opens, so the controller and the mouse only ever land on a level that can be played
+var TILE_W = 150, TILE_H = 76, TILE_GAP = 14, ROW_GAP = 12; // a level's tile, and the room between tiles and rows
+var TILE_X0 = -303, TILE_Y0 = -196; // the first tile's top left, from the layout's middle
+var ACT_X = -503; // where the acts' names start
+var LOCKED_EDGE = "#3a2f4d";
+var levelTable = null; // the select's buttons, while it is up
+
+function levelTile(n) { // level n's tile: its column its place in its act, its row its act
+    return { dx: TILE_X0 + (levelInAct(n) - 1) * (TILE_W + TILE_GAP),
+        dy: TILE_Y0 + (levelAct(n) - 1) * (TILE_H + ROW_GAP), w: TILE_W, h: TILE_H };
+}
+
+function levelButtons() { // the open levels' tiles, "level_n", each knowing its level, and BACK
+    if (!levelTable) {
+        levelTable = {};
+        for (var n = 1; n <= RUN_LEVELS; n++) {
+            if (levelUnlocked(n)) {
+                var t = levelTile(n);
+                t.level = n;
+                levelTable["level_" + n] = t;
+            }
+        }
+        levelTable.levels_back = { dx: -150, dy: 272, w: 300, h: 56, back: true, label: "BACK" };
+    }
+    return levelTable;
+}
+
+function levelNextUp() { // the first level open and not yet beaten, where a player carrying on would go; 0 if none
+    for (var n = 1; n <= RUN_LEVELS; n++) {
+        if (levelUnlocked(n) && !levelBeaten(n)) {
+            return n;
+        }
+    }
+    return 0;
+}
+
+function rankColor(grade) { // a grade's colour, as the results give it: an S or S+ in the title's magenta
+    if (grade.charAt(0) == "S") {
+        return COLORS.magenta;
+    }
+    var all = RANKS.concat([RANK_FAIL]);
+    for (var i = 0; i < all.length; i++) {
+        if (all[i].grade == grade) {
+            return all[i].color;
+        }
+    }
+    return COLORS.text;
+}
+
+function drawLevelsScreen() {
+    var cx = LAYOUT_W / 2, cy = LAYOUT_H / 2;
+    useWindow();
+    ctx.globalAlpha = 1.0;
+    ctx.fillStyle = COLORS.bg;
+    ctx.fillRect(0, 0, x, y);
+
+    useScreenFrame();
+    ctx.textAlign = "center";
+    ctx.font = "56px Arial";
+    ctx.fillStyle = COLORS.cyan; // the title printed twice, as the other menus' are
+    ctx.fillText("LEVEL SELECT", cx - 4, cy - 250);
+    ctx.fillStyle = COLORS.magenta;
+    ctx.fillText("LEVEL SELECT", cx, cy - 246);
+    ctx.font = "24px Arial";
+    ctx.fillStyle = COLORS.text;
+    ctx.fillText("レベル選択", cx, cy - 212);
+    for (var a = 1; a < ACTS.length; a++) {
+        drawActName(a);
+    }
+    var next = levelNextUp();
+    for (var n = 1; n <= RUN_LEVELS; n++) {
+        drawLevelTile(n, n == next);
+    }
+    ctx.textAlign = "center";
+    ctx.font = "20px Arial";
+    ctx.fillStyle = COLORS.dim;
+    var ranks = "best ranks on " + mode().name.toUpperCase(); // the difficulty's own, as the results keep them
+    ctx.fillText("Beat a level to open the next one   \u00b7   " + ranks, cx, cy + 256);
+    var back = levelButtons().levels_back;
+    drawMenuButton(back, back.label, "32px Arial");
+    ctx.textAlign = "start";
+
+    drawScreenBanners();
+}
+
+function drawActName(a) { // an act's row starts with its number and its name, in the colour of its intro; dim while
+    // the act is locked
+    var first = actFirstLevel(a);
+    var x0 = LAYOUT_W / 2 + ACT_X, y0 = LAYOUT_H / 2 + TILE_Y0 + (a - 1) * (TILE_H + ROW_GAP);
+    ctx.textAlign = "left";
+    ctx.fillStyle = levelUnlocked(first) ? skyRGBA(levelColor(first + Math.floor(LEVELS_PER_ACT / 2)), 1, 0.25)
+        : COLORS.dim;
+    ctx.font = "bold 32px Arial";
+    ctx.fillText("ACT " + roman(a), x0, y0 + 36);
+    ctx.font = "17px Arial";
+    ctx.fillText(ACTS[a].name, x0, y0 + 62);
+}
+
+function drawLevelTile(n, next) { // a level's tile: its number and, open, its name and its best rank here, or NEXT if
+    // it is the next to beat; locked, a padlock
+    var g = levelTile(n), x0 = LAYOUT_W / 2 + g.dx, y0 = LAYOUT_H / 2 + g.dy;
+    var open = levelUnlocked(n), col = levelColor(n);
+    ctx.fillStyle = open ? skyRGBA(col, 1) : LOCKED_EDGE;
+    ctx.fillRect(x0, y0, g.w, g.h);
+    ctx.fillStyle = COLORS.bg;
+    ctx.fillRect(x0 + 2, y0 + 2, g.w - 4, g.h - 4);
+    ctx.textAlign = "left";
+    ctx.font = "bold 30px Arial";
+    if (!open) {
+        ctx.fillStyle = COLORS.dim;
+        ctx.globalAlpha = 0.55;
+        ctx.fillText(String(n), x0 + 12, y0 + 36);
+        drawPadlock(x0 + g.w - 30, y0 + g.h / 2 + 6);
+        ctx.globalAlpha = 1;
+        return;
+    }
+    ctx.fillStyle = skyRGBA(col, 0.14);
+    ctx.fillRect(x0 + 2, y0 + 2, g.w - 4, g.h - 4);
+    ctx.fillStyle = COLORS.text;
+    ctx.fillText(String(n), x0 + 12, y0 + 36);
+    ctx.font = "15px Arial";
+    ctx.fillStyle = skyRGBA(col, 1, 0.5);
+    ctx.fillText(levelDef(n).name, x0 + 12, y0 + g.h - 12, g.w - 24);
+    ctx.textAlign = "right";
+    var best = rec().rank[n];
+    if (best) {
+        ctx.font = "bold 28px Arial";
+        if (best.charAt(0) == "S") { // printed as the title is: a cyan copy up and left, under the magenta
+            ctx.fillStyle = COLORS.cyan;
+            ctx.fillText(best, x0 + g.w - 12, y0 + 34);
+        }
+        ctx.fillStyle = rankColor(best);
+        ctx.fillText(best, x0 + g.w - 10, y0 + 36);
+    } else if (next) {
+        ctx.font = "bold 16px Arial";
+        ctx.fillStyle = COLORS.cyan;
+        ctx.fillText("NEXT", x0 + g.w - 10, y0 + 28);
+    }
+    ctx.textAlign = "start";
+}
+
+function drawPadlock(cx, cy) { // a padlock, its body's middle at cx, cy
+    ctx.strokeStyle = COLORS.dim;
+    ctx.lineWidth = 3;
+    ctx.beginPath(); // the shackle
+    ctx.arc(cx, cy - 7, 6, Math.PI, 0);
+    ctx.lineTo(cx + 6, cy - 3);
+    ctx.moveTo(cx - 6, cy - 7);
+    ctx.lineTo(cx - 6, cy - 3);
+    ctx.stroke();
+    ctx.fillStyle = COLORS.dim;
+    ctx.fillRect(cx - 10, cy - 4, 20, 15); // the body, and its keyhole
+    ctx.fillStyle = COLORS.bg;
+    ctx.fillRect(cx - 1.5, cy + 1, 3, 6);
+}
+
+function levelsPress(name, p) { // a press on the level select: an open level starts a run from it; BACK leaves. A
+    // locked one isn't a button, so a press on it does nothing
+    var b = levelButtons()[name];
+    if (!b) {
+        return;
+    }
+    if (b.back) {
+        closeMenu();
+    } else {
+        startRunAt(b.level, p);
+    }
+}
+
 var menuFlash = null; // the hover flash while a menu screen is up over a paused level: the start screen's timers
                       // are gone by then, so this one runs for exactly as long as the menu is
 
 function openMenu(name) { // put a menu screen up, over the start screen or over a level that is paused
     hoveredButton = ""; // set directly: setHovered would redraw the screen being left or entered, twice
     menuScreen = name;
+    levelTable = null; // the level select's buttons are built again from the records, as they stand now
     playSound(aud_click);
     drawStartScreen();
     if (gameStart && !menuFlash) {
@@ -587,11 +773,14 @@ function optionsPress(name) { // a press on the settings screen: cycle a row, or
     }
 }
 
-function menuPress(name) { // a press while a menu screen is up, whichever one it is
+function menuPress(name, p) { // a press while a menu screen is up, whichever one it is; p, where it was, if it was a
+    // pointer's
     if (menuScreen == "options") {
         optionsPress(name);
     } else if (menuScreen == "help") {
         helpPress(name);
+    } else if (menuScreen == "levels") {
+        levelsPress(name, p);
     }
 }
 

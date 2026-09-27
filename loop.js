@@ -24,6 +24,7 @@ var runFinished = false; // the last level cleared; the finish screen is showing
 var restartArmed = false; // a click began on the finish screen
 var finishTime = 0; // when the finish screen appeared
 var level = 1;
+var runFrom = 1; // the level the run began at: the first, from START, or any the level select opened (menu.js)
 var showFrame = true; // is this step's picture going to be seen, or is another step already due to replace it
 
 

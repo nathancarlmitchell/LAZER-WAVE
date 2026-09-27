@@ -8,7 +8,8 @@
 // It drives the game rather than reading it: playLevel sets it running, gameOver stops it. Both reach into the loop
 // (gameArea, startLevel), the world (clearObjects, component), the records and the effects (fxReset).
 
-function startGame(e) { // START: the run begins, its first act's story before its first level
+function startGame(e) { // START, or a level picked on the level select: the run begins at `level`, the story of its
+    // act first if it opens one
     startScreenIntervals.forEach(function (id) { clearInterval(id); });
     loadAudio();
     playSound(aud_click);
@@ -17,7 +18,22 @@ function startGame(e) { // START: the run begins, its first act's story before i
     gamePiece = new component(PIECE_SIZE, PIECE_SIZE, COLORS.piece, e.pageX - PIECE_SIZE / 2, e.pageY - PIECE_SIZE / 2); // centered on the cursor
     gamePiece.update = function () { drawPlayer(this); };
     gameStart = true;
+    runFrom = level;
     enterLevel();
+}
+
+function startRunAt(n, p) { // the level select: a run from level n, started as START starts one for the input in use
+    // (p: where the pointer was, for the mouse's piece)
+    menuScreen = ""; // it goes without being drawn again: the story comes up over it
+    hoveredButton = "";
+    level = n;
+    if (inputMode == "touch") {
+        startTouchGame();
+    } else if (inputMode == "pad") {
+        startPadGame();
+    } else {
+        startGame({ pageX: p ? p.x : gameArea.canvas.width / 4, pageY: p ? p.y : gameArea.canvas.height / 2 });
+    }
 }
 
 function enterLevel() { // the run comes to a level it hasn't played: the story of the act it opens, if it opens one,
@@ -86,10 +102,10 @@ function wait(time) {
     setTimeout(startNextLevel, time);
 }
 
-function restartRun() { // after the finish screen, start a fresh run from level 1, and the first act's story
+function restartRun() { // after the finish screen, start a fresh run from where this one began, and its story
     runFinished = false;
     restartArmed = false;
-    level = 1;
+    level = runFrom;
     deaths = 0;
     score = 0;
     runScore = 0;
@@ -452,7 +468,8 @@ function chooseResult(name) { // CONTINUE ("next") or RETRY ("retry")
 
 function showFinish() { // the last level continued past: the run's time and its total, until a click or R
     var runMs = Date.now() - startTime;
-    var runBest = recordRun(runMs, deaths);
+    var full = runFrom == 1; // only a run from the first level can set the best run
+    var runBest = full && recordRun(runMs, deaths);
     restFrame = null; // a resize copies this screen, not the results under it
     gameArea.clear();
     ctx.font = "80px Arial";
@@ -466,21 +483,27 @@ function showFinish() { // the last level continued past: the run's time and its
     ctx.font = "60px Arial";
     printText("Time: " + millisToMinutesAndSeconds(runMs), 0);
     ctx.font = "30px Arial";
-    ctx.fillStyle = runBest ? COLORS.good : COLORS.text;
-    centerText(runBest ? "NEW BEST" : "best " + millisToMinutesAndSeconds(rec().run)
-        + "   " + mistakes(rec().runDeaths), 45);
+    if (full) {
+        ctx.fillStyle = runBest ? COLORS.good : COLORS.text;
+        centerText(runBest ? "NEW BEST" : "best " + millisToMinutesAndSeconds(rec().run)
+            + "   " + mistakes(rec().runDeaths), 45);
+    } else {
+        ctx.fillStyle = COLORS.dim;
+        centerText("from Level " + runFrom + ": the best run is one from Level 1", 45);
+    }
     ctx.font = "60px Arial";
     printText("Total score: " + runScore, msgBottom() + 100);
     ctx.fillStyle = COLORS.text;
+    var again = runFrom == 1 ? "" : " from Level " + runFrom; // play again is this run again, from where it began
     if (inputMode == "touch") {
         ctx.font = "40px Arial";
-        centerText("Tap to play again", msgBottom() + 70);
+        centerText("Tap to play again" + again, msgBottom() + 70);
     } else if (inputMode == "pad") {
         ctx.font = "30px Arial";
-        centerText("Press A to play again", msgBottom() + 60);
+        centerText("Press A to play again" + again, msgBottom() + 60);
     } else {
         ctx.font = "30px Arial";
-        centerText("Click or press R to play again", msgBottom() + 60);
+        centerText("Click or press R to play again" + again, msgBottom() + 60);
     }
     showMessage();
     runFinished = true;

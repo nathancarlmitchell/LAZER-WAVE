@@ -644,7 +644,7 @@ function onTouchEnd(e) { // touchend and touchcancel
     if (e.touches.length === 0 && last) {
         if (menuUp()) { // up over the start screen or over a paused level: either way it owns the tap
             setHovered("");
-            menuPress(buttonAt(last.x, last.y)); // a tap on nothing does nothing: it must not start or resume
+            menuPress(buttonAt(last.x, last.y), last); // a tap on nothing does nothing: it must not start or resume
         } else if (!gameStart) {
             var button = buttonAt(last.x, last.y);
             setHovered("");
@@ -894,6 +894,9 @@ function padDefault(screen) { // the button lit when a controller comes to a scr
     if (screen == "start") {
         return "start";
     }
+    if (screen == "menu" && menuScreen == "levels") { // the level a player carrying on would play
+        return "level_" + (levelNextUp() || RUN_LEVELS);
+    }
     if (screen == "results") {
         return "next";
     }
@@ -1012,7 +1015,7 @@ function bindInput() { // the touch, mouse, keyboard, controller and page listen
         var p = toGame(e.pageX, e.pageY);
         var button = (gameStart && !menuUp()) ? "" : buttonAt(p.x, p.y);
         if (menuUp()) {
-            menuPress(button); // a press on nothing here does nothing: it must not reach the game
+            menuPress(button, p); // a press on nothing here does nothing: it must not reach the game
         } else if (button == "start") {
             startGame({ pageX: p.x, pageY: p.y });
         } else if (button && START_BUTTONS[button].menu) {
@@ -1111,6 +1114,11 @@ function bindInput() { // the touch, mouse, keyboard, controller and page listen
             if (!e.repeat) {
                 storyPress();
             }
+            return;
+        }
+        if (key == "l" && !e.repeat && !menuUp() && !gameStart && !e.ctrlKey && !e.metaKey) {
+            e.preventDefault(); // the level select, from the start screen
+            openMenu("levels");
             return;
         }
         if (key == "h" && !e.repeat && !menuUp() && (!gameStart || (alive && pause))) {
