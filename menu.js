@@ -468,7 +468,7 @@ function helpPages() { // every page: a heading is a line of its own, and the li
         { t: "every " + COMBO_STEP + " in a row raises it, up to x" + MULT_MAX + ". A missed or WRONG beat resets it" },
         { t: "SHIELDS", head: true },
         { t: HP_MAX + " per attempt. A laser takes one and breaks your combo" },
-        { t: "Survive every bar to clear a level. There are " + RUN_LEVELS + " of them." },
+        { t: "Survive every bar to clear a level: " + RUN_LEVELS + " of them, in " + (ACTS.length - 1) + " acts" },
     ], [
         { t: "OVERDRIVE オーバードライブ", title: true },
         { t: "PERFECTs charge the meter beside your shields, GOODs half as much" },

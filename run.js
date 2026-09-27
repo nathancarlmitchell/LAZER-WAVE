@@ -32,8 +32,8 @@ function runStatusText() { // what this difficulty is giving, for the HUD, or ""
 
 // Records, kept as one JSON blob beside the settings and read the same defensive way -- a private window throws rather
 // than returning null, and a half-written or hand-edited value must not be what stops the game starting.
-var RECORDS_STORE = "lazerwave.records.v2"; // v2: coloured beats. The ranks set before them aren't comparable, so
-                                            // those records are left where they are, unread
+var RECORDS_STORE = "lazerwave.records.v3"; // v3: the five acts of five levels. The levels before them were other
+                                            // levels, so those records are left where they are, unread
 var RUN_LEVELS = LEVELS.length - 1; // levels in a full run (waves.js); the one after the last is the finish screen
 
 var records = { modes: {} }; // a set per difficulty: a best on EASY is not a best on TRUE, and mixing them
@@ -152,7 +152,7 @@ function recordsLine() { // what the start screen has to say about how this has 
         return "BEST " + millisToMinutesAndSeconds(rec().run) + "   " + mistakes(rec().runDeaths);
     }
     if (rec().reached > 1) {
-        return "FURTHEST   Level " + rec().reached;
+        return "FURTHEST   Act " + roman(levelAct(rec().reached)) + "  Level " + rec().reached;
     }
     return "";
 }

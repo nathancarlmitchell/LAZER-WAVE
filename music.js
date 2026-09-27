@@ -1,13 +1,19 @@
-// Lazer Wave -- the music. Every level has a song over its beat, written as MIDI notes: a key, the chords its bars go
-// through, and the lines its parts play over them -- a bass, a pad, an arpeggio and a lead. Web Audio synths play it
-// on the beat track's clock: scheduleBeats (loop.js) hands each beat to musicBeat as it hands one to the kick, so every
-// note lands on the grid the game judges. index.html loads this with a plain <script src>, as globals rather than
-// modules, so the game still opens straight off disk. Nothing here runs at load beyond building the tables.
+// Lazer Wave -- the music. Every act has a song over its beat, written as MIDI notes: a key, the chords its bars go
+// through, and the lines its parts play over them -- a bass, a pad, an arpeggio, and a lead that plays the act's
+// melody. Web Audio synths play it on the beat track's clock: scheduleBeats (loop.js) hands each beat to musicBeat as
+// it hands one to the kick, so every note lands on the grid the game judges. index.html loads this with a plain
+// <script src>, as globals rather than modules, so the game still opens straight off disk. Nothing here runs at load
+// beyond building the tables.
 //
-// A song follows its level's form. The wave bars play its chords on the bass, the pad and the arpeggio; each laser
-// section brings in the lead, over chords of its own; overdrive opens every filter; the song dips under each kick and
-// swells back, as a sidechained mix pumps. A pause, a death, a retry or a quit cuts it (musicStop), and the first beat
-// after a pause starts it again. A cleared level's last beat resolves onto the key's own chord, and lets it ring.
+// A song follows its level's form. The wave bars play its chords and its melody; each laser section plays a chorus,
+// a lead over chords of its own; overdrive opens every filter; the song dips under each kick and swells back, as a
+// sidechained mix pumps. A pause, a death, a retry or a quit cuts it (musicStop), and the first beat after a pause
+// starts it again. A cleared level's last beat resolves onto the key's own chord, and lets it ring. An act's intro
+// plays its theme with no beat under it (musicIntro).
+//
+// The lasers play the song too. songTune tells the timeline (waves.js) which notes the tune starts on each beat of a
+// bar, and how high each is: a phrase fires its beams on them, as high on the screen as the notes are, and a laser
+// section's targets trace the chorus. A laser firing sounds the note it was placed on (zapNote).
 
 // The chords, as their notes' semitones above the key: MIDI note numbers counted from the key's. They are named as a
 // minor key's are, lower case minor and upper case major; V is the fifth's chord made major, which pulls home
@@ -15,35 +21,43 @@ const CHORDS = {
     i: [0, 3, 7], iv: [5, 8, 12], V: [7, 11, 14], III: [3, 7, 10], VI: [8, 12, 15], VII: [10, 14, 17],
 };
 
-// Each level's song, indexed as LEVELS is (waves.js). key: the tonic, as a MIDI note number (69 is the A above middle
-// C). chords: the wave bars', one a bar, from the first of each run of them; leadChords: the laser sections', from the
-// first bar of each (the wave bars' if a song has none). bass, arp and lead are lines of steps, played round and round
-// from the start of each section: the bass and the lead in eighths, the arpeggio in sixteenths, and the lead only in
-// the laser sections. On a step, a number is a note -- the lead's counted in semitones from the key, the bass's from
-// its chord's root, the arpeggio's as which of its chord's notes, 0 the lowest and 3 that one an octave up -- "-" holds
-// the note before, and "." rests. A part a song has no line for doesn't play in it. Each song is busier than the last,
-// as the levels get harder.
+// Each act's song, indexed as ACTS is (story.js): all five of its levels play it, each at its own tempo, and it builds
+// as the act goes on (the arpeggio joins on its ARP_FROM'th level). key: the tonic, as a MIDI note number (69 is the A
+// above middle C). chords: the wave bars', one a bar, from the first of each run of them, under melody, the act's tune;
+// leadChords and lead: the laser sections', from the first bar of each (the wave bars' chords if a song has none).
+// bass, arp, melody and lead are lines of steps, played round and round from the start of each section: the arpeggio
+// in sixteenths and the rest in eighths. On a step, a number is a note -- the melody's and the lead's counted in
+// semitones from the key, the bass's from its chord's root, the arpeggio's as which of its chord's notes, 0 the lowest
+// and 3 that one an octave up -- "-" holds the note before, and "." rests. waves: the lead's two oscillators, which
+// give each act a voice of its own. A part a song has no line for doesn't play in it
 const SONGS = [null,
-    { key: 69, chords: "i VI III VII", leadChords: "i VI III VII", // A minor: Am F C G
+    { key: 69, waves: ["triangle", "sawtooth"], chords: "i VI III VII", leadChords: "i VI III VII", // A minor: Am F C G
+        melody: "0 - - - 3 - 7 - 8 - - - 7 - 3 - 7 - - - 10 - 12 - 10 - - - 7 - - -",
+        lead: "12 - - - 10 - 7 - 8 - - - 7 - 5 - 7 - - - 3 - 5 - 2 - - - - - . .",
         bass: "0 - - 12 0 - 12 -",
-        lead: "12 - - - 10 - 7 - 8 - - - 7 - 5 - 7 - - - 3 - 5 - 2 - - - - - . ." },
-    { key: 64, chords: "i VII VI VII", leadChords: "VI VII i i", // E minor: Em D C D, and the lead's C D Em
+        arp: "0 . 1 . 2 . 1 ." },
+    { key: 64, waves: ["square", "sawtooth"], chords: "i VII VI VII", leadChords: "VI VII i i", // E minor: Em D C D,
+        melody: "7 - 5 - 3 - 0 - 2 - - - 5 - 10 - 8 - 7 - 3 - 7 - 5 - - - 2 - - -", // and the lead's C D Em
+        lead: "12 - 10 - 7 - 3 - 2 - 5 - 10 - 14 - 15 - - - 14 - 12 - 7 - - - - - . .",
         bass: "0 12 0 12 0 12 0 12",
-        arp: "0 . 1 . 2 . 1 .",
-        lead: "12 - 10 - 7 - 3 - 2 - 5 - 10 - 14 - 15 - - - 14 - 12 - 7 - - - - - . ." },
-    { key: 62, chords: "i VI iv V", leadChords: "i VI VII V", // D minor: Dm Bb Gm A, and the lead's Dm Bb C A
+        arp: "0 1 2 1 0 1 2 1" },
+    { key: 62, waves: ["square", "square"], chords: "i VI iv V", leadChords: "i VI VII V", // D minor: Dm Bb Gm A,
+        melody: "7 - 10 - 12 - 10 - 8 - 7 - 5 - 3 - 5 - 8 - 12 - 10 - 11 - - - 7 - - -", // and the lead's Dm Bb C A
+        lead: "12 - 10 - 7 - . 7 8 - 7 - 3 - 5 - 10 - 14 - 12 - 10 - 11 - - - 7 - . .",
         bass: "0 0 12 0 0 12 0 12",
-        arp: "0 1 2 3 4 3 2 1",
-        lead: "12 - 10 - 7 - . 7 8 - 7 - 3 - 5 - 10 - 14 - 12 - 10 - 11 - - - 7 - . ." },
-    { key: 66, chords: "i VII VI V", leadChords: "VI VII i i", // F# minor: F#m E D C#, and the lead's D E F#m
+        arp: "0 1 2 3 4 3 2 1" },
+    { key: 66, waves: ["sawtooth", "sawtooth"], chords: "i VII VI V", leadChords: "VI VII i i", // F# minor: F#m E D
+        melody: "12 - 7 - 3 - 7 - 10 - 5 - 2 - 5 - 8 - 3 - 0 - 3 - 7 - - - 11 - - -", // C#, and the lead's D E F#m
+        lead: "12 - 8 - 3 - 8 - 10 - 14 - 17 - 14 - 15 - - - 12 - - - 7 - 10 - 12 - . .",
         bass: "0 0 0 0 0 0 0 12",
-        arp: "0 1 2 0 1 2 0 1 2 0 1 2 3 2 1 0",
-        lead: "12 - 8 - 3 - 8 - 10 - 14 - 17 - 14 - 15 - - - 12 - - - 7 - 10 - 12 - . ." },
-    { key: 60, chords: "i VI VII V", leadChords: "i VI III VII", // C minor: Cm Ab Bb G, and the lead's Cm Ab Eb Bb
+        arp: "0 1 2 0 1 2 0 1 2 0 1 2 3 2 1 0" },
+    { key: 60, waves: ["sawtooth", "square"], chords: "i VI VII V", leadChords: "i VI III VII", // C minor: Cm Ab Bb G,
+        melody: "12 - - 15 - - 19 - 20 - - 19 - - 15 - 17 - - 14 - - 10 - 11 - 14 - 19 - 23 -", // lead's Cm Ab Eb Bb
+        lead: "19 - - 17 15 - 12 - 15 - - 14 12 - 8 - 10 - - 12 14 - 15 - 17 - - - 14 - 10 -",
         bass: "0 12 0 12 0 12 0 12",
-        arp: "0 2 4 2 1 3 5 3",
-        lead: "19 - - 17 15 - 12 - 15 - - 14 12 - 8 - 10 - - 12 14 - 15 - 17 - - - 14 - 10 -" },
+        arp: "0 2 4 2 1 3 5 3" },
 ];
+var ARP_FROM = 2; // an act's arpeggio joins on its second level, so each act builds as it goes
 
 // Where the parts play. The pad and the arpeggio take their chords' notes into the octave up from PAD_LOW and ARP_LOW,
 // whatever the key, so each keeps to its own register and a chord moves to the next by steps. The bass starts a line
@@ -81,8 +95,8 @@ function words(line) { // a chord line's or a part's steps, split once
     return wordCache[line] || (wordCache[line] = line.trim().split(/\s+/));
 }
 
-function songDef(n) { // the level's song; past the last, the last one again, as levelDef has it
-    return SONGS[Math.max(1, Math.min(n, SONGS.length - 1))];
+function actSong(n) { // the song of level n's act
+    return SONGS[Math.max(1, Math.min(levelAct(n), SONGS.length - 1))];
 }
 
 function midiHz(note) { // a MIDI note number's pitch: 69 is A, 440 Hz, and each semitone a twelfth of an octave
@@ -113,15 +127,15 @@ function bassRoots(key, line) { // the bass's root for each chord of a line: the
     return rootCache[id];
 }
 
-function musicSection(bar) { // the run of bars, all wave or all laser, that a bar is in: its first bar, the bar after
-    // its last, and whether it is laser
-    var laser = laserBars(wave);
+function musicSection(def, bar) { // the run of bars, all wave or all laser, that a bar of a level is in: its first bar,
+    // the bar after its last, and whether it is laser
+    var laser = laserBars(def);
     var on = !!laser[bar];
     var first = bar, end = bar + 1;
     while (first > 0 && !!laser[first - 1] == on) {
         first--;
     }
-    while (end < wave.bars && !!laser[end] == on) {
+    while (end < def.bars && !!laser[end] == on) {
         end++;
     }
     return { laser: on, first: first, end: end };
@@ -133,17 +147,26 @@ function musicBeat(n, delay, beatSec, over) { // beat n of the level proper (0 i
     if (!c || c.state != "running") { // until the browser lets it run, its clock stands still: notes handed it now
         return; // would all sound at once when it starts
     }
-    var song = songDef(level);
+    var song = actSong(level);
     var m = music || (music = musicBus(c, beatSec));
     var when = c.currentTime + delay;
-    var sec = musicSection(Math.floor(n / BEATS_PER_BAR));
+    var sec = musicSection(wave, Math.floor(n / BEATS_PER_BAR));
+    duckAt(m, when, beatSec);
+    songBeat(c, m, song, sec, n, when, beatSec, over ? OVERDRIVE_BRIGHT : sec.laser ? LASER_BRIGHT : 1,
+        levelInAct(level) >= ARP_FROM);
+    if (n == wave.bars * BEATS_PER_BAR - 1) { // the last beat: the next one is the level cleared
+        musicEnd(c, m, song, when + beatSec);
+    }
+}
+
+function songBeat(c, m, song, sec, n, when, beatSec, bright, arp) { // a song's notes from beat n to the next, the beat
+    // falling at `when` in section sec: the chord, the bass, the arpeggio if arp, and the melody, or the lead in a
+    // laser section
     var from = n - sec.first * BEATS_PER_BAR; // beats into its section, which starts the chords and the lines afresh
     var left = sec.end * BEATS_PER_BAR - n; // and beats left in it, which no note outlasts
     var line = sec.laser && song.leadChords || song.chords;
     var at = Math.floor(from / BEATS_PER_BAR) % words(line).length;
     var chord = words(line)[at];
-    var bright = over ? OVERDRIVE_BRIGHT : sec.laser ? LASER_BRIGHT : 1;
-    duckAt(m, when, beatSec);
     if (n >= m.padUntil) { // a bar line, or the song starting again partway through a bar: the chord to its end
         var rest = BEATS_PER_BAR - n % BEATS_PER_BAR;
         playPad(c, m, when, voiced(song.key, chord, PAD_LOW), rest * beatSec, bright);
@@ -153,19 +176,56 @@ function musicBeat(n, delay, beatSec, over) { // beat n of the level proper (0 i
     lineNotes(song.bass, 2, from, left, function (k, step, len) {
         playBass(c, m, when + k * beatSec / 2, root + step, len * beatSec / 2, bright);
     });
-    var tones = voiced(song.key, chord, ARP_LOW);
-    lineNotes(song.arp, 4, from, left, function (k, step, len) {
-        var note = tones[step % tones.length] + 12 * Math.floor(step / tones.length);
-        playArp(c, m, when + k * beatSec / 4, note, len * beatSec / 4, bright);
-    });
-    if (sec.laser) {
-        lineNotes(song.lead, 2, from, left, function (k, step, len) {
-            playLead(c, m, when + k * beatSec / 2, song.key + step, len * beatSec / 2, bright);
+    if (arp) {
+        var tones = voiced(song.key, chord, ARP_LOW);
+        lineNotes(song.arp, 4, from, left, function (k, step, len) {
+            var note = tones[step % tones.length] + 12 * Math.floor(step / tones.length);
+            playArp(c, m, when + k * beatSec / 4, note, len * beatSec / 4, bright);
         });
     }
-    if (n == wave.bars * BEATS_PER_BAR - 1) { // the last beat: the next one is the level cleared
-        musicEnd(c, m, song, when + beatSec);
+    lineNotes(sec.laser ? song.lead : song.melody, 2, from, left, function (k, step, len) {
+        playLead(c, m, song.waves, when + k * beatSec / 2, song.key + step, len * beatSec / 2, bright);
+    });
+}
+
+function songTune(def, n, bar) { // what the tune does over bar `bar` of level n (def, its definition), for the lasers
+    // to follow: the melody in a wave bar, the lead in a laser one. onset[i]: the MIDI note it starts on the bar's beat
+    // i, or null; sound[i]: the note sounding on beat i, started or held, or null in a rest; lo and hi: the line's
+    // lowest note and its highest, so a note's height on the screen can be worked out from them (waves.js)
+    var song = actSong(n);
+    var sec = musicSection(def, bar);
+    var s = words(sec.laser ? song.lead : song.melody);
+    var tune = { onset: [], sound: [], lo: Infinity, hi: -Infinity };
+    s.forEach(function (w) {
+        if (w != "-" && w != ".") {
+            tune.lo = Math.min(tune.lo, song.key + Number(w));
+            tune.hi = Math.max(tune.hi, song.key + Number(w));
+        }
+    });
+    var first = (bar - sec.first) * BEATS_PER_BAR * 2; // the bar's first step, and the section's
+    for (var i = 0; i < BEATS_PER_BAR; i++) {
+        var step = first + i * 2;
+        var w = s[step % s.length];
+        tune.onset.push(w == "-" || w == "." ? null : song.key + Number(w));
+        var sounding = null;
+        for (var back = step; back >= 0 && back > step - s.length; back--) { // back through its holds, to the note
+            var v = s[back % s.length]; // they hold, but not past the section's start: nothing is held into it
+            if (v != "-") {
+                sounding = v == "." ? null : song.key + Number(v);
+                break;
+            }
+        }
+        tune.sound.push(sounding);
     }
+    return tune;
+}
+
+function zapNote(b) { // the note a laser firing on beat b sounds (b counted from the count-in's first beat): the
+    // tune's, sounding on that beat, which is the note the laser was placed on, or else the tune's lowest
+    var bar = Math.floor((b - firstPlayBeat()) / BEATS_PER_BAR);
+    var tune = songTune(wave, level, bar);
+    var note = tune.sound[(b - firstPlayBeat()) % BEATS_PER_BAR];
+    return note === null ? tune.lo : note;
 }
 
 function lineNotes(line, per, from, left, play) { // the notes a part's line starts in this beat, `from` beats into its
@@ -193,8 +253,49 @@ function musicEnd(c, m, song, when) { // the level cleared: the key's own chord,
     // left to ring
     playPad(c, m, when, voiced(song.key, "i", PAD_LOW), 0.1, 1, END_RING);
     playBass(c, m, when, register(song.key, BASS_LOW), 0.1, 1, END_RING);
-    if (song.lead) {
-        playLead(c, m, when, song.key + 12, 0.1, 1, END_RING);
+    playLead(c, m, song.waves, when, song.key + 12, 0.1, 1, END_RING);
+}
+
+// An act's intro plays its theme under the lore: the chords, the bass and the melody, round and round with no beat
+// under them, until the intro ends. Nothing steps the game then, so it keeps its own time: a timer hands the audio
+// clock the beats coming up within INTRO_AHEAD, as scheduleBeats does in a level
+var INTRO_AHEAD = 0.2; // s
+var intro = null; // the theme playing: { song, beatSec, start (the audio time of its first beat), next (the beat to
+                  // hand over next), timer }
+const INTRO_SECTION = { laser: false, first: 0, end: Infinity }; // the whole intro is one wave section
+
+function musicIntro(act, bpm) { // play an act's theme at bpm until musicIntroStop
+    musicIntroStop(MUSIC_CUT);
+    var c = beatAudio();
+    if (!c) {
+        return;
+    }
+    intro = { song: SONGS[act], beatSec: 60 / bpm, start: c.currentTime + 0.1, next: 0, timer: 0 };
+    intro.timer = setInterval(introTick, 50);
+    introTick();
+}
+
+function introTick() { // hand the audio clock the theme's beats coming up
+    var c = beatAudio();
+    if (!intro || !c || c.state != "running") {
+        return;
+    }
+    var now = c.currentTime;
+    var late = Math.ceil((now - intro.start) / intro.beatSec); // beats whose moment went by while the clock stood
+    intro.next = Math.max(intro.next, late); // still or the timer was held back: skipped, not played all at once
+    var m = music || (music = musicBus(c, intro.beatSec));
+    while (intro.start + intro.next * intro.beatSec < now + INTRO_AHEAD) {
+        songBeat(c, m, intro.song, INTRO_SECTION, intro.next, intro.start + intro.next * intro.beatSec, intro.beatSec,
+            1, false);
+        intro.next++;
+    }
+}
+
+function musicIntroStop(fade) { // the theme stops, going over `fade` seconds
+    if (intro) {
+        clearInterval(intro.timer);
+        intro = null;
+        musicStop(fade);
     }
 }
 
@@ -317,8 +418,8 @@ function playArp(c, m, when, note, len, bright) { // a square, plucked: its filt
     g.connect(m.echo);
 }
 
-function playLead(c, m, when, note, len, bright, ring) { // a saw and a square a few cents apart, with a vibrato that
-    // comes in as the note holds
+function playLead(c, m, waves, when, note, len, bright, ring) { // two oscillators a few cents apart, of the waves
+    // the act's song gives them, with a vibrato that comes in as the note holds
     var v = VOICES.lead;
     var release = ring || v.release;
     var off = when + Math.max(0.02, len - 0.02);
@@ -332,7 +433,7 @@ function playLead(c, m, when, note, len, bright, ring) { // a saw and a square a
     lfo.connect(depth);
     lfo.start(when);
     lfo.stop(end);
-    [["sawtooth", -5], ["square", 5]].forEach(function (w) {
+    [[waves[0], -5], [waves[1], 5]].forEach(function (w) {
         var o = osc(c, w[0], note, w[1], when, end);
         depth.connect(o.detune);
         o.connect(f);

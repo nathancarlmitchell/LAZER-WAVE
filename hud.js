@@ -35,7 +35,8 @@ function drawStats(color, scoreColor) { // score, combo, shields, and the level 
     ctx.globalAlpha = 1;
     ctx.font = (touch ? TOUCH_STAT_FONT : 30) + "px Arial";
     ctx.fillStyle = color;
-    ctx.fillText("Level " + level + "   " + wave.bpm + " BPM", 50, touch ? TOUCH_STAT_LEVEL : 220);
+    ctx.fillText("Act " + roman(levelAct(level)) + "  Level " + level + "   " + wave.bpm + " BPM", 50,
+        touch ? TOUCH_STAT_LEVEL : 220);
     ctx.fillText(mistakes(deaths), 50, touch ? TOUCH_STAT_DEATHS : 260);
     var status = runStatusText(); // and only when the difficulty gives something
     if (status) {

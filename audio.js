@@ -193,16 +193,18 @@ function synthTick(delay, high) { // the count-in's click
     o.stop(when + 0.08);
 }
 
-function synthZap(delay) { // a beam firing: a sawtooth diving down
+function synthZap(delay, note) { // a beam firing: a sawtooth diving down, from an octave over the note it plays in the
+    // song (a MIDI note number: zapNote, music.js), or from 1400 Hz if it plays none
     var c = beatAudio();
     if (!c) {
         return;
     }
     var when = c.currentTime + delay;
+    var from = note === undefined ? 1400 : midiHz(note + 12);
     var o = c.createOscillator();
     o.type = "sawtooth";
-    o.frequency.setValueAtTime(1400, when);
-    o.frequency.exponentialRampToValueAtTime(120, when + 0.16);
+    o.frequency.setValueAtTime(from, when);
+    o.frequency.exponentialRampToValueAtTime(from / 12, when + 0.16);
     o.connect(envelope(c, when, 0.07, 0.18));
     o.start(when);
     o.stop(when + 0.2);

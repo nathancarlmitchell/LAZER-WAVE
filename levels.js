@@ -1,24 +1,37 @@
-// Lazer Wave -- a level's beginning and its end. startGame and the touch start that seeds it, the wait after a death,
-// a cleared level's results and the CONTINUE and RETRY they wait on, the restart from the finish, the message block
-// that lays out the screens between levels and the finish itself (measured, centred and fitted to the window), and
-// gameOver, which is where a level cleared or lost becomes records, messages and the next level. index.html loads
-// this with a plain <script src>, as globals rather than modules, so the game still opens straight off disk.
+// Lazer Wave -- a level's beginning and its end. startGame and the touch start that seeds it, the way into a level the
+// run hasn't played (its act's story and its card, story.js), the wait after a death, a cleared level's results and
+// the CONTINUE and RETRY they wait on, the epilogue and the finish, the restart from it, the message block that lays
+// out the screens between levels (measured, centred and fitted to the window), and gameOver, which is where a level
+// cleared or lost becomes records, messages and the next level. index.html loads this with a plain <script src>, as
+// globals rather than modules, so the game still opens straight off disk.
 //
-// It drives the game rather than reading it: startGame sets it running, gameOver stops it. Both reach into the loop
+// It drives the game rather than reading it: playLevel sets it running, gameOver stops it. Both reach into the loop
 // (gameArea, startLevel), the world (clearObjects, component), the records and the effects (fxReset).
 
-function startGame(e) {
-    if (!gameStart) { // first start
-        startScreenIntervals.forEach(function (id) { clearInterval(id); });
-        loadAudio();
-        playSound(aud_click);
-        startTime = Date.now();
-        startRunLives(); // the difficulty is locked in from here: its button only lives on the start screen
-        gamePiece = new component(PIECE_SIZE, PIECE_SIZE, COLORS.piece, e.pageX - PIECE_SIZE / 2, e.pageY - PIECE_SIZE / 2); // centered on the cursor
-        gamePiece.update = function () { drawPlayer(this); };
-    }
-    gameArea.start();
+function startGame(e) { // START: the run begins, its first act's story before its first level
+    startScreenIntervals.forEach(function (id) { clearInterval(id); });
+    loadAudio();
+    playSound(aud_click);
+    startTime = Date.now();
+    startRunLives(); // the difficulty is locked in from here: its button only lives on the start screen
+    gamePiece = new component(PIECE_SIZE, PIECE_SIZE, COLORS.piece, e.pageX - PIECE_SIZE / 2, e.pageY - PIECE_SIZE / 2); // centered on the cursor
+    gamePiece.update = function () { drawPlayer(this); };
     gameStart = true;
+    enterLevel();
+}
+
+function enterLevel() { // the run comes to a level it hasn't played: the story of the act it opens, if it opens one,
+    // then its card, then the level. A death or a retry comes back to it without them (startNextLevel)
+    var card = function () { showLevelCard(level, playLevel); };
+    if (level == actFirstLevel(levelAct(level))) {
+        showActIntro(levelAct(level), card);
+    } else {
+        card();
+    }
+}
+
+function playLevel() { // an attempt at the level begins: after its card, after a death, or on a retry
+    gameArea.start();
     alive = true;
     levelStart = Date.now(); // the split clock; startTime runs across the whole run, skipping pauses
     levelBeat = 0;
@@ -73,7 +86,7 @@ function wait(time) {
     setTimeout(startNextLevel, time);
 }
 
-function restartRun() { // after the finish screen, start a fresh run from level 1
+function restartRun() { // after the finish screen, start a fresh run from level 1, and the first act's story
     runFinished = false;
     restartArmed = false;
     level = 1;
@@ -82,12 +95,12 @@ function restartRun() { // after the finish screen, start a fresh run from level
     runScore = 0;
     startRunLives();
     startTime = Date.now();
-    startNextLevel();
+    enterLevel();
 }
 
-function startNextLevel() {
+function startNextLevel() { // the level again: after a death, or on a retry
     gameArea.clear();
-    startGame();
+    playLevel();
 }
 
 // A message is collected line by line, measured, and drawn as one block: every line truly centred (or, in a column,
@@ -367,7 +380,7 @@ function showLevelResults() { // the level was cleared: its results come up and 
 }
 
 function drawResultsScreen() { // drawn as they come up, and again on a resize, a hover or a change of input
-    gameArea.clear();
+    drawSky(level, 0, null, SKY_BEHIND); // the level's backdrop, still and dimmed, behind them: the ground as well
     ctx.font = "80px Arial";
     printText("Level " + level + " Clear", -175);
     ctx.font = "60px Arial";
@@ -428,10 +441,12 @@ function chooseResult(name) { // CONTINUE ("next") or RETRY ("retry")
         level++;
     }
     score = 0; // the next level, or this one again, starts from nothing
-    if (level > RUN_LEVELS) {
-        showFinish();
-    } else {
+    if (name == "retry") {
         startNextLevel();
+    } else if (level > RUN_LEVELS) {
+        showEpilogue(showFinish);
+    } else {
+        enterLevel();
     }
 }
 
@@ -536,7 +551,8 @@ function gameOver() { // the level was cleared or the player died
     }
 }
 
-function drawDeathMessage(shown) { // the message after a death
+function drawDeathMessage(shown) { // the message after a death, over the level's backdrop, still and dimmed
+    drawSky(level, 0, null, SKY_BEHIND);
     ctx.font = "80px Arial";
     printText(deathProgress >= 0.9 ? "So Close" : "Try Again", -175);
     ctx.font = "80px Arial";

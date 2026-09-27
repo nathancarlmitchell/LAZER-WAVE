@@ -519,7 +519,7 @@ function scheduleBeats() { // hand the audio clock every beat due within the loo
         synthHat(delay + mpb / 2000); // and the off-beat
         musicBeat(b - firstPlayBeat(), delay, mpb / 1000, driveOver(b)); // and the song over them (music.js)
         if (timeline.some(function (ev) { return ev.fire == b && (ev.axis == "h" || ev.axis == "v"); })) {
-            synthZap(delay); // a beam fires on this one
+            synthZap(delay, zapNote(b)); // a beam fires on this one, on a note of the song
         }
     }
 }
@@ -804,7 +804,7 @@ function drawJudgment() { // the last grade, rising off the piece and fading
 }
 
 function drawLevel() { // draw the level as it stands, without moving anything (also used while paused)
-    gameArea.clear();
+    drawSky(level, beatPos * msPerBeat() / 1000, beatPos); // the ground: its act's backdrop, its colour, its clock
     drawBeatPulse();
     drawStrikeLine();
     drawWorld();

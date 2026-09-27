@@ -529,6 +529,8 @@ function onTouchStart(e) {
             info.role = "pbutton"; // action and not a resume, and it keeps the role until it lifts
             info.button = pauseButtonAt(p.x, p.y);
             setPauseHover(info.button);
+        } else if (storyUp()) { // a story screen: the finger presses it when it lifts
+            info.role = "story";
         } else if (runFinished) {
             if (Date.now() - finishTime >= 1000) {
                 restartArmed = true; // same rule as a mouse click: only a touch that starts on the finish screen, after 1s
@@ -609,6 +611,8 @@ function onTouchEnd(e) { // touchend and touchcancel
         }
         if (info.role == "pause" && (!pause || resumeTimer) && touchButtonAt(p.x, p.y) == "pause") { // also stops a countdown
             setPause(true);
+        } else if (info.role == "story") {
+            storyPress();
         } else if (info.role == "result") { // lifted on the button it came down on: that's the choice
             if (resultButtonAt(p.x, p.y) == info.result) {
                 chooseResult(info.result);
@@ -839,10 +843,13 @@ function padButton(button, down, time, source) { // a controller button went dow
     }
 }
 
-function padScreen() { // the screen a controller is working: "menu", "start", "pause", "results", "finish", or "" for
-    // none it can (a level playing, a death, a touch resume counting down)
+function padScreen() { // the screen a controller is working: "menu", "start", "pause", "results", "finish", "story",
+    // or "" for none it can (a level playing, a death, a touch resume counting down)
     if (menuUp()) {
         return "menu";
+    }
+    if (storyUp()) {
+        return "story";
     }
     if (!gameStart) {
         return "start";
@@ -941,6 +948,8 @@ function padConfirm(screen) { // A: press the lit button, or the one that would 
         chooseResult(name);
     } else if (screen == "finish") {
         padPlayAgain();
+    } else if (screen == "story") {
+        storyPress();
     }
 }
 
@@ -963,6 +972,8 @@ function padStart(screen) { // START: the way on from wherever it is pressed
         chooseResult("next");
     } else if (screen == "finish") {
         padPlayAgain();
+    } else if (screen == "story") {
+        storyPress();
     }
 }
 
@@ -1008,6 +1019,8 @@ function bindInput() { // the touch, mouse, keyboard, controller and page listen
             openMenu(START_BUTTONS[button].menu);
         } else if (button && START_BUTTONS[button].setting) {
             cycleSetting(START_BUTTONS[button].setting);
+        } else if (storyUp()) { // a story screen: the rest of its lore, or on
+            storyPress();
         } else if (runFinished && restartArmed) { // play again from the finish screen
             restartRun();
         } else if (resultsArmed && resultButtonAt(p.x, p.y)) { // CONTINUE or RETRY, from a cleared level's results
@@ -1090,6 +1103,14 @@ function bindInput() { // the touch, mouse, keyboard, controller and page listen
         if (key == "Escape" && menuUp()) { // a menu screen's other way out, for anyone who expects it
             e.preventDefault();
             closeMenu();
+            return;
+        }
+        if (storyUp() && (key == "Enter" || key == " " || key == "Escape" || actionForKey(key))
+            && !e.ctrlKey && !e.metaKey) { // a story screen: ENTER, SPACE, ESCAPE or an action key presses it, and
+            e.preventDefault(); // nothing else hears the key
+            if (!e.repeat) {
+                storyPress();
+            }
             return;
         }
         if (key == "h" && !e.repeat && !menuUp() && (!gameStart || (alive && pause))) {
