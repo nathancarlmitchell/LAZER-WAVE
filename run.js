@@ -1,6 +1,6 @@
 // Lazer Wave -- the run. The difficulties and the lives they give, and the records: the best run and what it cost,
-// a best split, a best rank and a best score per level, and the furthest level reached, kept per difficulty in
-// localStorage and read defensively.
+// a best rank and a best score per level, and the furthest level reached, kept per difficulty in localStorage and
+// read defensively. A level runs the length of its song whoever plays it, so its time is no record.
 // And the m:ss the finish and the start screen print. index.html loads this with a plain <script src>, as globals
 // rather than modules, so the game still opens straight off disk.
 
@@ -45,7 +45,6 @@ function rec() { // the record set for the difficulty now selected
         records.modes[difficulty] = {
             run: null, // fastest completed run, in ms
             runDeaths: 0, // and what it cost
-            level: {}, // fastest clear of each level, in ms: the split
             rank: {}, // best rank each level has been cleared with, "F" to "S+"
             score: {}, // most points each level has been cleared with
             reached: 0, // furthest level started, so a run that never finishes still leaves a mark
@@ -53,9 +52,6 @@ function rec() { // the record set for the difficulty now selected
     }
     return records.modes[difficulty];
 }
-var levelStart = 0; // when the level being played began (ms), moved forward by time spent paused, as startTime is
-var levelBeat = 0; // how long the level just cleared took, and whether that is the best it has been
-var levelRecord = false;
 var levelGrade = ""; // the rank the level just cleared was given, and whether that is the best it has had
 var gradeRecord = false;
 var scoreRecord = false; // and whether its points are the most it has been cleared with
@@ -85,15 +81,8 @@ function loadRecords() { // whatever previous runs left, if the browser will tel
                 continue; // a mode never played, or something that isn't a record set
             }
             var to = { run: storedTime(from.run), runDeaths: storedTime(from.runDeaths) || 0,
-                reached: Math.min(RUN_LEVELS, storedTime(from.reached) || 0), level: {}, rank: {}, score: {} };
-            if (from.level && typeof from.level == "object") {
-                for (var n = 1; n <= RUN_LEVELS; n++) {
-                    var split = storedTime(from.level[n]);
-                    if (split) {
-                        to.level[n] = split;
-                    }
-                }
-            }
+                reached: Math.min(RUN_LEVELS, storedTime(from.reached) || 0), rank: {}, score: {} };
+            // older records kept each level's time too: nothing reads it now, so the next save lets it go
             if (from.rank && typeof from.rank == "object") {
                 for (var r = 1; r <= RUN_LEVELS; r++) {
                     if (rankValue(from.rank[r]) >= 0) { // a grade there is, and nothing else
@@ -125,7 +114,7 @@ function saveRecords() {
 function levelBeaten(n) { // level n has been cleared, on any difficulty: which is what opens the next one
     for (var i = 0; i < DIFFICULTIES.length; i++) {
         var m = records.modes[DIFFICULTIES[i].name];
-        if (m && (m.rank[n] || m.level[n])) {
+        if (m && (m.rank[n] || m.score[n] !== undefined)) { // a clear leaves a rank and a score, so either will do
             return true;
         }
     }
@@ -144,13 +133,7 @@ function reachedLevel(n) { // a level began: the furthest one reached is a recor
     }
 }
 
-function recordLevel(n) { // a level was cleared: its split, its rank and its score, and whether each is the best it
-    // has been
-    levelBeat = Date.now() - levelStart;
-    levelRecord = !rec().level[n] || levelBeat < rec().level[n];
-    if (levelRecord) {
-        rec().level[n] = levelBeat;
-    }
+function recordLevel(n) { // a level was cleared: its rank and its score, and whether each is the best it has been
     levelGrade = levelRank().grade;
     gradeRecord = rankValue(levelGrade) > rankValue(rec().rank[n]); // nothing stored is below every grade
     if (gradeRecord) {
@@ -161,7 +144,7 @@ function recordLevel(n) { // a level was cleared: its split, its rank and its sc
     if (scoreRecord) {
         rec().score[n] = score;
     }
-    if (levelRecord || gradeRecord || scoreRecord) {
+    if (gradeRecord || scoreRecord) {
         saveRecords();
     }
 }
@@ -174,10 +157,6 @@ function recordRun(ms, cost) { // every level cleared, from the first: the run's
         saveRecords();
     }
     return beat;
-}
-
-function splitText(ms) { // a level takes seconds, not minutes: m:ss would round away the difference between two runs
-    return (ms / 1000).toFixed(1) + "s";
 }
 
 function mistakes(n) {

@@ -49,8 +49,6 @@ function enterLevel() { // the run comes to a level it hasn't played: the story 
 function playLevel() { // an attempt at the level begins: after its card, after a death, or on a retry
     gameArea.start();
     alive = true;
-    levelStart = Date.now(); // the split clock; startTime runs across the whole run, skipping pauses
-    levelBeat = 0;
     reachedLevel(level);
     restFrame = null; // the next transition screen gets a fresh copy
     pause = false;
@@ -198,16 +196,6 @@ function msgBottom() { // the lowest line queued so far, so another can be put u
         low = Math.max(low, msgBlock[i].dy + (msgBlock[i].button ? msgBlock[i].h : 0));
     }
     return low;
-}
-
-function showSplit(dy) { // the level's time, and what it was before, on every cleared screen
-    if (levelBeat <= 0) {
-        return; // nothing timed: a level that was never played can't have a split
-    }
-    var best = rec().level[level]; // recordLevel has already taken it
-    ctx.font = "30px Arial";
-    ctx.fillStyle = levelRecord ? COLORS.good : COLORS.text;
-    centerText(splitText(levelBeat) + (levelRecord ? "   NEW BEST" : "   best " + splitText(best)), dy);
 }
 
 // The cleared level's results, under everything else on the screen and side by side, as a rhythm game's are: its beats
@@ -407,14 +395,11 @@ function drawResultsScreen() { // drawn as they come up, and again on a resize, 
     printText("Level " + level + " Clear", -175);
     ctx.font = "60px Arial";
     printText("クリア", -75);
-    var line = 0; // the stats under the title, a line apart
-    if (timingText()) {
+    if (timingText()) { // how the presses sat against the beat, under the title
         ctx.font = "30px Arial";
         ctx.fillStyle = timingColor();
-        centerText(timingText(), line);
-        line += 40;
+        centerText(timingText(), 0);
     }
-    showSplit(line);
     showResults();
     showResultButtons();
     showMessage();
@@ -562,7 +547,7 @@ function gameOver() { // the level was cleared or the player died
     stopLevel();
     lifeSpent = false;
     if (levelCleared) {
-        recordLevel(level); // its split and its rank
+        recordLevel(level); // its rank and its score
         showLevelResults(); // which keep its score up until CONTINUE banks it or RETRY lets it go
         return;
     }

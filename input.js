@@ -164,9 +164,8 @@ function setPause(paused) { // pause or resume play; only while alive
         pauseNo++;
         pauseMusic(); // a rhythm game's clock is the song: it has to stop when the game does
         drawPauseScreen();
-    } else { // exclude paused time from the completion timer, and from the level's split
+    } else { // exclude paused time from the run's clock
         startTime += Date.now() - pauseStart;
-        levelStart += Date.now() - pauseStart;
         resumeMusic();
     }
 }
