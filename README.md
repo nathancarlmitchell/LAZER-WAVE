@@ -38,7 +38,8 @@ Open `index.html`, or serve the folder (`node .claude/serve.js`, then http://loc
    The time the story is up is left off the run's time.
  - **Level select:** LEVELS on the start screen shows every level, an act a row, each in its colour. Level 1 is
    always open, and a level opens once the one before it has been beaten, on either difficulty; a locked one is a
-   padlock. An open one shows its name and its best rank on the difficulty chosen, and the next one to beat says NEXT.
+   padlock. An open one shows its name, and its best rank and best score on the difficulty chosen, and the next one
+   to beat says NEXT.
    Pick one and the run starts there, with its act's story if it opens one. Only a run from Level 1 can set the best
    run, and playing again from the finish starts the run from where it began.
  - Every act has a backdrop and a song of its own, and every level a colour of the spectrum, from red at the first to
@@ -48,8 +49,11 @@ Open `index.html`, or serve the folder (`node .claude/serve.js`, then http://loc
  - A cleared level is ranked F, D, C, B, A, S or S+ on how its beats were hit: a PERFECT counts the beat, a GOOD half
    of it, a press off the beat or in the wrong colour takes half back, and a lost shield costs 5%. S+ needs every beat
    hit, nothing off the beat or WRONG, and no shield lost. Beside the rank, the level's beats are broken down: how
-   many were PERFECT, GOOD and MISS (gone by unhit, WRONG or OFF TARGET), and each one's share of them; and so is its
-   score: its points, its longest combo, and the run's TOTAL with them.
+   many were PERFECT, GOOD and MISS (gone by unhit, WRONG or OFF TARGET), each one's share of them, and the longest
+   combo; and so is its score: its points, the most it has been cleared with (NEW BEST when that is these), and the
+   run's TOTAL with them.
+ - Every level keeps its bests, on each difficulty: its fastest clear, its best rank and its best score. The results
+   set each against its best; the level select's tiles and each level's card show the rank and the score.
  - The results wait for you: **CONTINUE** adds the level's points to the total and goes on, **RETRY** plays the level
    again from nothing, and the total only ever keeps the attempt you continue from. The finish shows the run's total.
    The time the results are up is left off the run's time, as a pause is.
@@ -82,7 +86,7 @@ Open `index.html`, or serve the folder (`node .claude/serve.js`, then http://loc
 | `waves.js` | `LEVELS` (the 25 levels: name and lore, bpm, bars, warning lead, phrases, colours, laser sections, and the curve they climb), the `PHRASES` that fill a bar, placing their beams on the tune's notes, the `COLOR_PATTERNS` that paint one, laser form's `TARGET_PHRASES` (`tune` traces the chorus), the seeded timeline, and what goes on screen: `Beam`, `Target`, `Gate` |
 | `story.js` | The acts (`ACTS`: name, their band of the spectrum, backdrop and lore; five levels each) and the epilogue, and the story screens between levels: an act's intro, typed over its backdrop to its theme, a level's card, the epilogue before the finish |
 | `music.js` | Each act's song as MIDI notes (`SONGS`: a key, the `CHORDS` of its bars, its melody, the laser sections' lead, bass and arpeggio lines, and its lead's voice), and the Web Audio synths that play it on the beat track's clock: bass, pad, arpeggio and lead, an echo, and a dip under every kick. It builds through its act, the laser sections play the chorus, overdrive opens the filters, a pause or a death cuts it, a clear rings out on the key's chord, and an act's intro plays its theme. `songTune` tells the timeline where the tune's notes are, and `zapNote` which one a laser sounds |
-| `run.js` | Difficulties (lives), records per difficulty in localStorage (v3, for the 25 levels): best run, per-level splits and best ranks, furthest level; which levels are beaten, and so open on the level select |
+| `run.js` | Difficulties (lives), records per difficulty in localStorage (v3, for the 25 levels): best run, per-level splits, best ranks and best scores, furthest level; which levels are beaten, and so open on the level select |
 | `world.js` | `component`, the player piece's stepped movement, the `hazards` list and hit testing |
 | `player.js` | The player's look: two sine waves drawn off its position history, drifting into a glowing trail, meeting on each beat, the coming beat's colour lit |
 | `hud.js` | Score / deaths / act and level readout, the overdrive meter and the progress stripe |
@@ -90,7 +94,7 @@ Open `index.html`, or serve the folder (`node .claude/serve.js`, then http://loc
 | `sky.js` | Each level's colour, from its act's band of the spectrum, and each act's backdrop in it (`SKY_STYLES`: rising embers, a sun over a grid, an oscilloscope, a warp, an aurora), pulsing on the beat under the level and the story screens, still under the screens between levels. Moving at full effects, still when reduced, only the colour when off |
 | `menu.js` | Start, options, help and level select screens (the select: an act a row, a tile a level, locked until the one before is beaten), settings persistence, hover flash, slogans, start-screen glitches |
 | `titlelight.js` | The start screen's laser: a WebGL fragment shader on a screen-blended canvas over the game's, sweeping behind the title, with light-scattering rays the letters cut shadows through and their outlines burning where it passes. Only at full effects, and nothing at all without WebGL |
-| `levels.js` | Level start / end flow (a run from START or from the level select, a new level through its act's story and its card, a death or a retry straight back), the death message, a cleared level's results (the beat breakdown, the rank, the score and the run's total) and their CONTINUE and RETRY, the pause's RETRY and QUIT, the epilogue and the finish screen |
+| `levels.js` | Level start / end flow (a run from START or from the level select, a new level through its act's story and its card, a death or a retry straight back), the death message, a cleared level's results (the beat breakdown, the rank, the score against its best, and the run's total) and their CONTINUE and RETRY, the pause's RETRY and QUIT, the epilogue and the finish screen |
 | `input.js` | `ACTIONS` (key / mouse / touch / controller bindings), mouse & multi-touch steering, touch buttons, the controller (Gamepad API polling, stick steering, moving between a screen's buttons), the pause panel and the touch resume countdown |
 | `loop.js` | Game state, the fixed 10ms step loop, the beat clock (`beatPos`) and audio scheduling, hit judging, combo, shields, overdrive, and wave / laser form |
 

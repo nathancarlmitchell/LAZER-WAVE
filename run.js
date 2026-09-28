@@ -1,5 +1,6 @@
 // Lazer Wave -- the run. The difficulties and the lives they give, and the records: the best run and what it cost,
-// a best split and a best rank per level, and the furthest level reached, kept per difficulty in localStorage and read defensively.
+// a best split, a best rank and a best score per level, and the furthest level reached, kept per difficulty in
+// localStorage and read defensively.
 // And the m:ss the finish and the start screen print. index.html loads this with a plain <script src>, as globals
 // rather than modules, so the game still opens straight off disk.
 
@@ -46,6 +47,7 @@ function rec() { // the record set for the difficulty now selected
             runDeaths: 0, // and what it cost
             level: {}, // fastest clear of each level, in ms: the split
             rank: {}, // best rank each level has been cleared with, "F" to "S+"
+            score: {}, // most points each level has been cleared with
             reached: 0, // furthest level started, so a run that never finishes still leaves a mark
         };
     }
@@ -56,11 +58,17 @@ var levelBeat = 0; // how long the level just cleared took, and whether that is 
 var levelRecord = false;
 var levelGrade = ""; // the rank the level just cleared was given, and whether that is the best it has had
 var gradeRecord = false;
+var scoreRecord = false; // and whether its points are the most it has been cleared with
 
 var RECORD_MAX_MS = 86400000; // a day: past this a stored time is not a run, and printing it would look broken
+var RECORD_MAX_SCORE = 10000000; // and past this a stored score is not one a level can give
 
 function storedTime(v) { // a stored number we are willing to believe
     return typeof v == "number" && isFinite(v) && v > 0 && v <= RECORD_MAX_MS ? v : null;
+}
+
+function storedScore(v) { // a stored score we are willing to believe: a whole number of points, or null
+    return typeof v == "number" && isFinite(v) && v >= 0 && v <= RECORD_MAX_SCORE && Math.floor(v) == v ? v : null;
 }
 
 function loadRecords() { // whatever previous runs left, if the browser will tell us
@@ -77,7 +85,7 @@ function loadRecords() { // whatever previous runs left, if the browser will tel
                 continue; // a mode never played, or something that isn't a record set
             }
             var to = { run: storedTime(from.run), runDeaths: storedTime(from.runDeaths) || 0,
-                reached: Math.min(RUN_LEVELS, storedTime(from.reached) || 0), level: {}, rank: {} };
+                reached: Math.min(RUN_LEVELS, storedTime(from.reached) || 0), level: {}, rank: {}, score: {} };
             if (from.level && typeof from.level == "object") {
                 for (var n = 1; n <= RUN_LEVELS; n++) {
                     var split = storedTime(from.level[n]);
@@ -90,6 +98,14 @@ function loadRecords() { // whatever previous runs left, if the browser will tel
                 for (var r = 1; r <= RUN_LEVELS; r++) {
                     if (rankValue(from.rank[r]) >= 0) { // a grade there is, and nothing else
                         to.rank[r] = from.rank[r];
+                    }
+                }
+            }
+            if (from.score && typeof from.score == "object") { // records kept before scores were have none: fine
+                for (var k = 1; k <= RUN_LEVELS; k++) {
+                    var points = storedScore(from.score[k]);
+                    if (points !== null) {
+                        to.score[k] = points;
                     }
                 }
             }
@@ -128,7 +144,8 @@ function reachedLevel(n) { // a level began: the furthest one reached is a recor
     }
 }
 
-function recordLevel(n) { // a level was cleared: its split and its rank, and whether each is the best it has been
+function recordLevel(n) { // a level was cleared: its split, its rank and its score, and whether each is the best it
+    // has been
     levelBeat = Date.now() - levelStart;
     levelRecord = !rec().level[n] || levelBeat < rec().level[n];
     if (levelRecord) {
@@ -139,7 +156,12 @@ function recordLevel(n) { // a level was cleared: its split and its rank, and wh
     if (gradeRecord) {
         rec().rank[n] = levelGrade;
     }
-    if (levelRecord || gradeRecord) {
+    var most = rec().score[n];
+    scoreRecord = most === undefined || score > most; // a tie is not a new best
+    if (scoreRecord) {
+        rec().score[n] = score;
+    }
+    if (levelRecord || gradeRecord || scoreRecord) {
         saveRecords();
     }
 }

@@ -559,10 +559,10 @@ function helpPress(name) { // a press on the instructions: turn the page, or lea
 }
 
 // The level select: every level, an act a row, each tile in its level's colour of the spectrum. A level opens when the
-// one before it has been beaten (levelUnlocked, run.js); an open one shows its name and its best rank on the difficulty
-// chosen, the next one to beat says NEXT, and a locked one is a padlock. Picking one starts a run from it (startRunAt,
-// levels.js), its act's story first if it opens one, as START's does. Its buttons are the open levels and BACK, built
-// as it opens, so the controller and the mouse only ever land on a level that can be played
+// one before it has been beaten (levelUnlocked, run.js); an open one shows its name, and its best rank and best score
+// on the difficulty chosen, the next one to beat says NEXT, and a locked one is a padlock. Picking one starts a run
+// from it (startRunAt, levels.js), its act's story first if it opens one, as START's does. Its buttons are the open
+// levels and BACK, built as it opens, so the controller and the mouse only ever land on a level that can be played
 var TILE_W = 150, TILE_H = 76, TILE_GAP = 14, ROW_GAP = 12; // a level's tile, and the room between tiles and rows
 var TILE_X0 = -303, TILE_Y0 = -196; // the first tile's top left, from the layout's middle
 var ACT_X = -503; // where the acts' names start
@@ -638,7 +638,7 @@ function drawLevelsScreen() {
     ctx.textAlign = "center";
     ctx.font = "20px Arial";
     ctx.fillStyle = COLORS.dim;
-    var ranks = "best ranks on " + mode().name.toUpperCase(); // the difficulty's own, as the results keep them
+    var ranks = "bests on " + mode().name.toUpperCase(); // the difficulty's own, as the results keep them
     ctx.fillText("Beat a level to open the next one   \u00b7   " + ranks, cx, cy + 256);
     var back = levelButtons().levels_back;
     drawMenuButton(back, back.label, "32px Arial");
@@ -660,8 +660,8 @@ function drawActName(a) { // an act's row starts with its number and its name, i
     ctx.fillText(ACTS[a].name, x0, y0 + 62);
 }
 
-function drawLevelTile(n, next) { // a level's tile: its number and, open, its name and its best rank here, or NEXT if
-    // it is the next to beat; locked, a padlock
+function drawLevelTile(n, next) { // a level's tile: its number and, open, its name, and its best rank and best score
+    // here, or NEXT if it is the next to beat; locked, a padlock
     var g = levelTile(n), x0 = LAYOUT_W / 2 + g.dx, y0 = LAYOUT_H / 2 + g.dy;
     var open = levelUnlocked(n), col = levelColor(n);
     ctx.fillStyle = open ? skyRGBA(col, 1) : LOCKED_EDGE;
@@ -669,11 +669,11 @@ function drawLevelTile(n, next) { // a level's tile: its number and, open, its n
     ctx.fillStyle = COLORS.bg;
     ctx.fillRect(x0 + 2, y0 + 2, g.w - 4, g.h - 4);
     ctx.textAlign = "left";
-    ctx.font = "bold 30px Arial";
+    ctx.font = "bold 28px Arial";
     if (!open) {
         ctx.fillStyle = COLORS.dim;
         ctx.globalAlpha = 0.55;
-        ctx.fillText(String(n), x0 + 12, y0 + 36);
+        ctx.fillText(String(n), x0 + 12, y0 + 30);
         drawPadlock(x0 + g.w - 30, y0 + g.h / 2 + 6);
         ctx.globalAlpha = 1;
         return;
@@ -681,24 +681,31 @@ function drawLevelTile(n, next) { // a level's tile: its number and, open, its n
     ctx.fillStyle = skyRGBA(col, 0.14);
     ctx.fillRect(x0 + 2, y0 + 2, g.w - 4, g.h - 4);
     ctx.fillStyle = COLORS.text;
-    ctx.fillText(String(n), x0 + 12, y0 + 36);
-    ctx.font = "15px Arial";
+    ctx.fillText(String(n), x0 + 12, y0 + 30);
+    ctx.font = "14px Arial";
     ctx.fillStyle = skyRGBA(col, 1, 0.5);
-    ctx.fillText(levelDef(n).name, x0 + 12, y0 + g.h - 12, g.w - 24);
+    ctx.fillText(levelDef(n).name, x0 + 12, y0 + 50, g.w - 24);
+    var points = rec().score[n];
+    if (points !== undefined) { // the best score, under the name: BEST dim, the points bright
+        ctx.fillStyle = COLORS.dim;
+        ctx.fillText("BEST", x0 + 12, y0 + 68);
+        ctx.fillStyle = COLORS.text;
+        ctx.fillText(String(points), x0 + 12 + ctx.measureText("BEST ").width, y0 + 68, g.w - 70);
+    }
     ctx.textAlign = "right";
     var best = rec().rank[n];
     if (best) {
-        ctx.font = "bold 28px Arial";
+        ctx.font = "bold 26px Arial";
         if (best.charAt(0) == "S") { // printed as the title is: a cyan copy up and left, under the magenta
             ctx.fillStyle = COLORS.cyan;
-            ctx.fillText(best, x0 + g.w - 12, y0 + 34);
+            ctx.fillText(best, x0 + g.w - 12, y0 + 28);
         }
         ctx.fillStyle = rankColor(best);
-        ctx.fillText(best, x0 + g.w - 10, y0 + 36);
+        ctx.fillText(best, x0 + g.w - 10, y0 + 30);
     } else if (next) {
         ctx.font = "bold 16px Arial";
         ctx.fillStyle = COLORS.cyan;
-        ctx.fillText("NEXT", x0 + g.w - 10, y0 + 28);
+        ctx.fillText("NEXT", x0 + g.w - 10, y0 + 26);
     }
     ctx.textAlign = "start";
 }

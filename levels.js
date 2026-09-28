@@ -250,7 +250,8 @@ function shareTexts(counts) { // the counts as whole percentages of their total 
 }
 
 function showBreakdown(dy) { // how the cleared level's beats went, which is what its rank is worked out from: how
-    // many there were, then a row for each way a beat can go, with how many went that way and what share
+    // many there were and the longest combo of them, then a row for each way a beat can go, with how many went that
+    // way and what share
     var beats = playBeats();
     if (beats <= 0) {
         return; // nothing judged, nothing to break down
@@ -262,6 +263,8 @@ function showBreakdown(dy) { // how the cleared level's beats went, which is wha
     ctx.font = "30px Arial";
     ctx.fillStyle = COLORS.dim;
     columnText(beats + " BEATS", RESULTS_LABEL_X, dy + RESULTS_TOP, "left");
+    ctx.font = "24px Arial"; // and the longest run of them hit, over the shares
+    columnText("MAX COMBO " + bestCombo, RESULTS_SHARE_X, dy + RESULTS_TOP, "right");
     rows.forEach(function (row, i) {
         var at = dy + RESULTS_TOP + (i + 1) * pitch;
         ctx.font = "bold 30px Arial";
@@ -294,9 +297,11 @@ function showRank(dy) { // the cleared level's rank, large: an S is printed as t
     centerText(gradeRecord ? "NEW BEST" : "best " + best, dy + RESULTS_BOTTOM, 1, RESULTS_RANK_X);
 }
 
-function showScore(dy) { // what the cleared level scored, the breakdown's mirror: its points, its longest combo, and
-    // the run's total with its points in, which is what CONTINUE banks
-    var rows = [["LEVEL " + level, score], ["MAX COMBO", bestCombo], ["TOTAL", runScore + score]];
+function showScore(dy) { // what the cleared level scored, the breakdown's mirror: its points, the most it has been
+    // cleared with (NEW BEST when that is these, as the rank's best says under it), and the run's total with its points
+    // in, which is what CONTINUE banks
+    var rows = [["LEVEL " + level, score], [scoreRecord ? "NEW BEST" : "BEST", rec().score[level]],
+        ["TOTAL", runScore + score]];
     var pitch = (RESULTS_BOTTOM - RESULTS_TOP) / rows.length;
     ctx.font = "30px Arial";
     ctx.fillStyle = COLORS.dim;
@@ -304,11 +309,12 @@ function showScore(dy) { // what the cleared level scored, the breakdown's mirro
     rows.forEach(function (row, i) {
         var at = dy + RESULTS_TOP + (i + 1) * pitch;
         var total = i == rows.length - 1; // the one that matters most, set apart
+        var best = i == 1 && scoreRecord; // and a new best, in the colour the other new bests are in
         ctx.font = "bold 30px Arial";
-        ctx.fillStyle = total ? COLORS.text : COLORS.dim;
+        ctx.fillStyle = best ? COLORS.good : total ? COLORS.text : COLORS.dim;
         columnText(row[0], RESULTS_SCORE_X, at, "left");
         ctx.font = (total ? "bold 36px" : "30px") + " Arial";
-        ctx.fillStyle = total ? COLORS.cyan : COLORS.text;
+        ctx.fillStyle = best ? COLORS.good : total ? COLORS.cyan : COLORS.text;
         columnText(String(row[1]), RESULTS_POINTS_X, at, "right");
     });
 }

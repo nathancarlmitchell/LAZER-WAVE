@@ -102,10 +102,12 @@ function showActIntro(a, then) { // an act begins: its name and its lore, over i
     musicIntro(a, levelDef(first).bpm);
 }
 
-function showLevelCard(n, then) { // a level is next: its name, its tempo and its lore, over its own backdrop
+function showLevelCard(n, then) { // a level is next: its name, its tempo and the best it has been cleared with here,
+    // and its lore, over its own backdrop
     var def = levelDef(n);
+    var best = [rec().rank[n], rec().score[n]].filter(function (v) { return v !== undefined; }).join("  ");
     showStory({ kind: "card", n: n, head: "ACT " + roman(levelAct(n)) + "   LEVEL " + n, title: def.name.toUpperCase(),
-        sub: def.bpm + " BPM", lines: def.lore || [], then: then });
+        sub: def.bpm + " BPM" + (best ? "   \u00b7   BEST " + best : ""), lines: def.lore || [], then: then });
 }
 
 function showEpilogue(then) { // the last level is behind the run: the epilogue, over every act's backdrop in turn
