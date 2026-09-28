@@ -363,46 +363,52 @@ function drawStartScreen() { // draw the start screen, or whichever menu screen 
     drawMenuButton(geom("difficulty"), mode().label, small);
     drawMenuButton(geom("options"), "OPTIONS 設定", small);
     drawMenuButton(geom("help"), "HELP 説明", small);
-    if (touch) {
-        ctx.fillStyle = COLORS.dim;
-        ctx.font = "28px Arial";
-        ctx.fillText("Drag anywhere to steer", 190, 640);
-    }
 
     drawScreenBanners();
 
-    // slogan
     useLayout();
-    ctx.font = "40px Arial";
-    ctx.fillStyle = COLORS.magenta;
-    ctx.fillText(sloganText, sloganX, sloganY);
-
-    drawRecords();
-    drawSoundNote();
+    drawStartText();
     useWindow();
     titleLight(); // the laser behind the title (titlelight.js), if it isn't already sweeping: it stops by itself
+    titleParticles(); // and the particles behind it all (titleparticles.js), which have to know what they pass behind
 }
 
-function drawSoundNote() { // with a controller, until the page has had a click or a key: browsers let sound start only
+function drawStartText(c) { // the start screen's lines round its title and buttons, in layout coordinates: the slogan
+    // over the title, the touch hint, the records and the sound note. On the game's canvas unless given another
+    // context, as the title is: the particles behind the start screen draw them too, to keep out from behind them
+    c = c || ctx;
+    c.globalAlpha = 1.0;
+    c.font = "40px Arial";
+    c.fillStyle = COLORS.magenta;
+    c.fillText(sloganText, sloganX, sloganY);
+    if (startLayout() == "touch") {
+        c.fillStyle = COLORS.dim;
+        c.font = "28px Arial";
+        c.fillText("Drag anywhere to steer", 190, 640);
+    }
+    drawRecords(c);
+    drawSoundNote(c);
+}
+
+function drawSoundNote(c) { // with a controller, until the page has had a click or a key: browsers let sound start only
     // from those, and a controller's buttons don't count, so the beat would be silent
     if (inputMode != "pad" || !navigator.userActivation || navigator.userActivation.hasBeenActive) {
         return;
     }
-    ctx.font = "22px Arial";
-    ctx.fillStyle = COLORS.dim;
-    ctx.fillText("For sound, click or press a key once: the browser won't start it from a controller", 240, 718);
+    c.font = "22px Arial";
+    c.fillStyle = COLORS.dim;
+    c.fillText("For sound, click or press a key once: the browser won't start it from a controller", 240, 718);
 }
 
-function drawRecords() { // low on the start screen, under the buttons; nothing at all before there is any
+function drawRecords(c) { // low on the start screen, under the buttons; nothing at all before there is any
     var line = recordsLine();
     if (!line) {
         return;
     }
     var touch = startLayout() == "touch";
-    ctx.globalAlpha = 1.0;
-    ctx.font = (touch ? "30px" : "24px") + " Arial";
-    ctx.fillStyle = COLORS.magenta;
-    ctx.fillText(line, touch ? 190 : 240, touch ? 690 : 680);
+    c.font = (touch ? "30px" : "24px") + " Arial";
+    c.fillStyle = COLORS.magenta;
+    c.fillText(line, touch ? 190 : 240, touch ? 690 : 680);
 }
 
 function drawOptionsScreen() { // the settings, on a screen of their own

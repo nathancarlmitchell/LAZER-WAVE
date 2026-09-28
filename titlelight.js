@@ -8,7 +8,8 @@
 // Like the other effects it reads the game and never writes to it: the start screen's state (gameStart, menuUp), the
 // effects setting (fxLook: it sweeps only at "full", so reduced motion never sees it), the layout (layoutFrame) and
 // the title's own shape (drawTitle, TITLE_LINES). drawStartScreen calls titleLight to set it going; it stops itself
-// when the start screen goes. Where there is no WebGL there is simply no laser.
+// when the start screen goes. Where there is no WebGL there is simply no laser. titleSweepAt tells the particles behind
+// the start screen (titleparticles.js) where it is, for the sparks it strikes and the dust it lights.
 //
 // The rays are light scattering done on the screen: every pixel gathers the light along its way to the laser's hot
 // spot from a picture of the light with the title's silhouette standing in front of it, so where a letter is in the
@@ -262,19 +263,29 @@ function titleMask(w, h, f, r) { // draw the title's shape for the shader, where
     return box;
 }
 
-function titleLightDraw(now) { // one frame: where the sweep has got to, and the shader over the whole canvas
-    var gl = tl.gl, f = layoutFrame(), game = gameArea.canvas, b = tl.box;
-    var t = (now - tl.t0) / 1000;
+function titleSweep(now) { // where the sweep has got to at now: the line's x, in layout px, the title's band it runs
+    // down, how far it has come up (0 to 1), and the seconds it has been going
+    var b = tl.box, t = (now - tl.t0) / 1000;
     var leg = (t / TITLE_SWEEP) % 2; // 0..1 going, 1..2 coming back
     var ease = 0.5 - 0.5 * Math.cos(Math.PI * (leg < 1 ? leg : 2 - leg));
-    var x = b.left - TITLE_REACH + (b.right - b.left + 2 * TITLE_REACH) * ease; // layout px
+    return { x: b.left - TITLE_REACH + (b.right - b.left + 2 * TITLE_REACH) * ease, top: b.top, bottom: b.bottom,
+        glow: Math.min(1, t / TITLE_FADE), t: t };
+}
+
+function titleSweepAt(now) { // the laser as it is at now, for what it lights up, or null while it isn't sweeping
+    return tl.frame !== null && tl.box ? titleSweep(now) : null;
+}
+
+function titleLightDraw(now) { // one frame: where the sweep has got to, and the shader over the whole canvas
+    var gl = tl.gl, f = layoutFrame(), game = gameArea.canvas, b = tl.box;
+    var s = titleSweep(now);
     var toX = function (lx) { return (f.x + f.scale * lx) / game.width; };
     var toY = function (ly) { return (f.y + f.scale * ly) / game.height; };
     gl.uniform2f(tl.u.uSize, tl.w, tl.h);
     gl.uniform1f(tl.u.uK, tl.k);
-    gl.uniform2f(tl.u.uHot, toX(x), toY((b.top + b.bottom) / 2));
+    gl.uniform2f(tl.u.uHot, toX(s.x), toY((b.top + b.bottom) / 2));
     gl.uniform2f(tl.u.uSpan, toY(b.top - 40), toY(b.bottom + 40));
-    gl.uniform1f(tl.u.uGlow, Math.min(1, t / TITLE_FADE));
-    gl.uniform1f(tl.u.uTime, t % 100);
+    gl.uniform1f(tl.u.uGlow, s.glow);
+    gl.uniform1f(tl.u.uTime, s.t % 100);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
 }
