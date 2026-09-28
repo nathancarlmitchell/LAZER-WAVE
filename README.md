@@ -8,6 +8,11 @@ Built on the Focus Break engine: plain scripts, no build step, opens straight of
 
 Open `index.html`, or serve the folder (`node .claude/serve.js`, then http://localhost:8123/).
 
+For WordPress, `node wordpress-plugin/build.js` copies the game into the plugin and builds
+`wordpress-plugin/dist/lazer-wave-game.zip` (Plugins > Add New > Upload Plugin; then the Lazer Wave Game block or the
+`[lazer_wave]` shortcode) and `lazer-wave-theme.zip`, a theme to match. Raise the plugin's version in
+`lazer-wave-game.php` for each release: it is what makes sites fetch the new game files rather than cached ones.
+
 ### How to play:
 
  - Lasers flicker as a warning, then fire **on the beat**. Steer out of them.
