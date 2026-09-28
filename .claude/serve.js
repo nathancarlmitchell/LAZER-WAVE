@@ -11,7 +11,9 @@ const types = { ".html": "text/html; charset=utf-8", ".js": "text/javascript; ch
     ".mp3": "audio/mpeg", ".wav": "audio/wav", ".png": "image/png", ".ico": "image/x-icon" };
 
 http.createServer(function (req, res) {
-    let rel = decodeURIComponent(req.url.split("?")[0]);
+    let rel;
+    try { rel = decodeURIComponent(req.url.split("?")[0]); }
+    catch (e) { res.writeHead(400, { "Content-Type": "text/plain" }); res.end("bad request"); return; } // a malformed %-escape is a bad request, not a dead server
     if (rel === "/") { rel = "/index.html"; }
     const file = path.resolve(root, "." + rel);
     if (!file.startsWith(root + path.sep) && file !== root) { res.writeHead(403); res.end("outside the folder"); return; }

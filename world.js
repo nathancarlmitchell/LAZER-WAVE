@@ -66,13 +66,6 @@ function movePiece(targetX, targetY, ghost) { // move gamePiece to its target, r
     return false;
 }
 
-function resizeAroundCenter(obj, size) { // make obj a size x size square with the same center
-    obj.x -= (size - obj.width) / 2;
-    obj.y -= (size - obj.height) / 2;
-    obj.width = size;
-    obj.height = size;
-}
-
 function worldStep() { // each step: move every hazard, and drop the ones that are finished. A hazard's step(), if it
     // has one, moves it and returns false once it is done; the waves will be built out of these
     for (let i = hazards.length - 1; i >= 0; i--) {
@@ -101,15 +94,6 @@ function fitWorldToWindow() { // after a resize: a hazard sized to the window ca
             Object.assign(h, before);
         }
     });
-}
-
-function getRandomColor() {  // generate a random color
-    var letters = '0123456789ABCDEF';
-    var color = '#';
-    for (var i = 0; i < 6; i++) {
-        color += letters[Math.floor(Math.random() * 16)];
-    }
-    return color;
 }
 
 function getRandomNeon() { // a random fully saturated colour from the magenta-to-cyan half of the wheel, as #rrggbb

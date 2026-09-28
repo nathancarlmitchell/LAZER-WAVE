@@ -116,8 +116,8 @@ function windowResize() {
     var wasRotated = rotated;
     // resizing clears the canvas; keep what's shown between levels, e.g. a level transition message.
     // copy it once, before the first resize crops it, and reuse that copy for later resizes
-    if (gameStart && !alive && !restFrame && !storyUp()) { // a story screen draws itself every frame instead
-        restFrame = copyCanvas();
+    if (gameStart && !alive && !restFrame && !storyUp() && !resultsUp) { // a story screen draws itself every frame
+        restFrame = copyCanvas(); // instead, and the results lay themselves out again (below): neither needs a copy
     }
     gameArea.load();
     if (alive) {

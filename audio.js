@@ -1,4 +1,4 @@
-// Lazer Wave -- the playlist and the sound effects. The tracks, each playing the next; the song clock a rhythm game
+// Lazer Wave -- the playlist and the sound effects. The tracks, each playing the next; the track clock a rhythm game
 // times itself against; the sound effects at their levels, all scaled by OPTIONS' SOUND FX (sfxLevel); and the one
 // volume and one rate that drive every track at once. The beat track (the kick, the hat and the count-in) is not a
 // sound effect: it is what the player plays to, so no setting takes it away. index.html loads this with a plain
@@ -31,7 +31,6 @@ const all_songs = TRACKS.map(function (t) { return audioFile(t.src); });
 var songIndex = 0; // the track playing, or last played
 var sfxLevel = 1; // the SOUND FX setting (OPTIONS): the share of its own volume each sound effect plays at; 0 is none
 
-const aud_bomb = sfxFile("music/BOMB_SIREN-BOMB_SIREN-247265934.wav", 0.3);
 const aud_menuSound = sfxFile("music/Menu Sounds_2.wav", 0.2);
 const aud_death = sfxFile("music/Fx 14.wav", 0.15);
 const aud_danger = sfxFile("music/72.wav", 0.05);
@@ -39,8 +38,8 @@ const aud_powerUp = sfxFile("music/powerUp.wav", 0.1);
 const aud_pickupCoin = sfxFile("music/pickupCoin.wav", 0.1);
 const aud_click = sfxFile("music/click.wav", 0.1);
 const aud_startup = sfxFile("music/Fx 11.wav");
-const ALL_SFX = [aud_bomb, aud_menuSound, aud_death, aud_danger, aud_powerUp, aud_pickupCoin, aud_click]; // unlocked
-                                                                                    // together on a touch start
+// The sound effects a touch start unlocks together, which fetches every one of them: so only the sounds the game plays
+const ALL_SFX = [aud_menuSound, aud_death, aud_danger, aud_powerUp, aud_pickupCoin, aud_click];
 var musicVolume = 0.2;
 
 function loadAudio() { // on the first click, which is the one the browser lets sound start in. The levels bring
@@ -74,16 +73,18 @@ function playSound(audio) { // play, ignoring failures such as blocked autoplay 
     }
 }
 
-// The song clock. A rhythm game has to time itself against the music, not against the step count: the step loop is
+// The track clock. A rhythm game has to time itself against the music, not against the step count: the step loop is
 // steady, but a track can start late, stall buffering, or be played at another rate. The element's currentTime is the
-// truth; songBeat turns it into beats for a track that has a bpm, or returns null for one that doesn't.
-function songTime() { // seconds into the current track
+// truth; trackBeat turns it into beats for a track that has a bpm, or returns null for one that doesn't. It is named
+// for the track because songBeat is the synth's (music.js): the scripts share one global namespace, and the later
+// script's function silently replaces the earlier one's.
+function trackTime() { // seconds into the current track
     return all_songs.length ? all_songs[songIndex].currentTime : 0;
 }
 
-function songBeat() { // beats into the current track (fractional), or null if its tempo is unknown
+function trackBeat() { // beats into the current track (fractional), or null if its tempo is unknown
     var t = TRACKS[songIndex];
-    return t && t.bpm ? (songTime() - t.offset) * t.bpm / 60 : null;
+    return t && t.bpm ? (trackTime() - t.offset) * t.bpm / 60 : null;
 }
 
 var musicRate = 1; // the rate the songs are at, so putting it back to what it already is touches none of them
@@ -180,7 +181,7 @@ function synthHat(delay) { // a tick of high-passed noise: the off-beat
         noiseBuffer = c.createBuffer(1, Math.floor(c.sampleRate / 4), c.sampleRate);
         var d = noiseBuffer.getChannelData(0);
         for (var i = 0; i < d.length; i++) {
-            d[i] = Math.random() * 2 - 1; // audio only: never touches what the game spawns
+            d[i] = Math.random() * 2 - 1; // audio only: the hats' noise, and nothing else comes from it
         }
     }
     var when = c.currentTime + delay;
@@ -254,4 +255,24 @@ function synthGate(delay) { // a gate passed: a sine sweeping up two octaves
     o.connect(envelope(c, when, 0.35 * sfxLevel, 0.35));
     o.start(when);
     o.stop(when + 0.4);
+}
+
+function synthCharged(delay, note) { // the overdrive meter filling: three quick triangle notes climbing the key's chord,
+    // tonic, fifth and octave, from the MIDI note `note` (the act's key, music.js; A if none), the last left to ring,
+    // so the player hears that SPACE is loaded without looking at the meter
+    var c = beatAudio();
+    if (!c || sfxLevel <= 0) {
+        return;
+    }
+    var key = note === undefined ? 69 : note;
+    [0, 7, 12].forEach(function (step, i) {
+        var last = i == 2;
+        var when = c.currentTime + delay + i * 0.07;
+        var o = c.createOscillator();
+        o.type = "triangle";
+        o.frequency.value = midiHz(key + 12 + step);
+        o.connect(envelope(c, when, (last ? 0.16 : 0.1) * sfxLevel, last ? 0.45 : 0.14));
+        o.start(when);
+        o.stop(when + (last ? 0.5 : 0.16));
+    });
 }

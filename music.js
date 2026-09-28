@@ -193,12 +193,14 @@ function songBeat(c, m, song, sec, n, when, beatSec, bright, arp) { // a song's 
 
 function songTune(def, n, bar) { // what the tune does over bar `bar` of level n (def, its definition), for the lasers
     // to follow: the melody in a wave bar, the lead in a laser one. onset[i]: the MIDI note it starts on the bar's beat
-    // i, or null; sound[i]: the note sounding on beat i, started or held, or null in a rest; lo and hi: the line's
-    // lowest note and its highest, so a note's height on the screen can be worked out from them (waves.js)
+    // i, or null; hold[i]: how many beats it holds that note for, or null; sound[i]: the note sounding on beat i,
+    // started or held, or null in a rest; lo and hi: the line's lowest note and its highest, so a note's height on the
+    // screen can be worked out from them (waves.js); bass[i], bassLo and bassHi: the same for the bass under it;
+    // chord: the bar's chord's notes, in the tune's octave
     var song = actSong(n);
     var sec = musicSection(def, bar);
     var s = words(sec.laser ? song.lead : song.melody);
-    var tune = { onset: [], sound: [], lo: Infinity, hi: -Infinity };
+    var tune = { onset: [], hold: [], sound: [], lo: Infinity, hi: -Infinity };
     s.forEach(function (w) {
         if (w != "-" && w != ".") {
             tune.lo = Math.min(tune.lo, song.key + Number(w));
@@ -206,10 +208,17 @@ function songTune(def, n, bar) { // what the tune does over bar `bar` of level n
         }
     });
     var first = (bar - sec.first) * BEATS_PER_BAR * 2; // the bar's first step, and the section's
+    var steps = (sec.end - sec.first) * BEATS_PER_BAR * 2; // the section's, which no note holds past
     for (var i = 0; i < BEATS_PER_BAR; i++) {
         var step = first + i * 2;
         var w = s[step % s.length];
-        tune.onset.push(w == "-" || w == "." ? null : song.key + Number(w));
+        var on = w != "-" && w != ".";
+        tune.onset.push(on ? song.key + Number(w) : null);
+        var len = 1; // the note's length in steps: through the "-"s after it, to the section's end at most
+        while (on && step + len < steps && s[(step + len) % s.length] == "-") {
+            len++;
+        }
+        tune.hold.push(on ? len / 2 : null); // in beats, two steps to one
         var sounding = null;
         for (var back = step; back >= 0 && back > step - s.length; back--) { // back through its holds, to the note
             var v = s[back % s.length]; // they hold, but not past the section's start: nothing is held into it
@@ -219,6 +228,39 @@ function songTune(def, n, bar) { // what the tune does over bar `bar` of level n
             }
         }
         tune.sound.push(sounding);
+    }
+    // and the bass under it: the MIDI note the bass sounds on each beat, or null in a rest, and the bass line's range
+    // over the section's chords, so a cage can stand where the bass is (bassAt, waves.js)
+    var chordLine = sec.laser && song.leadChords || song.chords;
+    var roots = bassRoots(song.key, chordLine);
+    var bass = song.bass ? words(song.bass) : [];
+    tune.bass = [];
+    tune.bassLo = Infinity;
+    tune.bassHi = -Infinity;
+    roots.forEach(function (root) {
+        bass.forEach(function (w) {
+            if (w != "-" && w != ".") {
+                tune.bassLo = Math.min(tune.bassLo, root + Number(w));
+                tune.bassHi = Math.max(tune.bassHi, root + Number(w));
+            }
+        });
+    });
+    var root = roots[(bar - sec.first) % roots.length];
+    var chordNames = words(chordLine), chord = CHORDS[chordNames[(bar - sec.first) % chordNames.length]];
+    tune.chord = chord.map(function (t) { // the bar's chord, its notes taken into the tune's own octave, from lo up
+        var n = song.key + t;
+        return tune.lo + ((n - tune.lo) % 12 + 12) % 12;
+    });
+    for (var j = 0; j < BEATS_PER_BAR; j++) {
+        var at = first + j * 2, note = null; // the bass's step on beat j, and back through its holds to the note
+        for (var b = at; bass.length && b >= 0 && b > at - bass.length; b--) {
+            var v = bass[b % bass.length];
+            if (v != "-") {
+                note = v == "." ? null : root + Number(v);
+                break;
+            }
+        }
+        tune.bass.push(note);
     }
     return tune;
 }

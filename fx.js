@@ -1,7 +1,9 @@
 // Lazer Wave -- the effects. Everything here draws the look of the game and nothing here changes it: these functions
 // read the game's state and never write to it, so every spawn, score and sound is the same with the effects on or off.
-// No Math.random here (fxHash instead), so the spawns' stream is never touched by how the game is drawn. index.html
-// loads this with a plain <script src>, as globals rather than modules, so the game still opens straight off disk.
+// No Math.random here (fxHash instead), so a picture skipped or painted twice draws the same thing, and the look is the
+// same on every run; the levels themselves come from seeded streams (waves.js), so nothing drawn could move a beam.
+// index.html loads this with a plain <script src>, as globals rather than modules, so the game still opens straight off
+// disk.
 //
 // The game's entry points into this file: fxStep once a step, fxDrawScreen when a step is drawn, fxReset at a level's
 // edges, fxLook and fxHash from the menus, fxOverdrawn from the loop.
@@ -37,16 +39,17 @@ function fxReset() { // a level starts or ends: nothing carries over
     fx.roll = 0;
 }
 
-function fxStep() { // each step, before anything is drawn
+function fxStep(steps) { // each step, before anything is drawn; `steps`, 1 unless given, is how many steps' worth to
+    // move by, for a screen that runs by the frame rather than by the step (the story screens) and moves by the time gone
     fx.look = fxLook();
     if (fx.look == "off") {
         fxReset();
         return;
     }
-    fx.roll += FX_ROLL_RATE;
+    fx.roll += FX_ROLL_RATE * (steps === undefined ? 1 : steps);
 }
 
-function fxHash(a, b) { // a repeatable 0..1 from two whole numbers: the effects' own randomness (Math.random drives the spawns)
+function fxHash(a, b) { // a repeatable 0..1 from two whole numbers: the effects' own randomness, the same on every run
     var h = (Math.imul(a, 374761393) + Math.imul(b, 668265263)) | 0;
     h = Math.imul(h ^ (h >>> 13), 1274126177);
     return ((h ^ (h >>> 16)) >>> 0) / 4294967296;

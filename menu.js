@@ -22,8 +22,8 @@ const START_BUTTONS = {
     levels: { dx: -90, dy: -32, w: 300, h: 60, menu: "levels",
         touch: { dx: 60, dy: -60, w: 400, h: 90 } },
     // the run's difficulty, under START because it decides the run, and the two screens of their own
-    difficulty: { dx: -410, dy: 60, w: 300, h: 44, setting: "difficulty",
-        touch: { dx: -450, dy: 110, w: 400, h: 90 } },
+    difficulty: { dx: -410, dy: 60, w: 300, h: 44, setting: "difficulty", // what it gives is said beside it, or
+        touch: { dx: -450, dy: 110, w: 400, h: 100 } }, // inside it by touch, where nothing is beside it
     options: { dx: -410, dy: 124, w: 300, h: 44, menu: "options",
         touch: { dx: 60, dy: 50, w: 400, h: 90 } },
     help: { dx: -410, dy: 188, w: 300, h: 44, menu: "help",
@@ -310,10 +310,10 @@ function start_button_colors(){ // Flashing colors on the start button
     }
 }
 
-var flashNo = 0; // ticks of the hover flash. Its colours are hashed off this rather than drawn from Math.random,
-                 // because the instructions can be up over a paused level and the spawns' stream must not move
+var flashNo = 0; // ticks of the hover flash. Its colours are hashed off this rather than drawn from Math.random, as
+                 // every effect's are (fxHash): the same flash on every run, and nothing drawn draws on chance
 
-function flashColor() { // a colour for this tick of the flash, none from the spawns' stream
+function flashColor() { // a colour for this tick of the flash, hashed, as the effects' colours are
     flashNo++;
     var c = "#";
     for (var i = 0; i < 3; i++) {
@@ -355,8 +355,9 @@ function updateSloganText() { // pick a random slogan and redraw the start scree
     drawStartScreen();
 }
 
-function drawMenuButton(g, label, font) { // a framed button: a cyan edge, the ground inside, a magenta label
-    var bx = LAYOUT_W / 2 + g.dx, by = LAYOUT_H / 2 + g.dy;
+function drawMenuButton(g, label, font, note) { // a framed button: a cyan edge, the ground inside, a magenta label,
+    // and under the label, given one, a note in a line or two, dim and smaller, the label moved up to leave it room
+    var bx = LAYOUT_W / 2 + g.dx, by = LAYOUT_H / 2 + g.dy, size = parseInt(font, 10);
     ctx.fillStyle = COLORS.cyan;
     ctx.fillRect(bx, by, g.w, g.h);
     ctx.fillStyle = COLORS.bg;
@@ -364,7 +365,18 @@ function drawMenuButton(g, label, font) { // a framed button: a cyan edge, the g
     ctx.fillStyle = COLORS.magenta;
     ctx.font = font;
     ctx.textAlign = "center";
-    ctx.fillText(label, bx + g.w / 2, by + g.h / 2 + parseInt(font, 10) * 0.35, g.w - 16);
+    if (!note) {
+        ctx.fillText(label, bx + g.w / 2, by + g.h / 2 + size * 0.35, g.w - 16);
+    } else {
+        var noteSize = Math.round(size * 0.55), pitch = noteSize + 4;
+        var top = by + (g.h - (size + 4 + note.length * pitch)) / 2; // the label and the note, stacked, centred
+        ctx.fillText(label, bx + g.w / 2, top + size * 0.85, g.w - 16);
+        ctx.font = noteSize + "px Arial";
+        ctx.fillStyle = COLORS.dim;
+        note.forEach(function (line, i) {
+            ctx.fillText(line, bx + g.w / 2, top + size + 4 + i * pitch + noteSize * 0.85, g.w - 16);
+        });
+    }
     ctx.textAlign = "start";
 }
 
@@ -417,7 +429,8 @@ function drawStartScreen() { // draw the start screen, or whichever menu screen 
 
     var small = (touch ? 34 : 22) + "px Arial";
     drawMenuButton(geom("levels"), "LEVELS レベル", touch ? small : "26px Arial");
-    drawMenuButton(geom("difficulty"), mode().label, small);
+    drawMenuButton(geom("difficulty"), mode().label, small, touch ? mode().blurb : null); // the mouse layout says
+    // what it gives beside it instead (drawStartText)
     drawMenuButton(geom("options"), "OPTIONS 設定", small);
     drawMenuButton(geom("help"), "HELP 説明", small);
 
@@ -442,6 +455,11 @@ function drawStartText(c) { // the start screen's lines round its title and butt
         c.fillStyle = COLORS.dim;
         c.font = "28px Arial";
         c.fillText("Drag anywhere to steer", 190, 640);
+    } else { // what the difficulty gives, beside its button, where the row is empty: the touch layout's button says it
+        var g = geom("difficulty");
+        c.fillStyle = COLORS.dim;
+        c.font = "18px Arial";
+        c.fillText(mode().blurb.join(" · "), LAYOUT_W / 2 + g.dx + g.w + 24, LAYOUT_H / 2 + g.dy + g.h / 2 + 6);
     }
     drawRecords(c);
     drawSoundNote(c);
@@ -531,7 +549,7 @@ function helpPages() { // every page: a heading is a line of its own, and the li
     });
     controls.push({ t: touch ? "The pause icon is in the top " + (TOUCH_SIDE == "left" ? "left" : "right") + " corner"
         : pad ? "START pauses. On a screen, A picks and B goes back."
-        : "P pauses.  R plays again from the finish screen." });
+        : "P or ESC pauses.  R plays again from the finish screen." });
     return [controls, [
         { t: "RHYTHM リズム", title: true },
         { t: "Lasers flicker as a warning, then fire on the beat" },
@@ -539,17 +557,17 @@ function helpPages() { // every page: a heading is a line of its own, and the li
             : "and their colour is the " + (pad ? "button" : "key") + " to hit it with: " + keyText("cyan") + "   "
                 + keyText("magenta") },
         { t: "HIT ON THE BEAT, IN ITS COLOUR", head: true },
-        { t: "PERFECT 100, GOOD 50, times your multiplier" },
-        { t: "every " + COMBO_STEP + " in a row raises it, up to x" + MULT_MAX + ". A missed or WRONG beat resets it" },
+        { t: "PERFECT 100, GREAT 75, GOOD 50, BAD 25, times your multiplier and the difficulty's" },
+        { t: "every " + COMBO_STEP + " in a row raises it, up to x" + MULT_MAX + ". A missed, BAD or WRONG beat resets it" },
         { t: "SHIELDS", head: true },
-        { t: HP_MAX + " per attempt. A laser takes one and breaks your combo" },
+        { t: shieldsMax() + " to start on " + modeName() + ", kept from level to level. A laser takes one and breaks your combo" },
         { t: "Survive every bar to clear a level: " + RUN_LEVELS + " of them, in " + (ACTS.length - 1) + " acts" },
     ], [
         { t: "OVERDRIVE オーバードライブ", title: true },
-        { t: "PERFECTs charge the meter beside your shields, GOODs half as much" },
+        { t: "PERFECTs charge the meter by your shields; GREATs three quarters, GOODs half, BADs a quarter" },
         { t: touch ? "FULL: TAP OVERDRIVE" : "FULL: PRESS " + actionKey("gate"), head: true },
-        { t: "It starts on the bar line: the one you press it on, or the next" },
-        { t: "and lasts two bars. The colours still count." },
+        { t: "It starts on the next beat: the one you press it on, or the one after" },
+        { t: "and lasts eight beats. The colours still count." },
         { t: "LASER FORM", head: true },
         { t: "Lasers can't hurt you, and your hits score double" },
         { t: "Fly through a laser as it fires to absorb it for a bonus" },
@@ -879,8 +897,8 @@ function menuPress(name, p) { // a press while a menu screen is up, whichever on
 // The menu glitches. Every so often a piece of the start screen tears, ghosts or gets crushed for a moment, and then
 // the screen is drawn clean again. All three kinds are self-copies of what is already on the canvas -- nothing is
 // redrawn from the model, so whatever a piece looked like is what tears.
-// Its randomness is fxHash off a counter, not Math.random: Math.random is the stream the spawns come out of, and this
-// runs on a timer, so how many draws it takes before a run starts would depend on how long the start screen sat there.
+// Its randomness is fxHash off a counter, not Math.random, as every effect's is: repeatable within a load (glitchSeed
+// varies it between loads), and nothing drawn draws on chance; the levels come from seeded streams of their own.
 var GLITCH_EVERY = 220; // ms between rolls
 // The menu arrives broken and settles: it comes up glitching hard for about two seconds, then sits at about one
 // every six seconds.
@@ -894,7 +912,7 @@ var glitchClear = null; // the timer that will draw it clean
 var glitchNo = 0; // which roll this is; everything about it is hashed off this and a slot number
 var glitchSeed = Date.now() & 0xffff; // so two loads don't break in exactly the same places
 
-function glitchRand(slot) { // repeatable within a load, and out of the spawns' way
+function glitchRand(slot) { // repeatable within a load
     return fxHash(glitchSeed + glitchNo, slot);
 }
 

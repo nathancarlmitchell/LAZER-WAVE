@@ -11,7 +11,7 @@
 // effects setting (fxLook: they move at "full", hold still at "reduced" and are gone at "off"), the layout, the start
 // screen's own drawing (drawTitle, drawStartText, geom) for what stands in front of them, and the laser
 // (titleSweepAt). drawStartScreen calls titleParticles each time it draws; they stop themselves when the start screen
-// goes. Their randomness is fxHash, never Math.random, whose stream is the spawns'.
+// goes. Their randomness is fxHash, never Math.random, as every effect's is: the same dust on every load.
 
 var PARTICLE_PIXELS = 1500000; // the most pixels the layer has: a bigger window gets it drawn smaller and stretched
 var PARTICLE_FADE = 0.6; // seconds they take to come up with the start screen

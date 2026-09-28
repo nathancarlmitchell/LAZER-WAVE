@@ -1,6 +1,7 @@
 // Lazer Wave -- a level's beginning and its end. startGame and the touch start that seeds it, the way into a level the
-// run hasn't played (its act's story and its card, story.js), the wait after a death, a cleared level's results and
-// the CONTINUE and RETRY they wait on, the epilogue and the finish, the restart from it, the message block that lays
+// run hasn't played (its act's story and its card, story.js), the results a level ends on and what they wait for (a
+// clear's CONTINUE and RETRY, a death's TRY AGAIN and QUIT, the game over's PLAY AGAIN and QUIT), the epilogue and
+// the finish, the restart from it, the message block that lays
 // out the screens between levels (measured, centred and fitted to the window), and gameOver, which is where a level
 // cleared or lost becomes records, messages and the next level. index.html loads this with a plain <script src>, as
 // globals rather than modules, so the game still opens straight off disk.
@@ -15,6 +16,7 @@ function startGame(e) { // START, or a level picked on the level select: the run
     playSound(aud_click);
     startTime = Date.now();
     startRunLives(); // the difficulty is locked in from here: its button only lives on the start screen
+    carryHp = carryMeter = null; // a run begins on full shields and an empty meter
     gamePiece = new component(PIECE_SIZE, PIECE_SIZE, COLORS.piece, e.pageX - PIECE_SIZE / 2, e.pageY - PIECE_SIZE / 2); // centered on the cursor
     gamePiece.update = function () { drawPlayer(this); };
     gameStart = true;
@@ -96,10 +98,6 @@ function startPadGame() { // start from a controller: the piece starts where a t
     gameArea.y = startY;
 }
 
-function wait(time) {
-    setTimeout(startNextLevel, time);
-}
-
 function restartRun() { // after the finish screen, start a fresh run from where this one began, and its story
     runFinished = false;
     restartArmed = false;
@@ -108,6 +106,7 @@ function restartRun() { // after the finish screen, start a fresh run from where
     score = 0;
     runScore = 0;
     startRunLives();
+    carryHp = carryMeter = null;
     startTime = Date.now();
     enterLevel();
 }
@@ -237,17 +236,19 @@ function shareTexts(counts) { // the counts as whole percentages of their total 
     return p.map(function (v) { return v + "%"; });
 }
 
-function showBreakdown(dy) { // how the cleared level's beats went, which is what its rank is worked out from: how
-    // many there were and the longest combo of them, then a row for each way a beat can go, with how many went that
-    // way and what share
-    var beats = playBeats();
+function showBreakdown(dy, judged) { // how the level's beats went, which is what its rank is worked out from: how
+    // many there were (or, after a death, how many the attempt got through: `judged`) and the longest combo of them,
+    // then a row for each way a beat can go, with how many went that way and what share
+    var beats = judged === undefined ? playBeats() : judged;
     if (beats <= 0) {
         return; // nothing judged, nothing to break down
     }
-    var rows = [["PERFECT", perfects, COLORS.cyan], ["GOOD", goods, COLORS.magenta],
-        ["MISS", beats - perfects - goods, COLORS.dim]]; // every other beat: gone by unhit, or spent WRONG or OFF TARGET
+    var rows = [["PERFECT", perfects, COLORS.cyan], ["GREAT", greats, COLORS.text], ["GOOD", goods, COLORS.magenta],
+        ["BAD", bads, COLORS.late], ["MISS", beats - perfects - greats - goods - bads, COLORS.dim]]; // every other
+        // beat: gone by unhit, or spent WRONG or OFF TARGET
     var shares = shareTexts(rows.map(function (row) { return row[1]; }));
-    var pitch = (RESULTS_BOTTOM - RESULTS_TOP) / rows.length;
+    var pitch = (RESULTS_BOTTOM + 30 - RESULTS_TOP) / rows.length; // five rows against the other columns' three: they
+    // run on a little under them, in a smaller face
     ctx.font = "30px Arial";
     ctx.fillStyle = COLORS.dim;
     columnText(beats + " BEATS", RESULTS_LABEL_X, dy + RESULTS_TOP, "left");
@@ -255,10 +256,10 @@ function showBreakdown(dy) { // how the cleared level's beats went, which is wha
     columnText("MAX COMBO " + bestCombo, RESULTS_SHARE_X, dy + RESULTS_TOP, "right");
     rows.forEach(function (row, i) {
         var at = dy + RESULTS_TOP + (i + 1) * pitch;
-        ctx.font = "bold 30px Arial";
+        ctx.font = "bold 26px Arial";
         ctx.fillStyle = row[2];
         columnText(row[0], RESULTS_LABEL_X, at, "left");
-        ctx.font = "30px Arial";
+        ctx.font = "26px Arial";
         ctx.fillStyle = COLORS.text;
         columnText(String(row[1]), RESULTS_COUNT_X, at, "right");
         ctx.fillStyle = COLORS.dim;
@@ -285,10 +286,11 @@ function showRank(dy) { // the cleared level's rank, large: an S is printed as t
     centerText(gradeRecord ? "NEW BEST" : "best " + best, dy + RESULTS_BOTTOM, 1, RESULTS_RANK_X);
 }
 
-function showScore(dy) { // what the cleared level scored, the breakdown's mirror: its points, the most it has been
-    // cleared with (NEW BEST when that is these, as the rank's best says under it), and the run's total with its points
-    // in, which is what CONTINUE banks
-    var rows = [["LEVEL " + level, score], [scoreRecord ? "NEW BEST" : "BEST", rec().score[level]],
+function showScore(dy, dead) { // what the level scored, the breakdown's mirror: its points, the most it has been
+    // cleared with (NEW BEST when that is these, as the rank's best says under it; after a death, just the best, or
+    // none yet), and the run's total with its points in, which is what CONTINUE banks and a life keeps
+    var best = rec().score[level];
+    var rows = [["LEVEL " + level, score], [!dead && scoreRecord ? "NEW BEST" : "BEST", best === undefined ? "-" : best],
         ["TOTAL", runScore + score]];
     var pitch = (RESULTS_BOTTOM - RESULTS_TOP) / rows.length;
     ctx.font = "30px Arial";
@@ -297,12 +299,12 @@ function showScore(dy) { // what the cleared level scored, the breakdown's mirro
     rows.forEach(function (row, i) {
         var at = dy + RESULTS_TOP + (i + 1) * pitch;
         var total = i == rows.length - 1; // the one that matters most, set apart
-        var best = i == 1 && scoreRecord; // and a new best, in the colour the other new bests are in
+        var top = i == 1 && !dead && scoreRecord; // and a new best, in the colour the other new bests are in
         ctx.font = "bold 30px Arial";
-        ctx.fillStyle = best ? COLORS.good : total ? COLORS.text : COLORS.dim;
+        ctx.fillStyle = top ? COLORS.good : total ? COLORS.text : COLORS.dim;
         columnText(row[0], RESULTS_SCORE_X, at, "left");
         ctx.font = (total ? "bold 36px" : "30px") + " Arial";
-        ctx.fillStyle = best ? COLORS.good : total ? COLORS.cyan : COLORS.text;
+        ctx.fillStyle = top ? COLORS.good : total ? COLORS.cyan : COLORS.text;
         columnText(String(row[1]), RESULTS_POINTS_X, at, "right");
     });
 }
@@ -370,26 +372,60 @@ function showMessage(panel) { // draw the queued lines centred and as large as t
 // this attempt's points. Neither takes a press for the first RESULTS_GRACE_MS, so a press held or mashed as the level
 // ends can't skip them unseen, and the time they are up is left off the run's clock, as a pause's is.
 var RESULTS_GRACE_MS = 1000;
-var resultsUp = false; // a cleared level's results are showing
+var resultsUp = false; // a level's results are showing: a clear's, a death's, or the game over's
+var resultsKind = "clear"; // which: "clear", "death" (a life spent, the level again on offer) or "over" (none left)
 var resultsAt = 0; // when they came up
 var resultsHover = ""; // the button under the mouse, or under a finger held on it
 var resultsArmed = false; // a mouse press began on them once they could take one
-const RESULT_BUTTONS = { // left to right: where each sits (-1 left, 1 right), and the line under its label, which is
-    // its keys at a keyboard and its name in Japanese otherwise. CONTINUE is the way on, lit as START is
-    retry: { side: -1, label: "RETRY", keys: "R", jp: "リトライ" },
-    next: { side: 1, label: "CONTINUE", keys: "ENTER / SPACE", jp: "次へ", primary: true },
+const RESULT_BUTTONS = { // by the results' kind, left to right: where each sits (-1 left, 1 right), and the line under
+    // its label, which is its keys at a keyboard and its name in Japanese otherwise. The way on is lit as START is
+    clear: { retry: { side: -1, label: "RETRY", keys: "R", jp: "リトライ" },
+        next: { side: 1, label: "CONTINUE", keys: "ENTER / SPACE", jp: "次へ", primary: true } },
+    death: { quit: { side: -1, label: "QUIT", keys: "Q", jp: "終了" },
+        again: { side: 1, label: "TRY AGAIN", keys: "ENTER / R", jp: "リトライ", primary: true } },
+    over: { quit: { side: -1, label: "QUIT", keys: "Q", jp: "終了" },
+        again: { side: 1, label: "PLAY AGAIN", keys: "ENTER / R", jp: "もう一度", primary: true } },
 };
 
-function showLevelResults() { // the level was cleared: its results come up and wait
+function resultButtons() { // the buttons the results up have
+    return RESULT_BUTTONS[resultsKind];
+}
+
+function resultPrimary() { // the way on: the button a controller lights first, and START presses
+    var buttons = resultButtons();
+    for (var name in buttons) {
+        if (buttons[name].primary) {
+            return name;
+        }
+    }
+    return "";
+}
+
+function resultForKey(key) { // the button a key presses on the results up, or "": a clear's R is RETRY and its ENTER
+    // or SPACE CONTINUE; a death's or the game over's R, ENTER or SPACE is the way on, and Q is QUIT
+    if (resultsKind == "clear") {
+        return key == "r" ? "retry" : key == "Enter" || key == " " ? "next" : "";
+    }
+    return key == "q" ? "quit" : key == "r" || key == "Enter" || key == " " ? "again" : "";
+}
+
+function raiseResults(kind) { // the level ended: its results come up, of the kind, and wait
+    resultsKind = kind;
     resultsUp = true;
     resultsAt = Date.now();
     resultsHover = "";
     resultsArmed = false;
-    playSound(aud_menuSound);
+    if (kind == "clear") {
+        playSound(aud_menuSound);
+    }
     drawResultsScreen();
 }
 
 function drawResultsScreen() { // drawn as they come up, and again on a resize, a hover or a change of input
+    if (resultsKind != "clear") {
+        drawDeathResults();
+        return;
+    }
     drawSky(level, 0, null, SKY_BEHIND); // the level's backdrop, still and dimmed, behind them: the ground as well
     ctx.font = "80px Arial";
     printText("Level " + level + " Clear", -175);
@@ -413,8 +449,9 @@ function showResultButtons() { // RETRY and CONTINUE, side by side under the res
     var w = touch ? 360 : 300, h = touch ? 100 : 76;
     var top = msgBottom() + 50;
     ctx.font = (touch ? 40 : 30) + "px Arial";
-    for (var name in RESULT_BUTTONS) {
-        var b = RESULT_BUTTONS[name];
+    var buttons = resultButtons();
+    for (var name in buttons) {
+        var b = buttons[name];
         buttonText(name, b.label, inputMode == "mouse" ? b.keys : b.jp, b.side * (w / 2 + 20), top, w, h,
             resultsHover == name, b.primary);
     }
@@ -435,7 +472,8 @@ function setResultsHover(name) { // light the button under the mouse or a finger
     }
 }
 
-function chooseResult(name) { // CONTINUE ("next") or RETRY ("retry")
+function chooseResult(name) { // a button on the results: a clear's CONTINUE ("next") or RETRY ("retry"), a death's
+    // TRY AGAIN or the game over's PLAY AGAIN ("again"), or QUIT ("quit")
     if (!resultsReady()) {
         return;
     }
@@ -443,17 +481,27 @@ function chooseResult(name) { // CONTINUE ("next") or RETRY ("retry")
     resultsHover = "";
     playSound(aud_click);
     startTime += Date.now() - resultsAt; // off the run's clock
-    if (name == "next") {
-        runScore += score;
-        level++;
-    }
-    score = 0; // the next level, or this one again, starts from nothing
-    if (name == "retry") {
+    if (name == "quit") {
+        endRun();
+    } else if (resultsKind == "death") { // the level again, its points kept by the life spent, from full shields
         startNextLevel();
-    } else if (level > RUN_LEVELS) {
-        showEpilogue(showFinish);
+    } else if (resultsKind == "over") { // the run again, from where it began
+        restartRun();
     } else {
-        enterLevel();
+        if (name == "next") { // on to the next level, with the shields and the charge this one left
+            carryHp = hp;
+            carryMeter = drive.start === null ? drive.meter : 0;
+            runScore += score;
+            level++;
+        }
+        score = 0; // the next level, or this one again, starts from nothing
+        if (name == "retry") {
+            startNextLevel();
+        } else if (level > RUN_LEVELS) {
+            showEpilogue(showFinish);
+        } else {
+            enterLevel();
+        }
     }
 }
 
@@ -530,12 +578,17 @@ function retryLevel() { // RETRY, from the pause: the level again from its start
 
 function quitRun() { // QUIT, from the pause: the run ends, unrecorded, and the start screen comes back
     leavePause();
+    endRun();
+}
+
+function endRun() { // the run ends, unrecorded, from the pause's QUIT or the results': the start screen comes back
     stopLevel();
     gameStart = false; // so the next START is a first start again: a new run, its lives and its clock
     level = 1;
     deaths = 0;
     score = 0;
     runScore = 0;
+    carryHp = carryMeter = null;
     restFrame = null;
     hoveredButton = "";
     startMenuTimers();
@@ -545,44 +598,56 @@ function quitRun() { // QUIT, from the pause: the run ends, unrecorded, and the 
 function gameOver() { // the level was cleared or the player died
     var levelCleared = levelComplete();
     stopLevel();
-    lifeSpent = false;
     if (levelCleared) {
         recordLevel(level); // its rank and its score
-        showLevelResults(); // which keep its score up until CONTINUE banks it or RETRY lets it go
+        raiseResults("clear"); // which keep its score up until CONTINUE banks it or RETRY lets it go
         return;
     }
     deaths += 1;
-    lifeSpent = runLives > 0;
-    if (lifeSpent) { // a life buys the level's progress back: the death reads as a transition, not a reset
-        runLives--;
-    }
     playSound(aud_death);
-    drawDeathMessage(score);
-    wait(2500);
-    useWindow();
-    if (!lifeSpent) {
-        score = 0; // the level starts again from nothing; a life is what keeps a death from doing it
+    if (runLives > 0) { // a life buys the level again, its points kept: the death's results say so, and wait for TRY
+        runLives--; // AGAIN
+        raiseResults("death");
+    } else { // none left: the run is over
+        raiseResults("over");
     }
 }
 
-function drawDeathMessage(shown) { // the message after a death, over the level's backdrop, still and dimmed
+function drawDeathResults() { // a death's results, over the level's backdrop, still and dimmed: how far the attempt
+    // got, its beats so far and its points, the lives left, and TRY AGAIN or QUIT; or, with none left, the game over,
+    // and PLAY AGAIN or QUIT
+    var over = resultsKind == "over";
     drawSky(level, 0, null, SKY_BEHIND);
     ctx.font = "80px Arial";
-    printText(deathProgress >= 0.9 ? "So Close" : "Try Again", -175);
-    ctx.font = "80px Arial";
-    printText(String(shown), -54);
+    printText(over ? "Game Over" : deathProgress >= 0.9 ? "So Close" : "Try Again", -175);
     ctx.font = "60px Arial";
-    printText("再試行する", 45);
+    printText(over ? "ゲームオーバー" : "再試行する", -75);
     if (timingText()) {
         ctx.font = "30px Arial";
         ctx.fillStyle = timingColor();
-        centerText(timingText(), msgBottom() + 70);
+        centerText(timingText(), 0);
     }
-    if (lifeSpent) {
-        ctx.font = "30px Arial";
-        ctx.fillStyle = COLORS.good;
-        centerText("LIFE SPENT   score kept   " + runLives + " left", msgBottom() + 80);
-    }
+    var dy = msgBottom() + 160;
+    showBreakdown(dy, Math.max(0, nextJudge - firstPlayBeat(), perfects + greats + goods + bads)); // the beats it got
+    // through:
+    // judged by then, and any hit early on top
+    showReached(dy, over);
+    showScore(dy, true);
+    showResultButtons();
     showMessage();
     useWindow();
+    ctx.fillStyle = over ? COLORS.warn : COLORS.magenta;
+    drawBanners(40, 20, bannerScale());
+}
+
+function showReached(dy, over) { // in the rank's place: how far through the level the attempt got, and the lives left
+    ctx.font = "30px Arial";
+    ctx.fillStyle = COLORS.dim;
+    centerText("REACHED 到達", dy + RESULTS_TOP, 1, RESULTS_RANK_X);
+    ctx.font = "100px Arial";
+    ctx.fillStyle = over ? COLORS.warn : COLORS.text;
+    centerText(Math.round(deathProgress * 100) + "%", dy, 3, RESULTS_RANK_X);
+    ctx.font = "30px Arial";
+    ctx.fillStyle = over ? COLORS.warn : COLORS.good;
+    centerText(over ? "NO LIVES LEFT" : "LIVES " + runLives + " LEFT", dy + RESULTS_BOTTOM, 1, RESULTS_RANK_X);
 }

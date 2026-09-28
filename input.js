@@ -199,7 +199,8 @@ function stopResume() { // a touch resume countdown was cut short: stay paused a
     return true;
 }
 
-function startResumeCountdown() { // touch resume: 3, 2, 1 (400ms each), so the player can put their thumbs down first
+function startResumeCountdown() { // the resume's 3, 2, 1 (400ms each): by touch a tap's, and RESUME's with the mouse
+    // too, so the player can put their thumbs down, or the cursor back on the piece, first
     if (resumeTimer || !pause || !alive || menuUp()) {
         return;
     }
@@ -221,10 +222,11 @@ function startResumeCountdown() { // touch resume: 3, 2, 1 (400ms each), so the 
 }
 
 // The pause panel: how to resume, and its buttons, left to right, with the line under each label, which is its key at
-// a keyboard and its name in Japanese otherwise. RESUME is the controller's alone: the mouse resumes with P once the
-// cursor is back on the piece, and a finger by tapping anywhere else
+// a keyboard and its name in Japanese otherwise. RESUME resumes at once with a controller; with the mouse or a finger
+// it counts 3-2-1 first (startResumeCountdown), so the cursor can be put back on the piece and the thumbs put down.
+// P, ESC and, by touch, a tap anywhere else resume as they always did
 const PAUSE_BUTTONS = {
-    resume: { label: "RESUME", keys: "P", jp: "再開" },
+    resume: { label: "RESUME", keys: "P / ESC", jp: "再開" },
     help: { label: "HELP", keys: "H", jp: "説明" },
     retry: { label: "RETRY", keys: "R", jp: "リトライ" },
     quit: { label: "QUIT", keys: "Q", jp: "終了" },
@@ -233,8 +235,8 @@ var PAUSE_PANEL = 28; // how far the panel reaches past what is on it
 var pauseHover = ""; // the pause button under the mouse, under a finger held on it, or picked with a controller
 var pauseArmed = false; // a mouse press began on the panel, so its click may press a button
 
-function pauseButtons() { // the pause buttons this input gets, in order
-    return inputMode == "pad" ? ["resume", "help", "retry", "quit"] : ["help", "retry", "quit"];
+function pauseButtons() { // the pause buttons, in order: every input gets the lot
+    return ["resume", "help", "retry", "quit"];
 }
 
 function drawPauseScreen(countdown) { // over the level, frozen as it stood: how to resume and the buttons, or by
@@ -245,6 +247,11 @@ function drawPauseScreen(countdown) { // over the level, frozen as it stood: how
     if (countdown) {
         ctx.font = "140px Arial";
         centerText(String(countdown), 0);
+        if (!touch && !pad) { // the mouse's piece jumps to the cursor as play resumes: this is the moment to line it up
+            ctx.font = "22px Arial";
+            ctx.fillStyle = COLORS.text;
+            centerText("Move the cursor onto your piece", 50);
+        }
         showMessage(PAUSE_PANEL);
         useWindow();
         return;
@@ -262,7 +269,7 @@ function drawPauseScreen(countdown) { // over the level, frozen as it stood: how
     } else {
         ctx.fillStyle = COLORS.text;
         ctx.font = "25px Arial";
-        centerText(pad ? "START or B to resume" : "P to resume", 40);
+        centerText(pad ? "START or B to resume" : "P or ESC to resume", 40);
         if (!pad) {
             ctx.font = "18px Arial";
             centerText("Move the cursor onto your piece first", 72);
@@ -300,8 +307,12 @@ function pausePress(name) { // a pause button: RESUME, HELP, RETRY or QUIT
     if (!alive || !pause || menuUp() || resumeTimer || !PAUSE_BUTTONS[name]) {
         return;
     }
-    if (name == "resume") {
-        setPause(false);
+    if (name == "resume") { // at once with a controller; with the mouse or a finger, after the 3-2-1
+        if (inputMode == "pad") {
+            setPause(false);
+        } else {
+            startResumeCountdown();
+        }
     } else if (name == "help") {
         openMenu("help"); // over the frozen level; closing it puts the panel back
     } else {
@@ -906,7 +917,7 @@ function padDefault(screen) { // the button lit when a controller comes to a scr
         return "level_" + (levelNextUp() || RUN_LEVELS);
     }
     if (screen == "results") {
-        return "next";
+        return resultPrimary();
     }
     var list = padTargets(screen); // the pause's RESUME, a menu's first row
     return list.length ? list[0].name : "";
@@ -986,7 +997,7 @@ function padStart(screen) { // START: the way on from wherever it is pressed
     } else if (screen == "pause") {
         pausePress("resume");
     } else if (screen == "results") {
-        chooseResult("next");
+        chooseResult(resultPrimary());
     } else if (screen == "finish") {
         padPlayAgain();
     } else if (screen == "story") {
@@ -1040,7 +1051,7 @@ function bindInput() { // the touch, mouse, keyboard, controller and page listen
             storyPress();
         } else if (runFinished && restartArmed) { // play again from the finish screen
             restartRun();
-        } else if (resultsArmed && resultButtonAt(p.x, p.y)) { // CONTINUE or RETRY, from a cleared level's results
+        } else if (resultsArmed && resultButtonAt(p.x, p.y)) { // a button on a level's results
             chooseResult(resultButtonAt(p.x, p.y));
         } else if (pauseArmed && pauseButtonAt(p.x, p.y)) { // HELP, RETRY or QUIT, from the pause panel
             pausePress(pauseButtonAt(p.x, p.y));
@@ -1152,8 +1163,8 @@ function bindInput() { // the touch, mouse, keyboard, controller and page listen
             openMenu("levels");
             return;
         }
-        if (key == "h" && !e.repeat && !menuUp() && (!gameStart || (alive && pause))) {
-            e.preventDefault(); // the instructions, from the start screen or from a pause
+        if (key == "h" && !e.repeat && !menuUp() && (!gameStart || (alive && pause)) && !e.ctrlKey && !e.metaKey) {
+            e.preventDefault(); // the instructions, from the start screen or from a pause (Ctrl+H is the browser's)
             stopResume(); // a resume already counting down would come back under them
             openMenu("help");
             return;
@@ -1161,12 +1172,13 @@ function bindInput() { // the touch, mouse, keyboard, controller and page listen
         if (key == "r" && runFinished && !e.repeat && !e.ctrlKey && !e.metaKey) { // R = play again (Ctrl+R still reloads)
             restartRun();
         }
-        if (resultsUp && (key == "r" || key == "Enter" || key == " ") && !e.ctrlKey && !e.metaKey) {
-            // a cleared level's results: R = RETRY, ENTER or SPACE = CONTINUE. Nothing else hears the key, not even
-            // the action SPACE is bound to
+        if (resultsUp && resultForKey(key) && !e.ctrlKey && !e.metaKey) {
+            // a level's results: a clear's R = RETRY, ENTER or SPACE = CONTINUE; a death's R, ENTER or SPACE = TRY
+            // AGAIN (PLAY AGAIN at the game over) and Q = QUIT. Nothing else hears the key, not even the action SPACE
+            // is bound to
             e.preventDefault();
             if (!e.repeat) {
-                chooseResult(key == "r" ? "retry" : "next");
+                chooseResult(resultForKey(key));
             }
             return;
         }
@@ -1177,9 +1189,9 @@ function bindInput() { // the touch, mouse, keyboard, controller and page listen
             }
             return;
         }
-        if (key == "p") {
-            e.preventDefault();
-            if (!e.repeat) { // holding P shouldn't flip pause on every key repeat
+        if ((key == "p" || key == "Escape") && !e.ctrlKey && !e.metaKey) { // pause, and again to resume (Ctrl+P is
+            e.preventDefault(); // the browser's: print, not pause)
+            if (!e.repeat) { // holding the key shouldn't flip pause on every key repeat
                 setPause(!pause);
             }
         }

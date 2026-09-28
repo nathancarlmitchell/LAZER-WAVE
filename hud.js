@@ -10,8 +10,11 @@ var BAR_TRACK = 0.15; // the unfilled remainder, just enough to show how far the
 // the two secondary readouts shrink and close up under the score, which keeps its size.
 var TOUCH_STAT_FONT = 26; // px, against the score's 40
 var TOUCH_STAT_LEVEL = 195, TOUCH_STAT_DEATHS = 230; // instead of 220 and 260
-var METER_X = 136, METER_Y = 151, METER_W = 100, METER_H = 8; // the overdrive meter, on the shields' row after
-                                                                // them, so it crowds neither layout
+var METER_Y = 151, METER_W = 100, METER_H = 8; // the overdrive meter, on the shields' row after them, so it crowds
+                                               // neither layout
+function meterX() { // where it starts: after the shields the difficulty gives, however many
+    return 50 + shieldsMax() * 26 + 8;
+}
 
 function drawStats(color, scoreColor) { // score, combo, shields, and the level in the top-left corner
     var touch = inputMode == "touch";
@@ -26,7 +29,7 @@ function drawStats(color, scoreColor) { // score, combo, shields, and the level 
         ctx.fillStyle = driveOn() ? COLORS.laserCore : COLORS.magenta;
         ctx.fillText("x" + pointsMult() + "   COMBO " + combo, 50, 132);
     }
-    for (var i = 0; i < HP_MAX; i++) { // the shields: filled while they last
+    for (var i = 0; i < shieldsMax(); i++) { // the shields: filled while they last
         ctx.fillStyle = COLORS.cyan;
         ctx.globalAlpha = i < hp ? 0.9 : 0.25;
         ctx.fillRect(50 + i * 26, 146, 18, 18);
@@ -50,15 +53,15 @@ function drawDriveMeter(touch) { // overdrive's meter: charging, then full and t
     var waiting = driveReady() || driveArmed();
     ctx.fillStyle = COLORS.laserCore;
     ctx.globalAlpha = 0.18;
-    ctx.fillRect(METER_X, METER_Y, METER_W, METER_H);
+    ctx.fillRect(meterX(), METER_Y, METER_W, METER_H);
     ctx.globalAlpha = waiting ? 0.55 + 0.45 * Math.max(0, 1 - beatFrac() * 3) : 0.9;
-    ctx.fillRect(METER_X, METER_Y, METER_W * driveMeter(), METER_H);
-    var label = driveOn() ? "OVERDRIVE" : driveArmed() ? "NEXT BAR"
+    ctx.fillRect(meterX(), METER_Y, METER_W * driveMeter(), METER_H);
+    var label = driveOn() ? "OVERDRIVE" : driveArmed() ? "NEXT BEAT"
         : driveReady() ? (touch ? "READY" : actionKey("gate")) : "";
     if (label) { // steady, whatever the bar is doing
         ctx.globalAlpha = 1;
         ctx.font = "bold 16px Arial";
-        ctx.fillText(label, METER_X + METER_W + 10, METER_Y + METER_H + 2);
+        ctx.fillText(label, meterX() + METER_W + 10, METER_Y + METER_H + 2);
     }
 }
 

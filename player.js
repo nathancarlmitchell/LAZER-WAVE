@@ -9,7 +9,8 @@
 // index.html loads this with a plain <script src>, as globals rather than modules, so the game still opens straight
 // off disk.
 //
-// Like the effects, this only draws: it reads the piece and beatPos, and nothing here changes what the game does.
+// Like the effects, this only draws: it reads the piece and the beat as the player plays it (judgePos, loop.js), and
+// nothing here changes what the game does.
 // The history is recorded every step (playerRecord) so the trail is the same whether a step was painted or not.
 
 var TRAIL_STEPS = 120; // steps of position history the trail is drawn from (1.2s)
@@ -52,11 +53,13 @@ function playerReset() { // a level starts: no trail from wherever the piece was
     playerFlash.age = FLASH_STEPS;
 }
 
-function playerRecord() { // each step, after the piece has moved: where it is now, and on which beat
+function playerRecord() { // each step, after the piece has moved: where it is now, and on which beat -- the beat as
+    // the player plays it (judgePos, loop.js), so the waves meet where a press is on the beat: the audio's delay and
+    // the timing offset move the meeting as they move the judging, and playing by eye agrees with playing by ear
     var s = trail.samples[trail.next];
     s.x = gamePiece.x + gamePiece.width / 2;
     s.y = gamePiece.y + gamePiece.height / 2;
-    s.beat = beatPos;
+    s.beat = judgePos();
     waveSize += (waveTarget() - waveSize) * (isLaser() ? WAVE_PULL : WAVE_GROW);
     s.gap = waveSize; // each point keeps the size it was made at, so the trail shows the combo growing
     s.laser = isLaser(); // and whether the piece was a laser, so the beam starts where it became one

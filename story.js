@@ -72,7 +72,7 @@ var EPILOGUE_ACT_MS = 5000; // and its backdrop, every act's in turn, this long 
 var story = null; // the story screen up, or null: { kind: "act", "card" or "end", n: the level whose colour and
                   // backdrop it shows, head, title, sub, lines, at: performance.now() when it came up, clock:
                   // Date.now() then, for the run's clock, typedAt: when its lore was all out (0 until then), skip,
-                  // then: what comes after it, frame }
+                  // then: what comes after it, frame, frameAt: when its last frame was drawn, for the CRT's pace }
 
 function levelAct(n) { // the act level n is in
     return Math.max(1, Math.min(ACTS.length - 1, Math.ceil(n / LEVELS_PER_ACT)));
@@ -107,7 +107,8 @@ function showLevelCard(n, then) { // a level is next: its name, its tempo and th
     var def = levelDef(n);
     var best = [rec().rank[n], rec().score[n]].filter(function (v) { return v !== undefined; }).join("  ");
     showStory({ kind: "card", n: n, head: "ACT " + roman(levelAct(n)) + "   LEVEL " + n, title: def.name.toUpperCase(),
-        sub: def.bpm + " BPM" + (best ? "   \u00b7   BEST " + best : ""), lines: def.lore || [], then: then });
+        sub: def.bpm + " BPM   \u00b7   " + modeName() + (best ? "   \u00b7   BEST " + best : ""), lines: def.lore || [],
+        then: then });
 }
 
 function showEpilogue(then) { // the last level is behind the run: the epilogue, over every act's backdrop in turn
@@ -118,6 +119,7 @@ function showEpilogue(then) { // the last level is behind the run: the epilogue,
 
 function showStory(s) {
     s.at = performance.now();
+    s.frameAt = s.at; // when its last frame was drawn, for the CRT's pace
     s.clock = Date.now();
     s.typedAt = 0;
     s.skip = false;
@@ -157,7 +159,8 @@ function storyFrame(now) {
             return;
         }
     }
-    fxStep(); // the CRT's bar rolls on, as it does in a level
+    fxStep(Math.min(MAX_CATCH_UP_MS, now - story.frameAt) / STEP_MS); // the CRT's bar rolls on at the pace it has in a
+    story.frameAt = now; // level: by the time gone, since a story screen runs by the frame rather than by the step
     drawStory(now);
     story.frame = requestAnimationFrame(storyFrame);
 }

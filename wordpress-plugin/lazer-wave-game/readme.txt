@@ -4,7 +4,7 @@ Tags: game, rhythm, arcade, html5, embed
 Requires at least: 6.1
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 1.2.0
+Stable tag: 1.4.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -14,12 +14,13 @@ Play Lazer Wave, a neon rhythm arcade game, on your WordPress site.
 
 Lasers flicker as a warning, then fire on the beat. Steer out of them. You are two sine waves trailing neon: hit on
 the beat, when they meet, in its colour: Z for cyan, X for magenta. Charge the overdrive meter and spend it with Space
-to become a laser, untouchable, for two bars. At a gate, Space switches you to laser form: lock on, and hit the
+to become a laser, untouchable, for eight beats. At a gate, Space switches you to laser form: lock on, and hit the
 targets in their colours while you dodge the lasers crossing your path.
 
 Twenty-five levels in five acts climb the visible spectrum from Infrared to Ultraviolet, at 96 to 132 BPM, with lore
 between them. Every act has a synth song of its own, and the lasers fire on its notes. Each cleared level is ranked
-from F to S+, and keeps its best rank and best score; a level select opens each level once the one before is beaten.
+from F to S+, and keeps its best rank and best score; a level select opens each level once the one before is beaten. Four difficulties, EASY to TRUE, set a run's lives, shields, timing
+windows and warnings.
 
 The game runs in its own frame, so your theme can't restyle it and it can't clash with the rest of the page.
 
@@ -50,10 +51,10 @@ volumes, and CALIBRATE, which finds a player's timing offset as they tap along t
 = How do I play? =
 
 Mouse: your piece follows the cursor. Z or the left button hits a cyan beat, X or the right button a magenta one.
-Space or the middle button passes a gate, and anywhere else spends a full overdrive meter. P to pause, H for help.
+Space or the middle button passes a gate, and anywhere else spends a full overdrive meter. P or Esc to pause, H for help.
 Touch: drag anywhere to steer, and tap the CYAN, MAGENTA and GATE / OVERDRIVE buttons. On a phone, use Fullscreen or
-"Open in a new window". A controller works too: the stick steers, LT, LB or X hit cyan, RT, RB or B magenta, A or Y
-take the gates and overdrive, and START pauses.
+"Open in a new window". A controller works too: the left stick or the D-pad steers, LT, LB or X hit cyan, RT, RB or B
+magenta, A or Y take the gates and overdrive, and START pauses.
 
 = Hits feel early or late =
 
@@ -64,6 +65,27 @@ In the game's OPTIONS, CALIBRATE plays a beat to tap along to and suggests the t
 Click the game first so it has the keyboard.
 
 == Changelog ==
+
+= 1.4.0 =
+* Lives across the run: a death spends one and offers the level again with its points kept, on results of its own
+  with TRY AGAIN and QUIT; the death after the last life is the game over, with PLAY AGAIN and QUIT.
+* On CONTINUE your shields and your overdrive charge carry over into the next level.
+* Four difficulties, EASY, NORMAL, HARD and TRUE: lives, shields, timing windows, warning times and points, and the
+  button under START says what each gives. Records are kept per difficulty.
+* Four timing windows: PERFECT, GREAT, GOOD and BAD. A BAD spends the beat but breaks the combo.
+* Overdrive starts on the next beat, and a chime in the song's key says when the meter is full.
+* New lasers through the acts: fallers and held-note burns, pincers, the cage, the corridor, mirrors, ripples,
+  crossfire, sweepers, the radar, off-beats, segments, chords, pendulums, double taps, closing walls, chasers,
+  stutters, rings, diagonals, fills and the spinning X.
+* A lighter plugin: an unused siren sample is gone.
+
+= 1.3.1 =
+* The waves meet, and the stripes, the sky and the count-in pulse, on the beat as it is judged: the timing offset
+  moves what you see as it moves what you are judged on, so playing by eye and by ear agree.
+
+= 1.3.0 =
+* A RESUME button on the pause panel, and Esc pauses as P does.
+* A hit late in its window is judged before its beat is called missed, whatever the audio delay or timing offset.
 
 = 1.2.0 =
 * Five acts of five levels, from Infrared to Ultraviolet at 96 to 132 BPM, each act with its lore, its own backdrop and

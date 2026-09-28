@@ -3,7 +3,7 @@
  * Plugin Name:       Lazer Wave Game
  * Plugin URI:        https://github.com/nathancarlmitchell/Lazer-Wave
  * Description:       Play Lazer Wave, the neon rhythm arcade game, on your site. Add the "Lazer Wave Game" block or the [lazer_wave] shortcode to any post or page.
- * Version:           1.2.0
+ * Version:           1.4.0
  * Requires at least: 6.1
  * Requires PHP:      7.4
  * Author:            Nathan Mitchell
@@ -18,7 +18,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'LAZER_WAVE_GAME_VERSION', '1.2.0' ); // also busts the cache of the game's own files (see build.js)
+define( 'LAZER_WAVE_GAME_VERSION', '1.4.0' ); // also busts the cache of the game's own files (see build.js)
 
 /**
  * The game runs in an iframe of its own: it is a full-window canvas built from plain global scripts, so it keeps its
@@ -72,7 +72,7 @@ function lazer_wave_game_render( $args = array() ) {
 		</div>
 		<?php if ( $controls ) : ?>
 			<figcaption class="lazer-wave-game__bar">
-				<span class="lazer-wave-game__hint"><?php esc_html_e( 'Click the game to play. Z and X hit the beats in their colours, Space takes the gates and overdrive, P pauses.', 'lazer-wave-game' ); ?></span>
+				<span class="lazer-wave-game__hint"><?php esc_html_e( 'Click the game to play. Z and X hit the beats in their colours, Space takes the gates and overdrive, P or Esc pauses.', 'lazer-wave-game' ); ?></span>
 				<span class="lazer-wave-game__buttons">
 					<button type="button" class="lazer-wave-game__fullscreen" data-target="<?php echo esc_attr( $id ); ?>" hidden><?php esc_html_e( 'Fullscreen', 'lazer-wave-game' ); ?></button>
 					<a class="lazer-wave-game__open" href="<?php echo esc_url( $src ); ?>" target="_blank" rel="noopener"><?php esc_html_e( 'Open in a new window', 'lazer-wave-game' ); ?></a>
