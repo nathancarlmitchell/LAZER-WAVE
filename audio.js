@@ -1,7 +1,9 @@
 // Lazer Wave -- the playlist and the sound effects. The tracks, each playing the next; the song clock a rhythm game
-// times itself against; the sound effects at their levels; and the one volume and one rate that drive every track at
-// once. index.html loads this with a plain <script src>, as globals rather than modules, so the game still opens
-// straight off disk. The elements are made here, at load, and only start loading when something plays them.
+// times itself against; the sound effects at their levels, all scaled by OPTIONS' SOUND FX (sfxLevel); and the one
+// volume and one rate that drive every track at once. The beat track (the kick, the hat and the count-in) is not a
+// sound effect: it is what the player plays to, so no setting takes it away. index.html loads this with a plain
+// <script src>, as globals rather than modules, so the game still opens straight off disk. The elements are made here,
+// at load, and only start loading when something plays them.
 
 // The playlist. bpm and offset (seconds from the start of the file to the first beat) are what the song clock needs
 // to turn a track's time into beats; a track without a bpm still plays, it just has no beat to sync to.
@@ -19,17 +21,24 @@ function audioFile(src, volume) { // an audio element for a file, optionally at 
     return a;
 }
 
+function sfxFile(src, volume) { // a sound effect's element, which remembers its own volume for playSound to scale
+    var a = audioFile(src, volume);
+    a.sfxVolume = volume === undefined ? 1 : volume;
+    return a;
+}
+
 const all_songs = TRACKS.map(function (t) { return audioFile(t.src); });
 var songIndex = 0; // the track playing, or last played
+var sfxLevel = 1; // the SOUND FX setting (OPTIONS): the share of its own volume each sound effect plays at; 0 is none
 
-const aud_bomb = audioFile("music/BOMB_SIREN-BOMB_SIREN-247265934.wav", 0.3);
-const aud_menuSound = audioFile("music/Menu Sounds_2.wav", 0.2);
-const aud_death = audioFile("music/Fx 14.wav", 0.15);
-const aud_danger = audioFile("music/72.wav", 0.05);
-const aud_powerUp = audioFile("music/powerUp.wav", 0.1);
-const aud_pickupCoin = audioFile("music/pickupCoin.wav", 0.1);
-const aud_click = audioFile("music/click.wav", 0.1);
-const aud_startup = audioFile("music/Fx 11.wav");
+const aud_bomb = sfxFile("music/BOMB_SIREN-BOMB_SIREN-247265934.wav", 0.3);
+const aud_menuSound = sfxFile("music/Menu Sounds_2.wav", 0.2);
+const aud_death = sfxFile("music/Fx 14.wav", 0.15);
+const aud_danger = sfxFile("music/72.wav", 0.05);
+const aud_powerUp = sfxFile("music/powerUp.wav", 0.1);
+const aud_pickupCoin = sfxFile("music/pickupCoin.wav", 0.1);
+const aud_click = sfxFile("music/click.wav", 0.1);
+const aud_startup = sfxFile("music/Fx 11.wav");
 const ALL_SFX = [aud_bomb, aud_menuSound, aud_death, aud_danger, aud_powerUp, aud_pickupCoin, aud_click]; // unlocked
                                                                                     // together on a touch start
 var musicVolume = 0.2;
@@ -51,7 +60,14 @@ function playSong(i) {
     playSound(all_songs[i]);
 }
 
-function playSound(audio) { // play, ignoring failures such as blocked autoplay or a missing file
+function playSound(audio) { // play, ignoring failures such as blocked autoplay or a missing file. A sound effect plays
+    // at the SOUND FX setting's share of its own volume, and not at all when that is off
+    if (audio.sfxVolume !== undefined) {
+        if (sfxLevel <= 0) {
+            return;
+        }
+        audio.volume = audio.sfxVolume * sfxLevel;
+    }
     var playing = audio.play();
     if (playing) { // older browsers (Chrome < 50, Firefox < 53) return nothing
         playing.catch(function () {});
@@ -194,9 +210,10 @@ function synthTick(delay, high) { // the count-in's click
 }
 
 function synthZap(delay, note) { // a beam firing: a sawtooth diving down, from an octave over the note it plays in the
-    // song (a MIDI note number: zapNote, music.js), or from 1400 Hz if it plays none
+    // song (a MIDI note number: zapNote, music.js), or from 1400 Hz if it plays none. A sound effect, as are the shot
+    // and the gate's sweep: at the SOUND FX setting's level, and nothing when it is off
     var c = beatAudio();
-    if (!c) {
+    if (!c || sfxLevel <= 0) {
         return;
     }
     var when = c.currentTime + delay;
@@ -205,14 +222,14 @@ function synthZap(delay, note) { // a beam firing: a sawtooth diving down, from 
     o.type = "sawtooth";
     o.frequency.setValueAtTime(from, when);
     o.frequency.exponentialRampToValueAtTime(from / 12, when + 0.16);
-    o.connect(envelope(c, when, 0.07, 0.18));
+    o.connect(envelope(c, when, 0.07 * sfxLevel, 0.18));
     o.start(when);
     o.stop(when + 0.2);
 }
 
 function synthShot(delay) { // the piece's own beam striking a target: the other way to a zap, a square leaping up
     var c = beatAudio();
-    if (!c) {
+    if (!c || sfxLevel <= 0) {
         return;
     }
     var when = c.currentTime + delay;
@@ -220,21 +237,21 @@ function synthShot(delay) { // the piece's own beam striking a target: the other
     o.type = "square";
     o.frequency.setValueAtTime(420, when);
     o.frequency.exponentialRampToValueAtTime(1680, when + 0.07);
-    o.connect(envelope(c, when, 0.06, 0.12));
+    o.connect(envelope(c, when, 0.06 * sfxLevel, 0.12));
     o.start(when);
     o.stop(when + 0.14);
 }
 
 function synthGate(delay) { // a gate passed: a sine sweeping up two octaves
     var c = beatAudio();
-    if (!c) {
+    if (!c || sfxLevel <= 0) {
         return;
     }
     var when = c.currentTime + delay;
     var o = c.createOscillator();
     o.frequency.setValueAtTime(220, when);
     o.frequency.exponentialRampToValueAtTime(880, when + 0.25);
-    o.connect(envelope(c, when, 0.35, 0.35));
+    o.connect(envelope(c, when, 0.35 * sfxLevel, 0.35));
     o.start(when);
     o.stop(when + 0.4);
 }

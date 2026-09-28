@@ -58,9 +58,11 @@ Open `index.html`, or serve the folder (`node .claude/serve.js`, then http://loc
  - The results wait for you: **CONTINUE** adds the level's points to the total and goes on, **RETRY** plays the level
    again from nothing, and the total only ever keeps the attempt you continue from. The finish shows the run's total.
    The time the results are up is left off the run's time, as a pause is.
- - **Music:** OPTIONS → **MUSIC** sets how loud the song plays under the beat: 100%, 75%, 50%, 25% or OFF. The beat
-   and the sound effects stay as they are, so OFF is for playing to the beat alone, and an act's theme follows it too.
-   Each press plays a moment of the music at the new level.
+ - **Music and sound:** OPTIONS → **MUSIC** sets how loud the song plays under the beat, and **SOUND FX** how loud the
+   sound effects are (the lasers' zaps, your shots, the gates, the menus' clicks and the rest): 100%, 75%, 50%, 25% or
+   OFF each. The beat track (the kick, the hat and the count-in) stays as it is under both, so there is always a beat
+   to play to: MUSIC OFF is for playing to it alone. An act's theme follows MUSIC too. A press on MUSIC plays a moment
+   of the music at the new level, and one on SOUND FX clicks at its new level.
  - **Timing:** OPTIONS → **CALIBRATE** plays a steady beat to tap along to by ear, with whatever you play with. After
    4 warm-up taps it counts 16, shows where each landed, early or late, and suggests the TIMING OFFSET that puts them
    on the beat, with how steady they were; **USE** sets it. It measures what the game judges, so it takes in what the
@@ -93,7 +95,7 @@ Open `index.html`, or serve the folder (`node .claude/serve.js`, then http://loc
 
 | File | What it holds |
 |---|---|
-| `audio.js` | The synthesized beat track (kick, hat, count-in tick, laser zap, and the piece's shot and gate sweep, on Web Audio), the playlist (`TRACKS`, for recorded songs: empty, as the levels' songs are synthesized, `music.js`), sound effects |
+| `audio.js` | The synthesized beat track (kick, hat, count-in tick, laser zap, and the piece's shot and gate sweep, on Web Audio), the playlist (`TRACKS`, for recorded songs: empty, as the levels' songs are synthesized, `music.js`), sound effects, all but the beat track at the SOUND FX setting's level (`sfxLevel`) |
 | `layout.js` | The palette (`COLORS`), the 1280x800 layout frame, band fitting for phones, the HUD transform, banners, resize handling |
 | `waves.js` | `LEVELS` (the 25 levels: name and lore, bpm, bars, warning lead, phrases, colours, laser sections, and the curve they climb), the `PHRASES` that fill a bar, placing their beams on the tune's notes, the `COLOR_PATTERNS` that paint one, laser form's `TARGET_PHRASES` (`tune` traces the chorus), the seeded timeline, and what goes on screen: `Beam`, `Target`, `Gate` |
 | `story.js` | The acts (`ACTS`: name, their band of the spectrum, backdrop and lore; five levels each) and the epilogue, and the story screens between levels: an act's intro, typed over its backdrop to its theme, a level's card, the epilogue before the finish |

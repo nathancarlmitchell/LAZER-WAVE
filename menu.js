@@ -40,11 +40,12 @@ function menuUp() {
 }
 
 // the settings screen's own buttons. One layout for both mouse and touch: it is a menu of its own, with room to be
-// read either way, so there is nothing for the start screen's two layouts to disagree about. The two that only touch
-// play uses share a row
+// read either way, so there is nothing for the start screen's two layouts to disagree about. The two volumes share a
+// row, and so do the two settings only touch play uses
 const OPTION_BUTTONS = {
     options_effects: { dx: -300, dy: -176, w: 600, h: 70, setting: "options" },
-    options_music: { dx: -300, dy: -96, w: 600, h: 70, setting: "music" },
+    options_music: { dx: -300, dy: -96, w: 292, h: 70, setting: "music" },
+    options_sfx: { dx: 8, dy: -96, w: 292, h: 70, setting: "sfx" },
     options_steering: { dx: -300, dy: -16, w: 292, h: 70, setting: "steering" },
     options_buttons: { dx: 8, dy: -16, w: 292, h: 70, setting: "buttons" },
     options_timing: { dx: -300, dy: 64, w: 400, h: 70, setting: "timing" },
@@ -63,8 +64,8 @@ function buttonDef(name) { // a live button's definition, for the things that on
 
 const FX_MODES = ["auto", "full", "reduced", "off"]; // what the effects button cycles through
 const FX_MODE_LABELS = { auto: "Auto", full: "Full", reduced: "Reduced", off: "Off" };
-const MUSIC_LEVELS = [1, 0.75, 0.5, 0.25, 0]; // how loud the song plays under the beat (musicLevel, music.js), down to
-                                             // off, and round again
+const VOLUME_LEVELS = [1, 0.75, 0.5, 0.25, 0]; // how loud the song (musicLevel, music.js) or the sound effects
+                                              // (sfxLevel, audio.js) play, down to off, and round again
 const TOUCH_GAINS = [0.75, 1, 1.25, 1.5, 2]; // px the piece moves per px of finger
 const TOUCH_SIDES = ["right", "left"]; // the edge the action buttons sit against, for the hand that holds the phone
 const TIMING_OFFSETS = [-100, -80, -60, -40, -20, 0, 20, 40, 60, 80, 100]; // ms: how late this player's presses land,
@@ -72,6 +73,18 @@ const TIMING_OFFSETS = [-100, -80, -60, -40, -20, 0, 20, 40, 60, 80, 100]; // ms
 var TIMING_LIMIT = 300; // ms either way it can be. The timing test (calibrate.js) can find one between the steps or past
 var TIMING_STEP = 5; // them (a wireless headset's delay, say), kept to whole steps of this
 var timingOffset = 0; // taken off every press before it is judged (loop.js), so a steady lateness can be tuned out
+
+function volumeText(v) { // "75%", or "OFF"
+    return v > 0 ? Math.round(100 * v) + "%" : "OFF";
+}
+
+function nextVolume(v) { // the next level down, and from off back to full; an unlisted value steps to the first
+    return VOLUME_LEVELS[(VOLUME_LEVELS.indexOf(v) + 1) % VOLUME_LEVELS.length];
+}
+
+function pickVolume(v) { // a stored volume, if it is one of the levels
+    return VOLUME_LEVELS.indexOf(parseFloat(v)) >= 0 ? parseFloat(v) : undefined;
+}
 
 function effectsLabel() { // what the effects button reads: for "auto", also what the device is asking for
     var name = FX_MODE_LABELS[fxMode] || fxMode;
@@ -87,13 +100,21 @@ const SETTINGS = {
         pick: function (v) { return FX_MODES.indexOf(v) >= 0 ? v : undefined; },
         apply: function (v) { fxMode = v; } },
     music: { store: "lazerwave.music",
-        read: function () { return "MUSIC: " + (musicLevel > 0 ? Math.round(100 * musicLevel) + "%" : "OFF"); },
-        next: function () { // an unlisted value steps to the first
-            setMusicLevel(MUSIC_LEVELS[(MUSIC_LEVELS.indexOf(musicLevel) + 1) % MUSIC_LEVELS.length]);
+        read: function () { return "MUSIC: " + volumeText(musicLevel); },
+        next: function () {
+            setMusicLevel(nextVolume(musicLevel));
             return String(musicLevel);
         },
-        pick: function (v) { return MUSIC_LEVELS.indexOf(parseFloat(v)) >= 0 ? parseFloat(v) : undefined; },
+        pick: pickVolume,
         apply: function (v) { setMusicLevel(v); } },
+    sfx: { store: "lazerwave.sfx", // the click its button makes is at the new level, so each press is heard at it
+        read: function () { return "SOUND FX: " + volumeText(sfxLevel); },
+        next: function () {
+            sfxLevel = nextVolume(sfxLevel);
+            return String(sfxLevel);
+        },
+        pick: pickVolume,
+        apply: function (v) { sfxLevel = v; } },
     steering: { store: "lazerwave.steering",
         read: function () { return "STEERING: " + TOUCH_GAIN.toFixed(2) + "x"; },
         next: function () {
