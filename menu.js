@@ -40,11 +40,13 @@ function menuUp() {
 }
 
 // the settings screen's own buttons. One layout for both mouse and touch: it is a menu of its own, with room to be
-// read either way, so there is nothing for the start screen's two layouts to disagree about
+// read either way, so there is nothing for the start screen's two layouts to disagree about. The two that only touch
+// play uses share a row
 const OPTION_BUTTONS = {
     options_effects: { dx: -300, dy: -176, w: 600, h: 70, setting: "options" },
-    options_steering: { dx: -300, dy: -96, w: 600, h: 70, setting: "steering" },
-    options_buttons: { dx: -300, dy: -16, w: 600, h: 70, setting: "buttons" },
+    options_music: { dx: -300, dy: -96, w: 600, h: 70, setting: "music" },
+    options_steering: { dx: -300, dy: -16, w: 292, h: 70, setting: "steering" },
+    options_buttons: { dx: 8, dy: -16, w: 292, h: 70, setting: "buttons" },
     options_timing: { dx: -300, dy: 64, w: 400, h: 70, setting: "timing" },
     options_calibrate: { dx: 116, dy: 64, w: 184, h: 70, menu: "calibrate", label: "CALIBRATE" }, // finds it by ear
     options_back: { dx: -170, dy: 214, w: 340, h: 64, back: true, label: "BACK" },
@@ -61,6 +63,8 @@ function buttonDef(name) { // a live button's definition, for the things that on
 
 const FX_MODES = ["auto", "full", "reduced", "off"]; // what the effects button cycles through
 const FX_MODE_LABELS = { auto: "Auto", full: "Full", reduced: "Reduced", off: "Off" };
+const MUSIC_LEVELS = [1, 0.75, 0.5, 0.25, 0]; // how loud the song plays under the beat (musicLevel, music.js), down to
+                                             // off, and round again
 const TOUCH_GAINS = [0.75, 1, 1.25, 1.5, 2]; // px the piece moves per px of finger
 const TOUCH_SIDES = ["right", "left"]; // the edge the action buttons sit against, for the hand that holds the phone
 const TIMING_OFFSETS = [-100, -80, -60, -40, -20, 0, 20, 40, 60, 80, 100]; // ms: how late this player's presses land,
@@ -82,6 +86,14 @@ const SETTINGS = {
         next: function () { fxMode = FX_MODES[(FX_MODES.indexOf(fxMode) + 1) % FX_MODES.length]; return fxMode; },
         pick: function (v) { return FX_MODES.indexOf(v) >= 0 ? v : undefined; },
         apply: function (v) { fxMode = v; } },
+    music: { store: "lazerwave.music",
+        read: function () { return "MUSIC: " + (musicLevel > 0 ? Math.round(100 * musicLevel) + "%" : "OFF"); },
+        next: function () { // an unlisted value steps to the first
+            setMusicLevel(MUSIC_LEVELS[(MUSIC_LEVELS.indexOf(musicLevel) + 1) % MUSIC_LEVELS.length]);
+            return String(musicLevel);
+        },
+        pick: function (v) { return MUSIC_LEVELS.indexOf(parseFloat(v)) >= 0 ? parseFloat(v) : undefined; },
+        apply: function (v) { setMusicLevel(v); } },
     steering: { store: "lazerwave.steering",
         read: function () { return "STEERING: " + TOUCH_GAIN.toFixed(2) + "x"; },
         next: function () {
@@ -777,6 +789,7 @@ function openMenu(name) { // put a menu screen up, over the start screen or over
     levelTable = null; // the level select's buttons are built again from the records, as they stand now
     playSound(aud_click);
     if (name == "calibrate") {
+        musicPreviewStop(); // the music the MUSIC setting was playing gives way to the test's beat
         calStart(); // the beat starts: in this press, which is what lets the browser sound it
     }
     drawStartScreen();
@@ -795,6 +808,7 @@ function closeMenu() { // and put back whatever it was covering. The timing test
         }
         return;
     }
+    musicPreviewStop(); // leaving the settings: the MUSIC setting's moment of music goes with them
     if (menuFlash) {
         clearInterval(menuFlash);
         menuFlash = null;
@@ -822,6 +836,9 @@ function optionsPress(name) { // a press on the settings screen: cycle a row, op
         openMenu(b.menu);
     } else {
         cycleSetting(b.setting);
+        if (b.setting == "music") {
+            musicPreview(); // the new level, heard
+        }
     }
 }
 

@@ -881,16 +881,18 @@ function setPadFocus(screen, name) {
     }
 }
 
-function padTargets(screen) { // its buttons and their middles, each list in one frame of reference: { name, x, y }
+function padTargets(screen) { // its buttons, their middles and half their sizes, each list in one frame of reference:
+    // { name, x, y, hw, hh }
     if (screen == "start" || screen == "menu") {
         return Object.keys(buttonTable()).map(function (name) {
             var g = geom(name);
-            return g ? { name: name, x: g.dx + g.w / 2, y: g.dy + g.h / 2 } : null;
+            return g ? { name: name, x: g.dx + g.w / 2, y: g.dy + g.h / 2, hw: g.w / 2, hh: g.h / 2 } : null;
         }).filter(Boolean);
     }
     if (screen == "pause" || screen == "results") { // messages: where the fit put them
         return msgButtons.map(function (b) {
-            return { name: b.name, x: (b.left + b.right) / 2, y: (b.top + b.bottom) / 2 };
+            return { name: b.name, x: (b.left + b.right) / 2, y: (b.top + b.bottom) / 2,
+                hw: (b.right - b.left) / 2, hh: (b.bottom - b.top) / 2 };
         });
     }
     return [];
@@ -910,8 +912,10 @@ function padDefault(screen) { // the button lit when a controller comes to a scr
     return list.length ? list[0].name : "";
 }
 
-function padMove(screen, dir) { // light the nearest button that way, if there is one: nearest along the way, and
-    // closer to straight on counts for more
+function padMove(screen, dir) { // light the nearest button that way, if there is one: one wholly past the lit one's
+    // edge, nearest along the way, and closer to straight on counts for more. Straight on is anything the way passes
+    // over, edge to edge: a row of two under a wide button is under it, not off to either side, and between those the
+    // one whose middle is nearer
     var list = padTargets(screen);
     var from = null;
     list.forEach(function (c) {
@@ -927,9 +931,13 @@ function padMove(screen, dir) { // light the nearest button that way, if there i
     list.forEach(function (c) {
         var dx = c.x - from.x, dy = c.y - from.y;
         var along = dir == "left" ? -dx : dir == "right" ? dx : dir == "up" ? -dy : dy;
-        var across = dir == "left" || dir == "right" ? Math.abs(dy) : Math.abs(dx);
-        if (along > 1 && along + 2 * across < bestScore) {
-            bestScore = along + 2 * across;
+        var side = dir == "left" || dir == "right";
+        var past = along - (side ? c.hw + from.hw : c.hh + from.hh); // edge to edge along the way
+        var across = side ? Math.abs(dy) : Math.abs(dx); // middle to middle
+        var gap = Math.max(0, across - (side ? c.hh + from.hh : c.hw + from.hw)); // and edge to edge
+        var score = along + 2 * gap + across / 1000;
+        if (past > -1 && score < bestScore) {
+            bestScore = score;
             best = c.name;
         }
     });

@@ -80,8 +80,8 @@ function setMusicRate(rate) { // playback rate for all songs
     all_songs.forEach(function (song) { song.playbackRate = rate; });
 }
 
-function setMusicVolume(volume) { // volume for all songs
-    all_songs.forEach(function (song) { song.volume = volume; });
+function setMusicVolume(volume) { // volume for all songs, as the MUSIC setting scales it (musicLevel, music.js)
+    all_songs.forEach(function (song) { song.volume = volume * musicLevel; });
 }
 
 var musicHeld = false; // the pause stopped the song, so resuming should start it again

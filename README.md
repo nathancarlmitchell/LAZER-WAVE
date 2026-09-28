@@ -58,6 +58,9 @@ Open `index.html`, or serve the folder (`node .claude/serve.js`, then http://loc
  - The results wait for you: **CONTINUE** adds the level's points to the total and goes on, **RETRY** plays the level
    again from nothing, and the total only ever keeps the attempt you continue from. The finish shows the run's total.
    The time the results are up is left off the run's time, as a pause is.
+ - **Music:** OPTIONS → **MUSIC** sets how loud the song plays under the beat: 100%, 75%, 50%, 25% or OFF. The beat
+   and the sound effects stay as they are, so OFF is for playing to the beat alone, and an act's theme follows it too.
+   Each press plays a moment of the music at the new level.
  - **Timing:** OPTIONS → **CALIBRATE** plays a steady beat to tap along to by ear, with whatever you play with. After
    4 warm-up taps it counts 16, shows where each landed, early or late, and suggests the TIMING OFFSET that puts them
    on the beat, with how steady they were; **USE** sets it. It measures what the game judges, so it takes in what the
@@ -94,7 +97,7 @@ Open `index.html`, or serve the folder (`node .claude/serve.js`, then http://loc
 | `layout.js` | The palette (`COLORS`), the 1280x800 layout frame, band fitting for phones, the HUD transform, banners, resize handling |
 | `waves.js` | `LEVELS` (the 25 levels: name and lore, bpm, bars, warning lead, phrases, colours, laser sections, and the curve they climb), the `PHRASES` that fill a bar, placing their beams on the tune's notes, the `COLOR_PATTERNS` that paint one, laser form's `TARGET_PHRASES` (`tune` traces the chorus), the seeded timeline, and what goes on screen: `Beam`, `Target`, `Gate` |
 | `story.js` | The acts (`ACTS`: name, their band of the spectrum, backdrop and lore; five levels each) and the epilogue, and the story screens between levels: an act's intro, typed over its backdrop to its theme, a level's card, the epilogue before the finish |
-| `music.js` | Each act's song as MIDI notes (`SONGS`: a key, the `CHORDS` of its bars, its melody, the laser sections' lead, bass and arpeggio lines, and its lead's voice), and the Web Audio synths that play it on the beat track's clock: bass, pad, arpeggio and lead, an echo, and a dip under every kick. It builds through its act, the laser sections play the chorus, overdrive opens the filters, a pause or a death cuts it, a clear rings out on the key's chord, and an act's intro plays its theme. `songTune` tells the timeline where the tune's notes are, and `zapNote` which one a laser sounds |
+| `music.js` | Each act's song as MIDI notes (`SONGS`: a key, the `CHORDS` of its bars, its melody, the laser sections' lead, bass and arpeggio lines, and its lead's voice), and the Web Audio synths that play it on the beat track's clock: bass, pad, arpeggio and lead, an echo, and a dip under every kick. It builds through its act, the laser sections play the chorus, overdrive opens the filters, a pause or a death cuts it, a clear rings out on the key's chord, and an act's intro plays its theme. The MUSIC setting (`musicLevel`) scales all of it, or at OFF plays none, and a change plays a moment of Act I's theme to be heard. `songTune` tells the timeline where the tune's notes are, and `zapNote` which one a laser sounds |
 | `run.js` | Difficulties (lives), records per difficulty in localStorage (v3, for the 25 levels): best run, each level's best rank and best score, furthest level; which levels are beaten, and so open on the level select |
 | `world.js` | `component`, the player piece's stepped movement, the `hazards` list and hit testing |
 | `player.js` | The player's look: two sine waves drawn off its position history, drifting into a glowing trail, meeting on each beat, the coming beat's colour lit |
@@ -143,7 +146,6 @@ Open `index.html`, or serve the folder (`node .claude/serve.js`, then http://loc
 - **Ride the wave:** a waveform line the piece rides, synced to the beat, with lasers crossing it. It fits the same
   way: a new hazard/track type and the phrases that place it, on the same beat clock and judging.
 - Real music: give `TRACKS` a bpm and offset and drive `beatPos` from the song instead of the step count.
-- A MUSIC setting in OPTIONS scaling `MUSIC_VOLUME` (music.js), for playing to the beat alone.
 - Near-miss bonus for passing close to a burning beam.
 
 ### Credits:

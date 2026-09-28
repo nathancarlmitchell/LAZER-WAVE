@@ -9,7 +9,8 @@
 // a lead over chords of its own; overdrive opens every filter; the song dips under each kick and swells back, as a
 // sidechained mix pumps. A pause, a death, a retry or a quit cuts it (musicStop), and the first beat after a pause
 // starts it again. A cleared level's last beat resolves onto the key's own chord, and lets it ring. An act's intro
-// plays its theme with no beat under it (musicIntro).
+// plays its theme with no beat under it (musicIntro). OPTIONS' MUSIC sets how loud all of it is (musicLevel), down to
+// none at all, while the beat track plays on: the kick is the beat, and a player can play to it alone.
 //
 // The lasers play the song too. songTune tells the timeline (waves.js) which notes the tune starts on each beat of a
 // bar, and how high each is: a phrase fires its beams on them, as high on the screen as the notes are, and a laser
@@ -77,6 +78,8 @@ const VOICES = {
     lead: { level: 0.09, cutoff: 2600, release: 0.12, vibrato: 12, vibratoHz: 5.5 },
 };
 var MUSIC_VOLUME = 0.5; // the whole song, under the beat track (BEAT_VOLUME, audio.js): the kick is the beat
+var musicLevel = 1; // the MUSIC setting (OPTIONS): the share of MUSIC_VOLUME the song plays at; 0 is no song at all
+var PREVIEW_SEC = 2.5; // how long a change of it plays a moment of Act I's theme at the new level, to be heard
 var MUSIC_DUCK = 0.55; // what the song dips to on each kick
 var MUSIC_CUT = 0.12; // s the song takes to go when a pause, a death, a retry or a quit stops the level
 var MUSIC_RING = 3; // and when the level is cleared, so its last chord rings out
@@ -144,8 +147,8 @@ function musicSection(def, bar) { // the run of bars, all wave or all laser, tha
 function musicBeat(n, delay, beatSec, over) { // beat n of the level proper (0 is the first after the count-in) falls
     // `delay` seconds from now: play the song from it to the next. beatSec: a beat's length; over: overdrive runs on it
     var c = beatAudio();
-    if (!c || c.state != "running") { // until the browser lets it run, its clock stands still: notes handed it now
-        return; // would all sound at once when it starts
+    if (!c || c.state != "running" || musicLevel <= 0) { // until the browser lets it run, its clock stands still:
+        return; // notes handed it now would all sound at once when it starts. And with MUSIC off there is no song
     }
     var song = actSong(level);
     var m = music || (music = musicBus(c, beatSec));
@@ -267,7 +270,7 @@ const INTRO_SECTION = { laser: false, first: 0, end: Infinity }; // the whole in
 function musicIntro(act, bpm) { // play an act's theme at bpm until musicIntroStop
     musicIntroStop(MUSIC_CUT);
     var c = beatAudio();
-    if (!c) {
+    if (!c || musicLevel <= 0) {
         return;
     }
     intro = { song: SONGS[act], beatSec: 60 / bpm, start: c.currentTime + 0.1, next: 0, timer: 0 };
@@ -302,7 +305,7 @@ function musicIntroStop(fade) { // the theme stops, going over `fade` seconds
 function musicBus(c, beatSec) { // where a song's notes go, made as it starts or starts again: every part into duck,
     // which dips on each kick, and the arpeggio and the lead into the echo too; out is what musicStop fades
     var out = c.createGain();
-    out.gain.value = MUSIC_VOLUME;
+    out.gain.value = musicGain();
     out.connect(c.destination);
     var duck = c.createGain();
     duck.connect(out);
@@ -329,12 +332,51 @@ function musicStop(fade) { // the song stops where it stands, going over `fade` 
     var m = music;
     music = null;
     var now = m.out.context.currentTime;
-    m.out.gain.setValueAtTime(MUSIC_VOLUME, now);
+    m.out.gain.setValueAtTime(musicGain(), now);
     m.out.gain.linearRampToValueAtTime(0, now + fade);
     setTimeout(function () { // then let it go: notes still due sound into nothing, and the echo's loop is broken
         m.out.disconnect();
         m.echo.disconnect();
     }, 1000 * fade + 200);
+}
+
+function musicGain() { // the song's volume as the MUSIC setting has it
+    return MUSIC_VOLUME * musicLevel;
+}
+
+function setMusicLevel(v) { // the MUSIC setting changed: what plays from now on, and anything playing now, at v
+    musicLevel = v;
+    if (music) {
+        music.out.gain.setValueAtTime(musicGain(), music.out.context.currentTime);
+    }
+    setMusicVolume(musicVolume); // and the recorded tracks' (audio.js), were there any
+}
+
+var preview = null; // the moment of theme a change of the setting is playing, and the timer that ends it
+
+function musicPreview() { // play a moment of Act I's theme at the level just set, so it can be heard; with MUSIC off,
+    // the silence says so
+    musicPreviewStop();
+    musicIntro(1, levelDef(1).bpm);
+    if (intro) {
+        var mine = intro;
+        preview = { intro: mine, timer: setTimeout(function () {
+            preview = null;
+            if (intro === mine) { // and not an act's intro that has taken over since
+                musicIntroStop(0.4);
+            }
+        }, PREVIEW_SEC * 1000) };
+    }
+}
+
+function musicPreviewStop() { // the settings went, or the timing test came up: the preview stops now
+    if (preview) {
+        clearTimeout(preview.timer);
+        if (intro === preview.intro) {
+            musicIntroStop(MUSIC_CUT);
+        }
+        preview = null;
+    }
 }
 
 function duckAt(m, when, beatSec) { // a kick at `when`: the song dips under it and swells back over the beat
