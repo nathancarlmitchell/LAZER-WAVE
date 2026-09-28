@@ -524,6 +524,9 @@ function onTouchStart(e) {
         var info = { id: t.identifier, x: p.x, y: p.y, order: ++touch.order, role: "none", pausedAt: pause ? pauseNo : -1, switched: !wasTouch };
         if (menuUp() || !gameStart) {
             setHovered(buttonAt(p.x, p.y)); // press feedback, on whichever screen is up
+            if (calTaking() && !buttonAt(p.x, p.y)) { // the timing test: a finger taps as it comes down, anywhere but
+                calTap(eventTime(e)); // on BACK
+            }
         } else if (wasTouch && pauseButtonAt(p.x, p.y)) { // a pause button, on the panel that was showing: not an
             info.role = "pbutton"; // action and not a resume, and it keeps the role until it lifts
             info.button = pauseButtonAt(p.x, p.y);
@@ -833,6 +836,10 @@ function padButton(button, down, time, source) { // a controller button went dow
         return;
     }
     var screen = padScreen();
+    if (calTaking() && action && button != PAD.b) { // the timing test: a hit button taps (B still backs out)
+        calTap(time);
+        return;
+    }
     if (button == PAD.a) {
         padConfirm(screen);
     } else if (button == PAD.b) {
@@ -1052,6 +1059,12 @@ function bindInput() { // the touch, mouse, keyboard, controller and page listen
         resultsArmed = e.button == 0 && wasMouse && resultsReady();
         pauseArmed = e.button == 0 && wasMouse && alive && pause && !menuUp();
         var action = actionForMouse(e.button);
+        if (calTaking() && action) { // the timing test: a click taps as it goes down, anywhere but on BACK
+            var at = toGame(e.pageX, e.pageY);
+            if (!buttonAt(at.x, at.y)) {
+                calTap(eventTime(e));
+            }
+        }
         if (action) {
             pressAction(action, "mouse", eventTime(e));
         }
@@ -1105,6 +1118,17 @@ function bindInput() { // the touch, mouse, keyboard, controller and page listen
         if (key == "Escape" && menuUp()) { // a menu screen's other way out, for anyone who expects it
             e.preventDefault();
             closeMenu();
+            return;
+        }
+        if (calTaking() && actionForKey(key) && !e.ctrlKey && !e.metaKey) { // the timing test: an action key taps
+            e.preventDefault();
+            if (!e.repeat) {
+                calTap(eventTime(e));
+            }
+            return;
+        }
+        if (!e.repeat && !e.ctrlKey && !e.metaKey && calKey(key)) { // and on its reading, ENTER uses it and R goes again
+            e.preventDefault();
             return;
         }
         if (storyUp() && (key == "Enter" || key == " " || key == "Escape" || actionForKey(key))

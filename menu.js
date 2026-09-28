@@ -31,8 +31,9 @@ const START_BUTTONS = {
 };
 
 var menuScreen = ""; // which menu screen is up: "" for none, "options" for the settings, "help" for the
-                     // instructions, "levels" for the level select. The instructions are the one that can also come
-                     // up over a paused level
+                     // instructions, "levels" for the level select, "calibrate" for the timing test (calibrate.js),
+                     // which opens from the settings. The instructions are the one that can also come up over a
+                     // paused level
 
 function menuUp() {
     return menuScreen != "";
@@ -44,13 +45,14 @@ const OPTION_BUTTONS = {
     options_effects: { dx: -300, dy: -176, w: 600, h: 70, setting: "options" },
     options_steering: { dx: -300, dy: -96, w: 600, h: 70, setting: "steering" },
     options_buttons: { dx: -300, dy: -16, w: 600, h: 70, setting: "buttons" },
-    options_timing: { dx: -300, dy: 64, w: 600, h: 70, setting: "timing" },
+    options_timing: { dx: -300, dy: 64, w: 400, h: 70, setting: "timing" },
+    options_calibrate: { dx: 116, dy: 64, w: 184, h: 70, menu: "calibrate", label: "CALIBRATE" }, // finds it by ear
     options_back: { dx: -170, dy: 214, w: 340, h: 64, back: true, label: "BACK" },
 };
 
 function buttonTable() { // whichever screen's buttons are live
     return menuScreen == "options" ? OPTION_BUTTONS : menuScreen == "help" ? HELP_BUTTONS
-        : menuScreen == "levels" ? levelButtons() : START_BUTTONS;
+        : menuScreen == "levels" ? levelButtons() : menuScreen == "calibrate" ? calButtons() : START_BUTTONS;
 }
 
 function buttonDef(name) { // a live button's definition, for the things that only need its flags
@@ -61,7 +63,10 @@ const FX_MODES = ["auto", "full", "reduced", "off"]; // what the effects button 
 const FX_MODE_LABELS = { auto: "Auto", full: "Full", reduced: "Reduced", off: "Off" };
 const TOUCH_GAINS = [0.75, 1, 1.25, 1.5, 2]; // px the piece moves per px of finger
 const TOUCH_SIDES = ["right", "left"]; // the edge the action buttons sit against, for the hand that holds the phone
-const TIMING_OFFSETS = [-100, -80, -60, -40, -20, 0, 20, 40, 60, 80, 100]; // ms: how late this player's presses land
+const TIMING_OFFSETS = [-100, -80, -60, -40, -20, 0, 20, 40, 60, 80, 100]; // ms: how late this player's presses land,
+                                                                            // the steps its button goes through
+var TIMING_LIMIT = 300; // ms either way it can be. The timing test (calibrate.js) can find one between the steps or past
+var TIMING_STEP = 5; // them (a wireless headset's delay, say), kept to whole steps of this
 var timingOffset = 0; // taken off every press before it is judged (loop.js), so a steady lateness can be tuned out
 
 function effectsLabel() { // what the effects button reads: for "auto", also what the device is asking for
@@ -102,13 +107,17 @@ const SETTINGS = {
         },
         apply: function (v) { difficulty = v; } },
     timing: { store: "lazerwave.timing",
-        read: function () { return "TIMING OFFSET: " + (timingOffset > 0 ? "+" : "") + timingOffset + " ms"; },
-        next: function () {
-            var i = TIMING_OFFSETS.indexOf(timingOffset);
-            timingOffset = TIMING_OFFSETS[(i + 1) % TIMING_OFFSETS.length];
+        read: function () { return "TIMING OFFSET: " + msText(timingOffset); },
+        next: function () { // the next step up, and round from the last to the first: an offset the timing test set
+            // between two steps goes on to the one over it
+            var up = TIMING_OFFSETS.filter(function (v) { return v > timingOffset; });
+            timingOffset = up.length ? up[0] : TIMING_OFFSETS[0];
             return String(timingOffset);
         },
-        pick: function (v) { return TIMING_OFFSETS.indexOf(parseFloat(v)) >= 0 ? parseFloat(v) : undefined; },
+        pick: function (v) { // a step, or anything the timing test could have set
+            var n = parseFloat(v);
+            return isFinite(n) && Math.abs(n) <= TIMING_LIMIT && n % TIMING_STEP == 0 ? n : undefined;
+        },
         apply: function (v) { timingOffset = v; } },
     buttons: { store: "lazerwave.buttons",
         read: function () { return "BUTTONS: " + TOUCH_SIDE.toUpperCase(); },
@@ -134,14 +143,25 @@ function loadSettings() { // whatever was chosen last time, if the browser will 
 }
 
 function cycleSetting(name) { // a settings button: step to its next value and remember it
-    var s = SETTINGS[name];
-    var value = s.next();
-    try {
-        window.localStorage.setItem(s.store, value);
-    } catch (e) { // nothing to do: the setting still applies for this run
-    }
+    storeSetting(name, SETTINGS[name].next());
     playSound(aud_click);
     drawStartScreen();
+}
+
+function setSetting(name, value) { // a setting given a value outright (the timing test's), and remembered
+    SETTINGS[name].apply(value);
+    storeSetting(name, String(value));
+}
+
+function storeSetting(name, value) {
+    try {
+        window.localStorage.setItem(SETTINGS[name].store, value);
+    } catch (e) { // nothing to do: the setting still applies for this run
+    }
+}
+
+function msText(ms) { // "+45 ms", "0 ms", "-20 ms"
+    return (ms > 0 ? "+" : "") + ms + " ms";
 }
 
 var hoveredButton = ""; // start-screen button under the mouse (or finger)
@@ -337,6 +357,10 @@ function drawStartScreen() { // draw the start screen, or whichever menu screen 
         drawLevelsScreen();
         return;
     }
+    if (menuScreen == "calibrate") {
+        drawCalibrateScreen();
+        return;
+    }
     var touch = startLayout() == "touch";
 
     // clear screen
@@ -432,14 +456,14 @@ function drawOptionsScreen() { // the settings, on a screen of their own
 
     for (var name in OPTION_BUTTONS) {
         var b = OPTION_BUTTONS[name];
-        drawMenuButton(b, b.back ? b.label : SETTINGS[b.setting].read(), (b.back ? "36px" : "30px") + " Arial");
+        drawMenuButton(b, b.setting ? SETTINGS[b.setting].read() : b.label, (b.back ? "36px" : "30px") + " Arial");
     }
 
     ctx.textAlign = "center";
     ctx.font = "20px Arial"; // neither touch setting does anything under a mouse, and the menu is where you look
     ctx.fillStyle = COLORS.dim;
     ctx.fillText("Steering and Buttons are for touch play only", cx, cy + 158);
-    ctx.fillText("Timing: if hits read LATE, raise it by about that much; if EARLY, lower it", cx, cy + 186);
+    ctx.fillText("Timing: CALIBRATE finds yours by ear, as you tap along to a beat", cx, cy + 186);
     ctx.fillText(inputMode == "touch" ? "Tap BACK to return" : inputMode == "pad" ? "Press B to return"
         : "Click BACK, or press Escape, to return", cx, cy + 310);
     ctx.textAlign = "start";
@@ -752,13 +776,25 @@ function openMenu(name) { // put a menu screen up, over the start screen or over
     menuScreen = name;
     levelTable = null; // the level select's buttons are built again from the records, as they stand now
     playSound(aud_click);
+    if (name == "calibrate") {
+        calStart(); // the beat starts: in this press, which is what lets the browser sound it
+    }
     drawStartScreen();
     if (gameStart && !menuFlash) {
         menuFlash = setInterval(highlightControl, 100); // the flash the start screen's own timer would be giving it
     }
 }
 
-function closeMenu() { // and put back whatever it was covering
+function closeMenu() { // and put back whatever it was covering. The timing test goes back to the settings it opened
+    // from, with its button lit for a controller
+    if (menuScreen == "calibrate") {
+        calStop();
+        openMenu("options");
+        if (inputMode == "pad") {
+            setHovered("options_calibrate");
+        }
+        return;
+    }
     if (menuFlash) {
         clearInterval(menuFlash);
         menuFlash = null;
@@ -774,13 +810,16 @@ function closeMenu() { // and put back whatever it was covering
     }
 }
 
-function optionsPress(name) { // a press on the settings screen: cycle a row, or go back. Anything else is ignored
+function optionsPress(name) { // a press on the settings screen: cycle a row, open the timing test, or go back.
+    // Anything else is ignored
     var b = OPTION_BUTTONS[name];
     if (!b) {
         return;
     }
     if (b.back) {
         closeMenu();
+    } else if (b.menu) {
+        openMenu(b.menu);
     } else {
         cycleSetting(b.setting);
     }
@@ -794,6 +833,8 @@ function menuPress(name, p) { // a press while a menu screen is up, whichever on
         helpPress(name);
     } else if (menuScreen == "levels") {
         levelsPress(name, p);
+    } else if (menuScreen == "calibrate") {
+        calPress(name);
     }
 }
 

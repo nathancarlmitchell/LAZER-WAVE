@@ -58,6 +58,12 @@ Open `index.html`, or serve the folder (`node .claude/serve.js`, then http://loc
  - The results wait for you: **CONTINUE** adds the level's points to the total and goes on, **RETRY** plays the level
    again from nothing, and the total only ever keeps the attempt you continue from. The finish shows the run's total.
    The time the results are up is left off the run's time, as a pause is.
+ - **Timing:** OPTIONS → **CALIBRATE** plays a steady beat to tap along to by ear, with whatever you play with. After
+   4 warm-up taps it counts 16, shows where each landed, early or late, and suggests the TIMING OFFSET that puts them
+   on the beat, with how steady they were; **USE** sets it. It measures what the game judges, so it takes in what the
+   browser doesn't report of your speakers' or headphones' delay (a wireless headset's), your input's, and your own
+   habit of tapping ahead or behind. Taps too scattered to trust, or too few, get no suggestion. The TIMING OFFSET
+   button still steps by hand, from -100 to +100 ms; a calibrated offset can be anything within 300 ms either way.
 
 ### Controls:
 
@@ -72,6 +78,8 @@ Open `index.html`, or serve the folder (`node .claude/serve.js`, then http://loc
 	  then goes on.
 	- The pause has HELP, RETRY (the level again from its start: it costs the run the time, not a mistake) and QUIT
 	  (back to the start screen, the run abandoned). H, R and Q press them at the keyboard.
+	- CALIBRATE: Z, X, SPACE or a mouse button taps (a click on BACK is BACK); a finger taps as it comes down; on a
+	  controller, A or any hit button taps and B backs out. On its suggestion, ENTER uses it and R goes again.
 	- Controller (a standard-mapped gamepad, named as on an Xbox pad): the left stick or the D-pad steers; LT, LB or X
 	  hit cyan; RT, RB or B hit magenta; A or Y is the gate and overdrive; START pauses. On any screen the stick or
 	  D-pad moves between the buttons, A presses the one lit, B backs out, and START starts, resumes or carries on.
@@ -96,6 +104,7 @@ Open `index.html`, or serve the folder (`node .claude/serve.js`, then http://loc
 | `menu.js` | Start, options, help and level select screens (the select: an act a row, a tile a level, locked until the one before is beaten), settings persistence, hover flash, slogans, start-screen glitches |
 | `titlelight.js` | The start screen's laser: a WebGL fragment shader on a screen-blended canvas over the game's, sweeping behind the title, with light-scattering rays the letters cut shadows through and their outlines burning where it passes. Only at full effects, and nothing at all without WebGL |
 | `titleparticles.js` | The start screen's particles, on a screen-blended canvas of their own: neon dust drifting up, big soft lights far behind it, a shooting star now and then, and sparks struck off the title's letters where the laser crosses behind them, the dust near the laser catching its light. They cut out everything the start screen draws in front of its ground (the title, the buttons, the text, the stripes), so they pass behind all of it. Moving at full effects, still when reduced, gone when off; the dust and stars without WebGL, the sparks only with the laser |
+| `calibrate.js` | The timing test (OPTIONS → CALIBRATE): a 100 BPM beat handed to the audio clock as a level's beats are, taps from every input timed by the input's own moment, each measured against its nearest beat less the audio delay the browser reports, and the offset they ask for (their mean once slips are left out, in 5 ms steps, within 300 ms), offered only when they are steady enough. Nothing on its screen moves on the beat |
 | `levels.js` | Level start / end flow (a run from START or from the level select, a new level through its act's story and its card, a death or a retry straight back), the death message, a cleared level's results (the beat breakdown, the rank, the score against its best, and the run's total) and their CONTINUE and RETRY, the pause's RETRY and QUIT, the epilogue and the finish screen |
 | `input.js` | `ACTIONS` (key / mouse / touch / controller bindings), mouse & multi-touch steering, touch buttons, the controller (Gamepad API polling, stick steering, moving between a screen's buttons), the pause panel and the touch resume countdown |
 | `loop.js` | Game state, the fixed 10ms step loop, the beat clock (`beatPos`) and audio scheduling, hit judging, combo, shields, overdrive, and wave / laser form |
@@ -135,7 +144,6 @@ Open `index.html`, or serve the folder (`node .claude/serve.js`, then http://loc
   way: a new hazard/track type and the phrases that place it, on the same beat clock and judging.
 - Real music: give `TRACKS` a bpm and offset and drive `beatPos` from the song instead of the step count.
 - A MUSIC setting in OPTIONS scaling `MUSIC_VOLUME` (music.js), for playing to the beat alone.
-- Audio latency calibration: a setting that shifts judging (`pressBeat`) by the player's measured offset.
 - Near-miss bonus for passing close to a burning beam.
 
 ### Credits:
