@@ -36,7 +36,7 @@ function onLoad() {
     gameArea.load();
     updateSloganText();
     startMenuTimers(); // the start screen's flashers and glitches, now that everything they draw with exists
-    playSound(aud_startup); // startup sound; browsers usually block it until the first click
+    startupSound(); // the startup sequence (audio.js): now, where the browser lets sound start at load, else at the first press
 }
 
 
@@ -122,6 +122,7 @@ var nextSpawn = 0;
 var totalBeats = 0; // count-in and bars together: the level is cleared when beatPos reaches this
 var lastBeat = -1; // the last whole beat the step has crossed
 var scheduledBeat = -1; // the last beat whose sound has been handed to the audio clock
+var HATS_16_FROM_ACT = 4; // from this act on, the hats play in sixteenths between the off-beats (scheduleBeats)
 var AUDIO_LOOKAHEAD_MS = 80; // how far ahead beats are scheduled: enough to ride out a late frame, short enough that a
                              // pause doesn't leave much still to play
 
@@ -140,21 +141,21 @@ var AUDIO_LOOKAHEAD_MS = 80; // how far ahead beats are scheduled: enough to rid
 // pulse on the beat, from the waves meeting (player.js) to the stripes, the sky, the meter and the count-in (beatFrac):
 // what the eye takes for the beat is the beat the hand is judged on. Only what is physical stays on beatPos, which is
 // where its sound is: a laser firing, a target or a gate arriving, overdrive starting on its beat.
-var PERFECT_MS = 50; // the windows on NORMAL, either side of the beat: the difficulty's `window` scales all four
-var GREAT_MS = 80; // (DIFFICULTIES, run.js), so everything judged reads perfectMs(), greatMs(), goodMs() and badMs()
+var PERFECT_MS = 50; // the windows, either side of the beat, the same on every difficulty: everything judged reads
+var GREAT_MS = 80; // them through perfectMs(), greatMs(), goodMs() and badMs(), the one place to change them
 var GOOD_MS = 110;
 var BAD_MS = 160;
 function perfectMs() {
-    return PERFECT_MS * mode().window;
+    return PERFECT_MS;
 }
 function greatMs() {
-    return GREAT_MS * mode().window;
+    return GREAT_MS;
 }
 function goodMs() {
-    return GOOD_MS * mode().window;
+    return GOOD_MS;
 }
 function badMs() {
-    return BAD_MS * mode().window;
+    return BAD_MS;
 }
 var POINTS = { perfect: 100, great: 75, good: 50, bad: 25 };
 var COMBO_STEP = 8; // hits in a row per step of multiplier
@@ -297,6 +298,7 @@ function absorbHazards() { // in overdrive: every laser the piece is in is absor
         }
     });
     if (n > 0) {
+        bossHit(n); // absorbed lasers hurt a boss too
         var points = modePoints(n * ABSORB_POINTS * pointsMult());
         score += points;
         popPoints(points, gamePiece.x + gamePiece.width / 2 + 44, gamePiece.y + gamePiece.height / 2 - 6);
@@ -351,6 +353,14 @@ function drawPops() {
 // holds on the target it hit while one burns, and crosses after. A gate is a beat SPACE hits, and passing it switches
 // the form; one gone by unpassed switches it anyway, and costs a shield.
 var LASER_X = 0.3; // where the piece locks in laser form, as a fraction of the width: clear of the HUD's column
+var facing = 1; // which way laser form faces: 1 firing right from LASER_X, or -1 firing left from its mirror across
+                // the screen (the twin boss, boss.js), as the gate that switched the form said
+function laserX() { // where the piece locks, as a fraction of the width
+    return facing > 0 ? LASER_X : 1 - LASER_X;
+}
+function targetX() { // where a target meets the beam on its beat, as a fraction of the width
+    return facing > 0 ? TARGET_X : 1 - TARGET_X;
+}
 var LASER_REACH = 8; // px past a target's own size that still counts as lined up with it; overdrive doubles the lot
 var LASER_SLIDE = 0.2; // of the way to its place a step, while the piece slides into or out of laser form...
 var LASER_SLIDE_BEATS = 0.5; // ...which lasts this long after the switch: a glide, not a jump
@@ -358,11 +368,15 @@ var LASER_GROW = 0.25; // beats the piece's beam takes to reach across the scree
 var form = "wave"; // "wave" or "laser"
 var formAt = -Infinity; // the beat the form last switched on
 var gateTo = {}; // gate beat -> the form it switches to
+var gateFacing = {}; // gate beat -> the way laser form faces from it
 
-function switchForm(to) {
+function switchForm(to, face) { // to "laser" facing `face` (1 right, -1 left; right unless given), or to "wave"
     if (form != to) {
         form = to;
         formAt = beatPos;
+    }
+    if (to == "laser") {
+        facing = face || 1;
     }
 }
 
@@ -392,13 +406,14 @@ function passGate(n) { // SPACE on a gate's beat: it flashes, and the form switc
         gate.hitAt = beatPos;
         gate.hitX = gamePiece.x + gamePiece.width / 2;
     }
-    switchForm(gateTo[n]);
+    switchForm(gateTo[n], gateFacing[n]);
     synthGate(0);
 }
 
 function missGate(n) { // a gate gone by unpassed: the form switches anyway, and it costs a shield. True if the last
-    switchForm(gateTo[n]);
+    switchForm(gateTo[n], gateFacing[n]);
     hp--;
+    perfMiss();
     judge("gate");
     if (hp > 0) {
         playSound(aud_danger);
@@ -465,8 +480,10 @@ function timingColor() { // the average's colour: early, late, or on the beat
 
 // The rank for a cleared level, from how its beats were hit: a PERFECT is worth the beat, a GREAT three quarters of
 // it, a GOOD half and a BAD a quarter (as their points are), a press off the beat takes half a beat back, and each
-// shield lost costs RANK_SHIELD_COST of the whole.
-// S+ is an S with nothing missed at all: every beat hit, no press off one, no shield lost
+// shield lost costs RANK_SHIELD_COST of the whole. On a boss level, the health the boss has left costs up to
+// BOSS_RANK_COST (boss.js).
+// S+ is an S with nothing missed at all: every beat hit, no press off one, no shield lost; and SS, over it, is an S+
+// with every beat PERFECT, and on a boss level the boss down, since its health left costs the rating
 var RANKS = [
     { grade: "S", min: 0.90 }, // an S or S+ is printed as the title is, and needs no colour
     { grade: "A", min: 0.80, color: COLORS.good },
@@ -475,11 +492,35 @@ var RANKS = [
     { grade: "D", min: 0.35, color: COLORS.dim },
 ];
 var RANK_TOP = { grade: "S+", min: 0.95 };
+var RANK_PERFECT = { grade: "SS", min: 1 }; // every beat PERFECT and nothing lost: the rating whole
 var RANK_FAIL = { grade: "F", color: COLORS.warn };
 var RANK_SHIELD_COST = 0.05;
 
+// The performance meter: 0..1, PERF_START at the start of every attempt. Every beat hit adds by its grade, twice over
+// in overdrive; every beat missed -- gone by unhit, WRONG, OFF TARGET, or a gate not passed -- takes PERF_MISS. Empty,
+// the track is failed: a death, as a laser's is. The difficulty scales the gain and the drain (perfGain and perfDrain,
+// DIFFICULTIES, run.js), and one that says perfFail: false never fails for it, however empty it runs.
+var PERF_START = 0.75;
+var PERF_GAIN = { perfect: 0.03, great: 0.02, good: 0.01, bad: 0 };
+var PERF_MISS = 0.04;
+var PERF_DRIVE = 2; // what a hit in overdrive fills it by, against a plain hit's 1
+var perf = PERF_START;
+var perfFailed = false; // it ran empty on a difficulty that fails for it: the step ends the attempt
+
+function perfHit(grade) { // a beat hit: the meter fills by the grade, at the difficulty's rate, doubled in overdrive
+    perf = Math.min(1, perf + PERF_GAIN[grade] * mode().perfGain * (driveOn() ? PERF_DRIVE : 1));
+}
+
+function perfMiss() { // a beat missed: the meter drains at the difficulty's rate, and empty, the track is failed
+    perf = Math.max(0, perf - PERF_MISS * mode().perfDrain);
+    if (perf <= 0 && mode().perfFail !== false) {
+        perfFailed = true;
+    }
+}
+
 function rankValue(grade) { // where a grade stands, F lowest; -1 for anything that isn't one (nothing recorded yet)
-    return [RANK_FAIL].concat(RANKS.slice().reverse(), [RANK_TOP]).map(function (r) { return r.grade; }).indexOf(grade);
+    return [RANK_FAIL].concat(RANKS.slice().reverse(), [RANK_TOP, RANK_PERFECT]).map(function (r) { return r.grade; })
+        .indexOf(grade);
 }
 
 function levelRating() { // 0..1: how well this attempt's beats were hit
@@ -488,12 +529,15 @@ function levelRating() { // 0..1: how well this attempt's beats were hit
         return 0;
     }
     var hitWorth = (perfects + greats * 0.75 + goods / 2 + bads / 4 - strays / 2) / beats;
-    return Math.max(0, Math.min(1, hitWorth - (hpAtStart - hp) * RANK_SHIELD_COST));
+    return Math.max(0, Math.min(1, hitWorth - (hpAtStart - hp) * RANK_SHIELD_COST - bossLeft()));
 }
 
 function levelRank() { // this attempt's rank: { grade, color }
     var r = levelRating();
     var flawless = perfects + greats + goods == playBeats() && strays == 0 && hp == hpAtStart;
+    if (flawless && perfects == playBeats() && r >= RANK_PERFECT.min) { // every beat PERFECT, and nothing lost
+        return RANK_PERFECT;
+    }
     if (flawless && r >= RANK_TOP.min) {
         return RANK_TOP;
     }
@@ -521,20 +565,26 @@ function startLevel() { // a level is about to be played: from the start, or aga
     });
     nextSpawn = 0;
     gateTo = {};
+    gateFacing = {};
     timeline.forEach(function (ev) {
         if (ev.axis == "gate") {
             gateTo[ev.fire] = ev.to;
+            gateFacing[ev.fire] = ev.facing || 1;
         }
     });
     form = "wave";
     formAt = -Infinity;
+    facing = 1;
     pops = [];
     totalBeats = (COUNT_IN_BARS + wave.bars) * BEATS_PER_BAR;
+    bossStart(wave, timeline); // its boss, if it has one (boss.js)
     beatPos = 0;
     lastBeat = -1;
     scheduledBeat = -1;
     combo = bestCombo = 0;
     perfects = greats = goods = bads = strays = 0;
+    perf = PERF_START;
+    perfFailed = false;
     judged = {};
     beatColors = {};
     timeline.forEach(function (ev) {
@@ -582,7 +632,21 @@ function scheduleBeats() { // hand the audio clock every beat due within the loo
             continue;
         }
         synthKick(delay, b % BEATS_PER_BAR == 0);
-        synthHat(delay + mpb / 2000); // and the off-beat
+        var inBar = b % BEATS_PER_BAR, played = b - firstPlayBeat(); // the beat's place in its bar, and in the level
+        if (played >= 0 && (inBar == 1 || inBar == 3)) {
+            synthSnare(delay, false); // the backbeat
+        }
+        synthHat(delay + mpb / 2000, played >= 0 && inBar == BEATS_PER_BAR - 1); // and the off-beat, the bar's last
+        // one open
+        if (played >= 0 && levelAct(level) >= HATS_16_FROM_ACT) { // the later acts drive on in sixteenths
+            synthHat(delay + mpb / 4000, false, true);
+            synthHat(delay + 3 * mpb / 4000, false, true);
+        }
+        if (played >= 0 && played % (4 * BEATS_PER_BAR) == 4 * BEATS_PER_BAR - 1) { // every fourth bar ends on a fill:
+            for (var q = 1; q < 4; q++) { // three soft strokes through its last beat
+                synthSnare(delay + q * mpb / 4000, true);
+            }
+        }
         musicBeat(b - firstPlayBeat(), delay, mpb / 1000, driveOver(b)); // and the song over them (music.js)
         var fires = {}; // the moments within this beat a beam fires at, on it or off it, each sounding once
         timeline.forEach(function (ev) {
@@ -608,6 +672,7 @@ function onBeat(b) { // a whole beat just went by
     if (b >= firstPlayBeat() && b < totalBeats) {
         score += modePoints(SURVIVE_POINTS);
     }
+    bossBeat(b); // the mirror boss remembers where the piece is, and fires where it was (boss.js)
 }
 
 function judge(grade, off, color) { // off: how far off the beat, in ms (negative early), if it was a press; color:
@@ -662,10 +727,12 @@ function hitBeat(time, color) { // a hit in `color`: judge it against the neares
     timingCount++; // slip, and left out, as it would only drag the average about
     timings.push(signed);
     var want = beatColor(n);
-    if (want && color != want) { // on the beat, in the wrong colour: the beat is spent
+    if (want && want != "gate" && color != want) { // on the beat, in the wrong colour: the beat is spent. A gate's
+        // beat takes any key, SPACE or either colour's
         judged[n] = "wrong";
         strays++;
         combo = 0;
+        perfMiss();
         judge("wrong", signed, want);
         return;
     }
@@ -674,6 +741,7 @@ function hitBeat(time, color) { // a hit in `color`: judge it against the neares
         judged[n] = "wide";
         strays++;
         combo = 0;
+        perfMiss();
         judge("wide", signed, color);
         return;
     }
@@ -699,12 +767,14 @@ function hitBeat(time, color) { // a hit in `color`: judge it against the neares
         bestCombo = Math.max(bestCombo, combo);
     }
     score += modePoints(POINTS[grade] * pointsMult());
+    perfHit(grade);
     judge(grade, signed, color);
     playerHitFlash(grade, color); // the full burst for a clean hit, half for a BAD
     if (target) { // the beam strikes it
         target.hitX = target.center().x;
         target.hitAt = beatPos;
         synthShot(0);
+        bossHit(1, true); // and the boss, on a boss level, whose port it was, if its ports are open
     }
     if (want == "gate") {
         passGate(n);
@@ -717,6 +787,7 @@ function checkMissed() { // beats whose window has closed on the judging clock (
     while (nextJudge < totalBeats && !beatOpen(nextJudge)) {
         if (!judged[nextJudge]) {
             breakCombo(false);
+            perfMiss();
         }
         if (beatColor(nextJudge) == "gate" && judged[nextJudge] != "hit") {
             dead = missGate(nextJudge) || dead;
@@ -794,7 +865,7 @@ function drawStrikeLine() { // laser form: the line down the screen where each t
     if (reach <= 0) {
         return;
     }
-    var x = TARGET_X * gameArea.canvas.width;
+    var x = targetX() * gameArea.canvas.width;
     ctx.save();
     ctx.globalAlpha = 0.25 * reach;
     ctx.strokeStyle = COLORS.laserCore;
@@ -909,8 +980,13 @@ function drawLevel(forDeath) { // draw the level as it stands, without moving an
     // beat as the player plays it to pulse on
     drawBeatPulse();
     drawStrikeLine();
+    drawBoss(); // the boss's node, on a boss level, behind the lasers and the targets
     drawWorld();
-    drawProgress();
+    if (boss) {
+        drawBossBar(); // its health, in the progress stripe's slot
+    } else {
+        drawProgress();
+    }
     drawCountIn();
     drawDriveCall();
     drawFormCall();
@@ -935,7 +1011,7 @@ function steerPiece() { // move the piece toward where it is steered; true if th
     var tx = gameArea.x !== undefined ? gameArea.x : cx;
     var ty = gameArea.y !== undefined ? gameArea.y : cy;
     if (form == "laser") {
-        tx = LASER_X * gameArea.canvas.width;
+        tx = laserX() * gameArea.canvas.width;
     }
     if (beatPos - formAt < LASER_SLIDE_BEATS) {
         movePiece(cx + (tx - cx) * LASER_SLIDE - w / 2, cy + (ty - cy) * LASER_SLIDE - h / 2, true);
@@ -964,10 +1040,15 @@ function updateGameArea() {
     scheduleBeats();
     spawnDue();
     worldStep(); // the beams warm up, burn and go
+    bossStep(); // and a boss that moves, moves
     while (lastBeat < Math.floor(beatPos)) {
         onBeat(++lastBeat);
     }
     if (checkMissed()) { // a gate gone by took the last shield
+        gameOver();
+        return;
+    }
+    if (perfFailed) { // the performance meter ran empty
         gameOver();
         return;
     }

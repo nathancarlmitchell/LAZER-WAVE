@@ -24,6 +24,8 @@ var BEAM_INSET = 0.15; // of a beam's thickness on each side that is glow rather
 var BEAM_ABSORB = 0.3; // beats an absorbed beam takes to collapse (overdrive, loop.js)
 var FALL_LAND = 0.6; // of its warning a faller takes to land: from there it sits on its outline, warning as any beam
                      // does, until it fires
+var SEGMENT_FADE = 0.06; // of the width a segment's end dissolves over where it stops short of the screen's edge, so it
+                         // reads as a beam reaching in rather than one cut off; a graze is forgiven there
 var PINCER_GAP = 0.2; // of the height: the gap a pincer leaves at its note, between its two beams
 var CAGE_GAP = 0.2; // of the width: the cell a cage leaves at the bass's note, between its two beams down the screen
 var CAGE_LEFT = 0.2, CAGE_RIGHT = 0.8; // where the bass's lowest note and its highest put that cell's middle
@@ -34,8 +36,10 @@ var CORRIDOR_NOW = 0.25; // where across the screen, as a fraction of the width,
 var CORRIDOR_INSET = 0.12; // of the gap forgiven at each wall's edge: a graze is forgiven, as a beam's glow is
 var CROSSFIRE_SPREAD = 0.4; // of the width: how far from the column it closes on a crossfire's pair of columns starts
 var RIPPLE_SIZE = 0.065; // of the height: a ripple's thin beams
-var SWEEP_BEATS = 2; // beats a sweeper takes to wipe across the screen
+var SWEEP_BEATS = BEATS_PER_BAR; // beats a sweeper takes to wipe across the screen: the bar
 var SWEEP_GAP = 0.3; // of the height: the hole in a sweeper, at its note, to be in as it comes by
+var SWEEP_FADE = 0.25; // of the hole the band dissolves over at each of its edges, so the hole reads as a gap in the
+                       // light rather than a cut through it; the edge a graze is forgiven (BEAM_INSET) lies inside it
 var RADAR_BEATS = BEATS_PER_BAR; // beats a radar's ray takes to come round: once a bar
 var RADAR_WIDTH = 14; // px: the ray's core; its glow is wider
 var RADAR_CORE = 0.06; // of the height across: the hot disc at the ray's pivot, burning throughout
@@ -58,10 +62,14 @@ var FILL_SIZE = RIPPLE_SIZE; // a fill's thin beams
 // and lore: what its card says before it is played, the lore a line or two. bpm is the tempo; bars is how long the
 // level runs after the count-in; warn is how many beats ahead a beam shows its outline; phrases is what the level's
 // bars are drawn from (a repeat makes that one more common, and the draw being seeded, the order decides which bars
-// get which); colors is the colour patterns its bars are painted from
+// get which; an entry "a+b" is a combination, both phrases dealt into one bar, which is how the later levels make
+// patterns of their own out of the types before them: a box from a pincer and a cage, a crosshair from a ring and a
+// diagonal); colors is the colour patterns its bars are painted from
 // (see COLOR_PATTERNS), none for a colourless level; laser is the bars played in laser form, as [first bar, bars]
 // pairs, each opened and closed by a gate; targets is what those bars are drawn from (TARGET_PHRASES); dodges is how
-// many lasers each of them fires across the path between its targets, at most.
+// many lasers each of them fires across the path between its targets, at most. boss, if given ({ name, kind }), makes
+// the level a fight with the Array (boss.js): its targets are the boss's health, and its kind is its signature,
+// "node", "twin", "radar", "chaser" or "mirror".
 //
 // The curve climbs a step at a time, bringing in one thing at once and letting it settle before the next: the melody's
 // beams, then fallers and a beam on every beat (2), then laser form (3), pincers (4) and the cage (5); colours (6),
@@ -74,117 +82,113 @@ const LEVELS = [null,
     // Act I, Infrared: the beat, the melody, and laser form
     { name: "Signal",
         lore: ["Beneath the red, a carrier wave wakes.", "The lasers fire where the melody goes. Listen."],
-        bpm: 96, bars: 8, warn: 2, phrases: ["melody", "melody", "rest"], colors: [], laser: [] },
+        bpm: 96, bars: 10, warn: 2, phrases: ["melody", "melody", "rest"], colors: [], laser: [] },
     { name: "Carrier", lore: ["Some lasers drop in from above now: they land on their outline, and fire from it on the beat.",
             "Every beat is a door, and every door opens on the beat."],
-        bpm: 98, bars: 8, warn: 2, phrases: ["fall", "rain", "melody", "rest"], colors: [], laser: [] },
+        bpm: 98, bars: 10, warn: 2, phrases: ["fall", "rain", "melody", "rest"], colors: [], laser: [] },
     { name: "Ember Line", lore: ["A white gate burns ahead. Cross it on the beat,", "and the wave becomes a beam."],
-        bpm: 99, bars: 10, warn: 2, phrases: ["rest", "melody", "fall", "rain"], colors: [], laser: [[5, 3]],
+        bpm: 99, bars: 12, warn: 2, phrases: ["rest", "melody", "fall", "rain"], colors: [], laser: [[5, 3]],
         targets: ["tune"], dodges: 0 },
     { name: "Heat Haze", lore: ["Two lasers close on every note now: sit in the gap between them.",
             "The targets sing the chorus. Line up with each note, and strike it."],
-        bpm: 101, bars: 10, warn: 2, phrases: ["pincer", "fall", "rain", "rest"], colors: [], laser: [[4, 4]],
+        bpm: 101, bars: 12, warn: 2, phrases: ["rain", "melody", "rest", "pincer", "fall"], colors: [], laser: [[4, 4]],
         targets: ["tune", "hold"], dodges: 0 },
     { name: "Red Giant",
         lore: ["The lasers close a cage on every note now, from all four sides. Get inside it.",
             "The Array's first watchtower glows like a dying star.", "Get past it, and the heat gives way."],
-        bpm: 102, bars: 12, warn: 2, phrases: ["melody", "cage", "pincer", "fall", "rain", "rest"], colors: [],
-        laser: [[6, 4]],
+        bpm: 102, bars: 14, warn: 2, phrases: ["melody", "cage", "pincer", "pincer+cage", "fall", "rain", "rest"], colors: [],
+        laser: [[6, 4]], boss: { name: "RED GIANT", kind: "node" },
         targets: ["tune", "hold", "jump"], dodges: 1 },
     // Act II, Sodium: the colours, and walls
     { name: "Streetlight", lore: ["Two colours now: cyan answers cyan, and magenta magenta."],
-        bpm: 104, bars: 10, warn: 2, phrases: ["melody", "rain", "rest"], colors: ["solid"], laser: [[5, 3]],
+        bpm: 104, bars: 12, warn: 2, phrases: ["melody", "rain", "fall", "rest"], colors: ["solid"], laser: [[5, 3]],
         targets: ["tune", "hold"], dodges: 0 },
     { name: "Amber Alert", lore: ["The Array raises walls of light.", "The melody knows where the gap is."],
-        bpm: 105, bars: 12, warn: 2, phrases: ["melody", "rain", "wall", "rest"], colors: ["solid"], laser: [[6, 4]],
+        bpm: 105, bars: 14, warn: 2, phrases: ["rain", "wall", "pincer", "rest", "melody"], colors: ["solid"], laser: [[6, 4]],
         targets: ["tune", "hold", "jump"], dodges: 1 },
     { name: "Sodium Rain", lore: ["A corridor of light scrolls in, a bar long: ride its gap, which rides the melody.",
             "Orange light falls in sheets. Keep moving."],
-        bpm: 107, bars: 12, warn: 2, phrases: ["rain", "wall", "corridor", "melody"], colors: ["solid"], laser: [[6, 4]],
+        bpm: 107, bars: 14, warn: 2, phrases: ["rain", "wall", "corridor", "melody", "cage"], colors: ["solid"], laser: [[6, 4]],
         targets: ["tune", "steps", "jump"], dodges: 1 },
     { name: "Afterglow", lore: ["The colours come in pairs now: change keys on the half bar."],
-        bpm: 108, bars: 12, warn: 2, phrases: ["melody", "rain", "wall", "rest"], colors: ["solid", "pairs"],
+        bpm: 108, bars: 14, warn: 2, phrases: ["cage", "fall", "pincer+cage", "rest", "melody", "rain", "wall"], colors: ["solid", "pairs"],
         laser: [[6, 4]], targets: ["tune", "steps", "jump"], dodges: 1 },
     { name: "Interference", lore: ["Signals collide at the edge of the amber city.", "Hold your frequency."],
-        bpm: 110, bars: 14, warn: 2, phrases: ["corridor", "rest", "rain", "melody", "wall"], colors: ["solid", "pairs"],
-        laser: [[7, 4]], targets: ["tune", "hold", "steps", "jump"], dodges: 1 },
+        bpm: 110, bars: 16, warn: 2, phrases: ["wall", "corridor", "corridor+cage", "pincer+cage", "rest", "rain", "melody"], colors: ["solid", "pairs"],
+        laser: [[3, 3], [8, 3]], boss: { name: "INTERFERENCE", kind: "twin" }, targets: ["tune", "hold", "steps", "jump"], dodges: 1 },
     // Act III, Phosphor: beams down the screen, columns, and less warning
     { name: "Phosphor", lore: ["Beams fall down the screen as well as across it. Look up.",
             "And every beam has its mirror image now: they close on the middle."],
-        bpm: 111, bars: 12, warn: 2, phrases: ["mirror", "melody", "rain", "wall", "cross"], colors: ["solid", "pairs"],
+        bpm: 111, bars: 14, warn: 2, phrases: ["rain", "wall", "cross", "cage+melody", "mirror", "melody"], colors: ["solid", "pairs"],
         laser: [[6, 4]], targets: ["tune", "steps", "zigzag"], dodges: 1 },
     { name: "Radar Sweep", lore: ["The sweep comes round every bar, from the middle. It is looking for you:",
             "keep ahead of it. Thin beams run in fours too, quick as a scale."],
-        bpm: 113, bars: 12, warn: 2, phrases: ["melody", "ripple", "radar", "rain", "cross", "wall"],
+        bpm: 113, bars: 14, warn: 2, phrases: ["cross", "cage+melody", "rain", "radar", "wall", "melody", "ripple", "pincer"],
         colors: ["solid", "pairs"],
         laser: [[6, 4]], targets: ["tune", "steps", "zigzag"], dodges: 1 },
     { name: "Oscilloscope",
         lore: ["Columns march across the screen, and the warnings come later.", "Step between them.",
             "Crossfire closes in from both sides on the half beats: slip out before it meets."],
-        bpm: 114, bars: 14, warn: 1.5, phrases: ["melody", "rain", "cross", "stairs", "crossfire"],
+        bpm: 114, bars: 16, warn: 1.5, phrases: ["rain", "cross", "stairs", "crossfire", "crossfire+melody", "mirror", "melody"],
         colors: ["solid", "pairs"],
         laser: [[6, 4]], targets: ["tune", "zigzag", "jump"], dodges: 1 },
     { name: "Green Flash", lore: ["As the sun goes down, the sky flashes green.", "Blink and you miss it.",
             "A wiper sweeps across with a hole at the note: be at its height as it comes by."],
-        bpm: 116, bars: 14, warn: 1.5, phrases: ["sweep", "ripple", "crossfire", "rain", "wall", "cross"],
+        bpm: 116, bars: 16, warn: 1.5, phrases: ["sweep+cage", "crossfire", "ripple", "rain", "wall", "cross", "sweep", "stairs"],
         colors: ["solid", "pairs"],
         laser: [[7, 4]], targets: ["tune", "steps", "zigzag"], dodges: 1 },
     { name: "Static Bloom", lore: ["Noise blooms across the band. Find the tune inside it."],
-        bpm: 117, bars: 16, warn: 1.5,
-        phrases: ["wall", "cross", "radar", "sweep", "stairs", "mirror", "ripple", "crossfire", "melody", "rain"],
-        colors: ["solid", "pairs"], laser: [[6, 4]], targets: ["tune", "steps", "zigzag", "jump"], dodges: 1 },
+        bpm: 117, bars: 18, warn: 1.5,
+        phrases: ["rain", "sweep+cage", "ripple", "radar", "cross", "crossfire", "mirror", "wall", "crossfire+melody", "cage+mirror", "stairs", "sweep"],
+        colors: ["solid", "pairs"], laser: [[6, 4]], boss: { name: "STATIC BLOOM", kind: "radar" }, targets: ["tune", "steps", "zigzag", "jump"], dodges: 1 },
     // Act IV, Blueshift: colours on every beat, two laser sections, two beams at once
     { name: "Cherenkov", lore: ["Faster than light in water, you glow blue.", "The colours turn on every beat now,",
             "lasers fall on the off-beats, and some cover the bass's half of the screen only."],
-        bpm: 119, bars: 14, warn: 1.5, phrases: ["rain", "wall", "cross", "stairs", "offbeat", "segment", "melody"],
+        bpm: 119, bars: 16, warn: 1.5, phrases: ["segment", "melody", "offbeat+segment", "rain", "wall", "cross", "stairs", "offbeat"],
         colors: ["solid", "pairs", "alt"], laser: [[6, 4]], targets: ["tune", "steps", "zigzag"], dodges: 1 },
     { name: "Deep Water", lore: ["Two gates in one level. Dive twice.",
             "A chord fires all its notes at once. A pendulum swings the bar through, firing on every beat."],
-        bpm: 120, bars: 14, warn: 1.5, phrases: ["chord", "pendulum", "rain", "wall", "cross"],
+        bpm: 120, bars: 16, warn: 1.5, phrases: ["pendulum+cage", "mirror", "chord", "pendulum", "rain", "wall", "cross"],
         colors: ["solid", "pairs", "alt"], laser: [[4, 3], [10, 3]], targets: ["tune", "zigzag", "scatter"],
         dodges: 1 },
     { name: "Blueshift", lore: ["The Array fires in pairs, and twice across your line.",
             "Walls slide in from both edges over a bar: be in the gap when they land. Some lasers fire twice."],
-        bpm: 122, bars: 16, warn: 1.5, phrases: ["wall", "cross", "stairs", "doubletap", "close", "double", "rain"],
+        bpm: 122, bars: 18, warn: 1.5, phrases: ["cross", "stairs", "doubletap", "close", "double", "rain", "close+melody", "wall"],
         colors: ["solid", "pairs", "alt"], laser: [[4, 3], [11, 3]], targets: ["tune", "zigzag", "scatter"],
         dodges: 2 },
     { name: "Cold Fire", lore: ["The hottest flames burn blue.",
             "Some lasers hunt your height until the last half beat: move then. Others stutter a whole beat."],
-        bpm: 123, bars: 16, warn: 1.5, phrases: ["stairs", "double", "chase", "stutter", "rain", "wall", "cross"],
+        bpm: 123, bars: 18, warn: 1.5, phrases: ["wall", "rain", "stutter", "cross", "chase+cage", "stairs", "double", "chase"],
         colors: ["pairs", "alt"],
         laser: [[4, 3], [11, 3]], targets: ["tune", "zigzag", "scatter"], dodges: 2 },
     { name: "Overdrive", lore: ["The meter is full, and so is the sky. Spend it on the beat.",
             "Rings now, slants, and a spinning X: be inside a ring or outside it,",
             "off the slant, and in a wedge of the X, turning with it."],
-        bpm: 125, bars: 16, warn: 1.5, phrases: ["spin", "rain", "cross", "stairs", "diagonal", "double", "melody", "ring",
-            "wall"],
-        colors: ["solid", "pairs", "alt"], laser: [[4, 3], [11, 3]], targets: ["steps", "zigzag", "scatter"],
+        bpm: 125, bars: 18, warn: 1.5, phrases: ["ring+diagonal", "spin", "ring", "stairs", "diagonal", "double", "melody", "wall", "cross", "rain"],
+        colors: ["solid", "pairs", "alt"], laser: [[4, 3], [11, 3]], boss: { name: "OVERDRIVE", kind: "chaser" }, targets: ["steps", "zigzag", "scatter"],
         dodges: 2 },
     // Act V, Ultraviolet: everything, with the shortest warnings
     { name: "Indigo", lore: ["The colour between blue and violet that no one can agree on.",
             "The bar ends in a fill of thin lasers now, as a drummer's does."],
-        bpm: 126, bars: 16, warn: 1.5, phrases: ["stairs", "double", "fill", "ring", "chase", "rain", "wall", "cross"],
+        bpm: 126, bars: 18, warn: 1.5, phrases: ["cross", "fill", "chase", "chase+cage", "stairs", "rain", "double", "ring+diagonal", "wall", "ring"],
         colors: ["pairs", "alt"],
         laser: [[5, 4], [11, 3]], targets: ["tune", "zigzag", "scatter"], dodges: 2 },
     { name: "Black Light",
         lore: ["Invisible light, and everything glows under it.", "The warnings are shorter now. Trust the melody."],
-        bpm: 128, bars: 18, warn: 1, phrases: ["sweep", "diagonal", "close", "spin", "cross", "wall", "stutter", "rain",
-            "stairs", "double"],
+        bpm: 128, bars: 20, warn: 1, phrases: ["spin+ring", "rain", "stutter", "sweep+cage", "wall", "spin", "diagonal", "stairs", "double", "cross", "close", "sweep"],
         colors: ["pairs", "alt"],
         laser: [[5, 4], [12, 4]], targets: ["tune", "zigzag", "scatter"], dodges: 2 },
     { name: "Fluorescence", lore: ["What you take in, you give back brighter."],
-        bpm: 129, bars: 18, warn: 1,
-        phrases: ["chord", "doubletap", "mirror", "wall", "cross", "stairs", "double", "melody", "pendulum"],
+        bpm: 129, bars: 20, warn: 1,
+        phrases: ["stairs", "chord", "melody", "mirror", "double", "pendulum+cage", "wall", "cross", "pendulum", "doubletap", "cage+mirror"],
         colors: ["pairs", "alt"], laser: [[5, 4], [12, 4]], targets: ["tune", "zigzag", "scatter"], dodges: 2 },
     { name: "Edge of Sight", lore: ["One more band, and the eye gives up.", "Keep climbing."],
-        bpm: 131, bars: 20, warn: 1, phrases: ["cross", "radar", "offbeat", "segment", "stairs", "spin", "ring", "double", "fill",
-            "wall"],
+        bpm: 131, bars: 22, warn: 1, phrases: ["spin", "double", "offbeat+segment", "fill", "radar", "ring+diagonal", "cross", "segment", "offbeat", "wall", "stairs", "ring"],
         colors: ["pairs", "alt"],
         laser: [[5, 4], [13, 4]], targets: ["zigzag", "scatter", "scatter"], dodges: 2 },
     { name: "Lazer Wave", lore: ["Coherent. In phase. One wavelength, one beat.", "This is what you were made for."],
-        bpm: 132, bars: 20, warn: 1, phrases: ["fill", "wall", "corridor", "cross", "cage", "diagonal", "close", "ring", "chase",
-            "stutter"],
-        colors: ["pairs", "alt"], laser: [[5, 4], [13, 4]], targets: ["tune", "zigzag", "scatter", "scatter"],
+        bpm: 132, bars: 22, warn: 1, phrases: ["wall", "corridor", "cross", "diagonal", "close", "ring", "chase", "corridor+cage", "ring+diagonal", "spin+ring", "chase+cage", "fill"],
+        colors: ["pairs", "alt"], laser: [[5, 4], [13, 4]], boss: { name: "LAZER WAVE", kind: "mirror" }, targets: ["tune", "zigzag", "scatter", "scatter"],
         dodges: 2 },
 ];
 
@@ -252,8 +256,11 @@ function bassAt(tune, i, left, right) { // where the bass's note on beat i sits 
         : left + (note - tune.bassLo) / Math.max(1, tune.bassHi - tune.bassLo) * (right - left);
 }
 
+var BEAM_TOP = 0.14; // the highest a note's beam goes, its top edge as a fraction of the height: under the progress
+                     // stripe (hud.js), which a beam up against it looked jammed under
+
 function tuneBeam(tune, note, size) { // a band `size` thick centred on a note's height, kept on the screen
-    return Math.max(0.03, Math.min(0.97 - size, tuneAt(tune, note, TUNE_TOP, TUNE_BOTTOM) - size / 2));
+    return Math.max(BEAM_TOP, Math.min(0.97 - size, tuneAt(tune, note, TUNE_TOP, TUNE_BOTTOM) - size / 2));
 }
 
 function away(want, last, gap, lo, hi) { // want, unless that is within gap of last: then gap from last, on want's side
@@ -385,15 +392,13 @@ const PHRASES = {
             });
         }
     },
-    sweep: function (b0, rnd, add, tune) { // a sweeper across the bar's first half, from the left, and another across
-        // its second half, from the right, each with its hole at the height of the note sounding on the beat it sets
-        // out on (the middle, in a rest): be at the hole's height as it comes by
-        for (var i = 0; i < BEATS_PER_BAR; i += SWEEP_BEATS) {
-            var note = tune.sound[i];
-            var hole = note === null ? 0.5 : tuneAt(tune, note, TUNE_TOP, TUNE_BOTTOM);
-            hole = Math.max(SWEEP_GAP / 2 + 0.03, Math.min(0.97 - SWEEP_GAP / 2, hole));
-            add(b0 + i, "sweep", i == 0 ? 1 : -1, BEAM_SIZE_V, { hole: hole, gap: SWEEP_GAP, beats: SWEEP_BEATS });
-        }
+    sweep: function (b0, rnd, add, tune) { // a sweeper across the bar, from the left one bar and from the right the
+        // next, its hole at the height of the note sounding on the bar's first beat (the middle, in a rest): be at the
+        // hole's height as it comes by
+        var note = tune.sound[0];
+        var hole = note === null ? 0.5 : tuneAt(tune, note, TUNE_TOP, TUNE_BOTTOM);
+        hole = Math.max(SWEEP_GAP / 2 + 0.03, Math.min(0.97 - SWEEP_GAP / 2, hole));
+        add(b0, "sweep", (b0 / BEATS_PER_BAR) % 2 == 0 ? 1 : -1, BEAM_SIZE_V, { hole: hole, gap: SWEEP_GAP, beats: SWEEP_BEATS });
     },
     chase: function (b0, rnd, add, tune) { // the melody's beams as chasers: each starts at its note's height, follows the
         // piece's height through its warning, and locks half a beat before it fires: that is the moment to move
@@ -686,7 +691,9 @@ function buildTimeline(n) { // everything the level holds, in beat order: beams 
         }
         b0 = (COUNT_IN_BARS + bar) * BEATS_PER_BAR;
         var tune = songTune(def, n, bar); // what the music does over the bar, for the lasers to follow
-        PHRASES[name](b0, rnd, laser[bar] ? drop : add, tune);
+        name.split("+").forEach(function (part) { // a combination, "a+b", deals both phrases into the bar together
+            PHRASES[part](b0, rnd, laser[bar] ? drop : add, tune);
+        });
         if (laser[bar]) {
             var targets = def.targets || ["hold"];
             TARGET_PHRASES[targets[Math.floor(aim() * targets.length)]](b0, aim, add, tune);
@@ -695,9 +702,10 @@ function buildTimeline(n) { // everything the level holds, in beat order: beams 
     // the gates: the bar line into each laser section, and the one out of it unless it runs to the end. A gate's beat
     // is its own: whatever else fell on it goes
     var gates = [];
-    (def.laser || []).forEach(function (s) {
+    (def.laser || []).forEach(function (s, k) {
         var into = (COUNT_IN_BARS + s[0]) * BEATS_PER_BAR;
-        gates.push({ fire: into, axis: "gate", to: "laser", color: "gate" });
+        var face = def.boss && def.boss.kind == "twin" && k % 2 == 1 ? -1 : 1; // the twin's second section faces left
+        gates.push({ fire: into, axis: "gate", to: "laser", color: "gate", facing: face });
         if (s[0] + s[1] < def.bars) {
             gates.push({ fire: into + s[1] * BEATS_PER_BAR, axis: "gate", to: "wave", color: "gate" });
         }
@@ -849,6 +857,11 @@ Beam.prototype.hits = function (piece) { // only while it burns, and only its co
     if (this.axis == "h") {
         core.y += this.height * BEAM_INSET;
         core.height -= 2 * this.height * BEAM_INSET;
+        if (this.span) { // a segment's ends that stop short of the edge dissolve, and are forgiven
+            var solid = this.solidSpan();
+            core.x = solid.x;
+            core.width = solid.w;
+        }
     } else {
         core.x += this.width * BEAM_INSET;
         core.width -= 2 * this.width * BEAM_INSET;
@@ -888,19 +901,20 @@ Beam.prototype.update = function () { // draw it: an outline that sharpens as it
         }
         ctx.globalAlpha = (0.05 + 0.12 * t) * blink;
         ctx.fillStyle = tint;
-        ctx.fillRect(this.x, this.y, this.width, this.height);
+        this.strip(this.x, this.y, this.width, this.height);
         ctx.globalAlpha = (0.3 + 0.6 * t) * blink * (this.fall && t < FALL_LAND ? 0.4 : 1); // a faller still on its
         // way is the fainter of its two outlines
         ctx.strokeStyle = tint;
         ctx.lineWidth = this.color ? 3 : 2;
         ctx.setLineDash(this.color == "cyan" ? [] : [12, 8]);
-        ctx.strokeRect(this.x + 1, this.y + 1, this.width - 2, this.height - 2);
+        var solid = this.solidSpan(); // a segment's outline stops where its light will dissolve
+        ctx.strokeRect(solid.x + 1, this.y + 1, solid.w - 2, this.height - 2);
     } else { // burning, then its afterglow
         var fade = beatPos < this.endAt ? 1 : Math.max(0, 1 - (beatPos - this.endAt) / BEAM_FADE);
         var across = this.axis == "h" ? this.height : this.width;
         ctx.globalAlpha = 0.45 * fade; // the glow, the whole band
         ctx.fillStyle = tint;
-        ctx.fillRect(this.x, this.y, this.width, this.height);
+        this.strip(this.x, this.y, this.width, this.height);
         ctx.globalAlpha = 0.95 * fade; // the core: what can actually hit
         ctx.fillStyle = COLORS.laser;
         var inset = across * BEAM_INSET;
@@ -913,10 +927,33 @@ Beam.prototype.update = function () { // draw it: an outline that sharpens as it
 
 Beam.prototype.band = function (inset) { // fill the beam less `inset` px off each long side
     if (this.axis == "h") {
-        ctx.fillRect(this.x, this.y + inset, this.width, Math.max(1, this.height - 2 * inset));
+        this.strip(this.x, this.y + inset, this.width, Math.max(1, this.height - 2 * inset));
     } else {
         ctx.fillRect(this.x + inset, this.y, Math.max(1, this.width - 2 * inset), this.height);
     }
+};
+
+Beam.prototype.solidSpan = function () { // the stretch of a beam across the screen that is drawn solid: all of it,
+    // but for a segment's ends that stop short of the screen's edge, which dissolve over SEGMENT_FADE of the width
+    var fade = this.span ? SEGMENT_FADE * gameArea.canvas.width : 0;
+    var x0 = this.x + (this.span && this.span[0] > 0 ? fade : 0);
+    var x1 = this.x + this.width - (this.span && this.span[1] < 1 ? fade : 0);
+    return { x: x0, w: Math.max(0, x1 - x0) };
+};
+
+Beam.prototype.strip = function (x, y, w, h) { // fill a strip of a beam across the screen in the fill set: solid over
+    // its solid stretch, dissolving over a segment's open ends
+    var col = ctx.fillStyle, solid = this.solidSpan(), x0 = Math.max(x, solid.x), x1 = Math.min(x + w, solid.x + solid.w);
+    ctx.fillRect(x0, y, Math.max(0, x1 - x0), h);
+    if (x0 > x) {
+        ctx.fillStyle = fadeGradient(col, x0, 0, x, 0);
+        ctx.fillRect(x, y, x0 - x, h);
+    }
+    if (x1 < x + w) {
+        ctx.fillStyle = fadeGradient(col, x1, 0, x + w, 0);
+        ctx.fillRect(x1, y, x + w - x1, h);
+    }
+    ctx.fillStyle = col;
 };
 
 // A corridor: a bar of the level in which the whole height burns but for a gap that rides the melody. Its path is the
@@ -1122,11 +1159,28 @@ Sweeper.prototype.hits = function (piece) { // across the band, or anything it s
     return piece.y < h.top - give || piece.y + piece.height > h.bottom + give;
 };
 
-Sweeper.prototype.band = function (x, inset) { // the band at x, less `inset` px off each side, in two parts round the hole
-    var H = gameArea.canvas.height, h = this.holeEdges();
-    ctx.fillRect(x + inset, 0, this.width - 2 * inset, h.top);
-    ctx.fillRect(x + inset, h.bottom, this.width - 2 * inset, H - h.bottom);
+Sweeper.prototype.band = function (x, inset) { // the band at x, less `inset` px off each side, in two parts round the
+    // hole, each dissolving into the hole over SWEEP_FADE of it, in the fill set by the caller (a hex colour)
+    var H = gameArea.canvas.height, h = this.holeEdges(), fade = SWEEP_FADE * this.gap * H;
+    var left = x + inset, w = this.width - 2 * inset, col = ctx.fillStyle;
+    ctx.fillRect(left, 0, w, h.top - fade);
+    ctx.fillStyle = fadeGradient(col, 0, h.top - fade, 0, h.top);
+    ctx.fillRect(left, h.top - fade, w, fade);
+    ctx.fillStyle = fadeGradient(col, 0, h.bottom + fade, 0, h.bottom);
+    ctx.fillRect(left, h.bottom, w, fade);
+    ctx.fillStyle = col;
+    ctx.fillRect(left, h.bottom + fade, w, H - h.bottom - fade);
 };
+
+function fadeGradient(col, x0, y0, x1, y1) { // a fill that is `col` (a hex colour, "#rrggbb") at (x0, y0) and gone at
+    // (x1, y1): what a sweeper's band dissolves into its hole with, and a segment's end into the screen
+    var g = ctx.createLinearGradient(x0, y0, x1, y1), rgb = /^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(col);
+    var clear = rgb ? "rgba(" + parseInt(rgb[1], 16) + "," + parseInt(rgb[2], 16) + "," + parseInt(rgb[3], 16) + ",0)"
+        : "rgba(0,0,0,0)";
+    g.addColorStop(0, col);
+    g.addColorStop(1, clear);
+    return g;
+}
 
 Sweeper.prototype.update = function () { // draw it: an outline at its edge, then the band wiping across, then fading
     var tint = this.color ? COLORS[this.color] : COLORS.laser;
@@ -1148,8 +1202,9 @@ Sweeper.prototype.update = function () { // draw it: an outline at its edge, the
         ctx.strokeStyle = tint;
         ctx.lineWidth = this.color ? 3 : 2;
         ctx.setLineDash(this.color == "cyan" ? [] : [12, 8]);
-        ctx.strokeRect(x + 1, 1, this.width - 2, h.top - 2);
-        ctx.strokeRect(x + 1, h.bottom + 1, this.width - 2, H - h.bottom - 2);
+        var fade = SWEEP_FADE * this.gap * H; // the outline stops where the band will dissolve
+        ctx.strokeRect(x + 1, 1, this.width - 2, h.top - fade - 2);
+        ctx.strokeRect(x + 1, h.bottom + fade + 1, this.width - 2, H - h.bottom - fade - 2);
     } else { // burning as it wipes across, then its afterglow where it stopped
         var fade = beatPos < this.endAt ? 1 : Math.max(0, 1 - (beatPos - this.endAt) / BEAM_FADE);
         ctx.globalAlpha = 0.45 * fade;
@@ -1376,8 +1431,8 @@ Target.prototype.step = function () { // false once its burst is over, or, misse
 Target.prototype.center = function () { // where it is now: { x, y, r }
     var W = gameArea.canvas.width, H = gameArea.canvas.height;
     var t = (beatPos - this.warnAt) / (this.fireAt - this.warnAt);
-    var at = TARGET_X * W;
-    return { x: at + (1 - t) * (W - at + this.size * H), y: this.pos * H, r: this.size * H };
+    var at = targetX() * W, off = (1 - t) * ((facing > 0 ? W - at : at) + this.size * H); // in from the edge it faces
+    return { x: at + facing * off, y: this.pos * H, r: this.size * H };
 };
 
 Target.prototype.update = function () { // a diamond sharpening as it comes (cyan solid, magenta dashed, as a beam's
@@ -1436,7 +1491,7 @@ function Radar(ev, warn) {
     this.endAt = ev.fire + ev.beats;
     this.absorbedAt = null;
     this.x = this.y = this.width = this.height = 0;
-    this.at = this.was = this.angle();
+    this.raw = this.at = this.was = this.angle(); // raw: where it would be unslowed (step)
 }
 
 Radar.prototype.absorb = function () {
@@ -1447,9 +1502,12 @@ Radar.prototype.angle = function () { // where the ray points now: 0 to the righ
     return Math.PI * 2 * Math.max(0, Math.min(1, (beatPos - this.fireAt) / this.beats));
 };
 
-Radar.prototype.step = function () { // on round, keeping where it was: false once its afterglow is gone
+Radar.prototype.step = function () { // on round, keeping where it was, at the pace a boss may have slowed it to
+    // (bossSlow, boss.js): false once its afterglow is gone
     this.was = this.at;
-    this.at = this.angle();
+    var raw = this.angle(); // where it would be unslowed: it comes on by that much, slowed
+    this.at = Math.min(Math.PI * 2, this.at + (raw - this.raw) / bossSlow());
+    this.raw = raw;
     if (this.absorbedAt !== null) {
         return beatPos < this.absorbedAt + BEAM_ABSORB;
     }

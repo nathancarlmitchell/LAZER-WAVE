@@ -30,35 +30,91 @@ const CHORDS = {
 // in sixteenths and the rest in eighths. On a step, a number is a note -- the melody's and the lead's counted in
 // semitones from the key, the bass's from its chord's root, the arpeggio's as which of its chord's notes, 0 the lowest
 // and 3 that one an octave up -- "-" holds the note before, and "." rests. waves: the lead's two oscillators, which
-// give each act a voice of its own. A part a song has no line for doesn't play in it
+// give each act a voice of its own. A part a song has no line for doesn't play in it. melody2 and chords2 are a second
+// phrase: the wave bars play four bars of the first and four of the second, turn and turn about (songPhrase)
 const SONGS = [null,
-    { key: 69, waves: ["triangle", "sawtooth"], chords: "i VI III VII", leadChords: "i VI III VII", // A minor: Am F C G
+    { key: 69, waves: ["triangle", "sawtooth"], chords: "i VI III VII", chords2: "iv VI i V", leadChords: "i VI III VII", // A minor: Am F C G
         melody: "0 - - - 3 - 7 - 8 - - - 7 - 3 - 7 - - - 10 - 12 - 10 - - - 7 - - -",
+        melody2: "12 - - - 10 - 7 - 8 - 10 - 12 - - - 7 - 5 - 3 - 5 - 7 - - - 3 - 0 -",
         lead: "12 - - - 10 - 7 - 8 - - - 7 - 5 - 7 - - - 3 - 5 - 2 - - - - - . .",
         bass: "0 - - 12 0 - 12 -",
         arp: "0 . 1 . 2 . 1 ." },
-    { key: 64, waves: ["square", "sawtooth"], chords: "i VII VI VII", leadChords: "VI VII i i", // E minor: Em D C D,
+    { key: 64, waves: ["square", "sawtooth"], chords: "i VII VI VII", chords2: "VI VII i V", leadChords: "VI VII i i", // E minor: Em D C D,
         melody: "7 - 5 - 3 - 0 - 2 - - - 5 - 10 - 8 - 7 - 3 - 7 - 5 - - - 2 - - -", // and the lead's C D Em
+        melody2: "10 - 12 - 10 - 7 - 8 - - - 7 - 5 - 3 - 5 - 7 - 3 - 2 - - - 0 - - -",
         lead: "12 - 10 - 7 - 3 - 2 - 5 - 10 - 14 - 15 - - - 14 - 12 - 7 - - - - - . .",
         bass: "0 12 0 12 0 12 0 12",
         arp: "0 1 2 1 0 1 2 1" },
-    { key: 62, waves: ["square", "square"], chords: "i VI iv V", leadChords: "i VI VII V", // D minor: Dm Bb Gm A,
+    { key: 62, waves: ["square", "square"], chords: "i VI iv V", chords2: "VI iv V i", leadChords: "i VI VII V", // D minor: Dm Bb Gm A,
         melody: "7 - 10 - 12 - 10 - 8 - 7 - 5 - 3 - 5 - 8 - 12 - 10 - 11 - - - 7 - - -", // and the lead's Dm Bb C A
+        melody2: "15 - 12 - 10 - 12 - 14 - - - 12 - 10 - 8 - 10 - 7 - 5 - 3 - 5 - 7 - - -",
         lead: "12 - 10 - 7 - . 7 8 - 7 - 3 - 5 - 10 - 14 - 12 - 10 - 11 - - - 7 - . .",
         bass: "0 0 12 0 0 12 0 12",
         arp: "0 1 2 3 4 3 2 1" },
-    { key: 66, waves: ["sawtooth", "sawtooth"], chords: "i VII VI V", leadChords: "VI VII i i", // F# minor: F#m E D
+    { key: 66, waves: ["sawtooth", "sawtooth"], chords: "i VII VI V", chords2: "iv VI V i", leadChords: "VI VII i i", // F# minor: F#m E D
         melody: "12 - 7 - 3 - 7 - 10 - 5 - 2 - 5 - 8 - 3 - 0 - 3 - 7 - - - 11 - - -", // C#, and the lead's D E F#m
+        melody2: "14 - 12 - 10 - 7 - 8 - 7 - 5 - 3 - 5 - 7 - 8 - 10 - 7 - - - 2 - - -",
         lead: "12 - 8 - 3 - 8 - 10 - 14 - 17 - 14 - 15 - - - 12 - - - 7 - 10 - 12 - . .",
         bass: "0 0 0 0 0 0 0 12",
         arp: "0 1 2 0 1 2 0 1 2 0 1 2 3 2 1 0" },
-    { key: 60, waves: ["sawtooth", "square"], chords: "i VI VII V", leadChords: "i VI III VII", // C minor: Cm Ab Bb G,
+    { key: 60, waves: ["sawtooth", "square"], chords: "i VI VII V", chords2: "VI VII iv V", leadChords: "i VI III VII", // C minor: Cm Ab Bb G,
         melody: "12 - - 15 - - 19 - 20 - - 19 - - 15 - 17 - - 14 - - 10 - 11 - 14 - 19 - 23 -", // lead's Cm Ab Eb Bb
+        melody2: "24 - - 22 - - 19 - 20 - - 17 - - 15 - 14 - - 15 - - 17 - 14 - 12 - 10 - 7 -",
         lead: "19 - - 17 15 - 12 - 15 - - 14 12 - 8 - 10 - - 12 14 - 15 - 17 - - - 14 - 10 -",
         bass: "0 12 0 12 0 12 0 12",
         arp: "0 2 4 2 1 3 5 3" },
 ];
 var ARP_FROM = 2; // an act's arpeggio joins on its second level, so each act builds as it goes
+var BASS_FILL = "0 0 7 7 12 12 7 7"; // the bass's turnaround, in place of its line on every fourth bar of a section, from
+                                     // the act's ARP_FROM'th level
+var LIFT = 2; // semitones the song lifts by over a level's last LIFT_BARS bars, from the act's LIFT_FROM'th level: the
+var LIFT_BARS = 4; // key change a last chorus takes
+var LIFT_FROM = 3;
+var PAD_FROM_BAR = 2; // a level builds: its pad joins on this bar, and its arpeggio (on the levels that have one) on
+var ARP_FROM_BAR = 4; // this one
+var ARP_HIGH_FROM = 5; // the act's level from which the arpeggio plays an octave up: its boss fight
+var ARP_ACCENT = 1.25, ARP_OFF = 0.85; // the arpeggio's loudness on a beat, and off it
+var PAN_ARP = -0.35, PAN_LEAD = 0.25, PAN_PAD = 0.5; // where the parts sit, left to right: the pad split either side
+var PAD_SWEEP_HZ = 0.3, PAD_SWEEP = 0.35; // the pad's filter drifts, this fast and by this much of its cutoff
+var LEAD_SHINE = 0.35; // in a chorus (a laser section, or overdrive) the lead is doubled an octave up, this loud against it
+var BASS_FILL_BRIGHT = 1.5; // the bass's filter opens this much further through its turnaround
+var reversedCache = {}, figureCache = {};
+
+function arpFigure(song, at) { // the arpeggio's figure on the act's level `at`: as written on its second level, leaping
+    // on its third (every other note an octave up), galloping on its fourth (every step twice, in pairs of sixteenths),
+    // and as written again on its fifth, where it plays an octave up (arpHigh)
+    var k = song.arp + "@" + at;
+    if (!figureCache[k]) {
+        var steps = words(song.arp);
+        var notes = 0; // the leap lands on every other note, rests and holds not counted
+        figureCache[k] = at == 3 ? steps.map(function (w) { return w == "." || w == "-" ? w : ++notes % 2 == 0 ? String(Number(w) + 3) : w; }).join(" ")
+            : at == 4 ? steps.map(function (w) { return w + " " + (w == "." || w == "-" ? "." : w); }).join(" ") : song.arp;
+    }
+    return figureCache[k];
+}
+
+function songPhrase(song, sec, bar) { // the melody and the chords a wave bar plays: the second phrase, if the song has
+    // one, on every other four bars of the section, A B A B, the first up an octave on its second time; a laser
+    // section's lead is its own
+    var second = !sec.laser && song.melody2 && Math.floor((bar - sec.first) / 4) % 2 == 1;
+    var group = Math.floor((bar - sec.first) / 4);
+    return { melody: second ? song.melody2 : song.melody, chords: second ? song.chords2 || song.chords : song.chords,
+        octave: !sec.laser && group % 4 == 2 ? 12 : 0 }; // the first phrase's second time round, an octave up
+}
+
+function songLift(def, bar, n) { // semitones the song is lifted by in bar `bar` of level n (def, its definition): LIFT
+    // over its last LIFT_BARS bars, from the act's LIFT_FROM'th level, and never in an intro (no def)
+    return def && bar >= def.bars - LIFT_BARS && levelInAct(n) >= LIFT_FROM ? LIFT : 0;
+}
+
+function arpLine(song, bar, at) { // the arpeggio's line for bar `bar` of a section on the act's level `at`: its figure
+    // there, and backwards every other bar
+    var line = arpFigure(song, at);
+    if (bar % 2 == 0) {
+        return line;
+    }
+    return reversedCache[line] || (reversedCache[line] = words(line).slice().reverse().join(" "));
+}
 
 // Where the parts play. The pad and the arpeggio take their chords' notes into the octave up from PAD_LOW and ARP_LOW,
 // whatever the key, so each keeps to its own register and a chord moves to the next by steps. The bass starts a line
@@ -155,39 +211,48 @@ function musicBeat(n, delay, beatSec, over) { // beat n of the level proper (0 i
     var when = c.currentTime + delay;
     var sec = musicSection(wave, Math.floor(n / BEATS_PER_BAR));
     duckAt(m, when, beatSec);
-    songBeat(c, m, song, sec, n, when, beatSec, over ? OVERDRIVE_BRIGHT : sec.laser ? LASER_BRIGHT : 1,
-        levelInAct(level) >= ARP_FROM);
-    if (n == wave.bars * BEATS_PER_BAR - 1) { // the last beat: the next one is the level cleared
-        musicEnd(c, m, song, when + beatSec);
+    var bar = Math.floor(n / BEATS_PER_BAR);
+    songBeat(c, m, song, sec, n, when, beatSec, { bright: over ? OVERDRIVE_BRIGHT : sec.laser ? LASER_BRIGHT : 1,
+        arp: levelInAct(level) >= ARP_FROM, arpLevel: levelInAct(level), arpHigh: levelInAct(level) >= ARP_HIGH_FROM, lift: songLift(wave, bar, level),
+        breakdown: !sec.laser && bar + 1 < wave.bars && musicSection(wave, bar + 1).laser }); // the bar before a laser
+        // section is a breakdown: the bass and the drums alone under the melody, so the chorus lands
+    if (n == totalBeats - firstPlayBeat() - 1) { // the last beat (a boss brought down brings it in): the next one is
+        // the level cleared
+        musicEnd(c, m, song, when + beatSec, songLift(wave, wave.bars - 1, level));
     }
 }
 
-function songBeat(c, m, song, sec, n, when, beatSec, bright, arp) { // a song's notes from beat n to the next, the beat
+function songBeat(c, m, song, sec, n, when, beatSec, o) { // o: bright, arp, arpLevel, arpHigh, lift, breakdown // a song's notes from beat n to the next, the beat
     // falling at `when` in section sec: the chord, the bass, the arpeggio if arp, and the melody, or the lead in a
     // laser section
     var from = n - sec.first * BEATS_PER_BAR; // beats into its section, which starts the chords and the lines afresh
     var left = sec.end * BEATS_PER_BAR - n; // and beats left in it, which no note outlasts
-    var line = sec.laser && song.leadChords || song.chords;
+    var bar = Math.floor(n / BEATS_PER_BAR), inSec = Math.floor(from / BEATS_PER_BAR); // the bar, and bars into the section
+    var key = song.key + (o.lift || 0), phrase = songPhrase(song, sec, bar); // the key as lifted, and the phrase playing
+    var bright = o.bright, padOn = bar >= PAD_FROM_BAR && !o.breakdown, arpOn = o.arp && bar >= ARP_FROM_BAR && !o.breakdown;
+    var line = sec.laser && song.leadChords || phrase.chords;
     var at = Math.floor(from / BEATS_PER_BAR) % words(line).length;
     var chord = words(line)[at];
     if (n >= m.padUntil) { // a bar line, or the song starting again partway through a bar: the chord to its end
         var rest = BEATS_PER_BAR - n % BEATS_PER_BAR;
-        playPad(c, m, when, voiced(song.key, chord, PAD_LOW), rest * beatSec, bright);
+        if (padOn) {
+            playPad(c, m, when, voiced(key, chord, PAD_LOW), rest * beatSec, bright);
+        }
         m.padUntil = n + rest;
     }
-    var root = bassRoots(song.key, line)[at];
-    lineNotes(song.bass, 2, from, left, function (k, step, len) {
-        playBass(c, m, when + k * beatSec / 2, root + step, len * beatSec / 2, bright);
+    var root = bassRoots(key, line)[at];
+    lineNotes(o.arp && inSec % 4 == 3 ? BASS_FILL : song.bass, 2, from, left, function (k, step, len) { // a turnaround every fourth bar
+        playBass(c, m, when + k * beatSec / 2, root + step, len * beatSec / 2, bright * (o.arp && inSec % 4 == 3 ? BASS_FILL_BRIGHT : 1));
     });
-    if (arp) {
-        var tones = voiced(song.key, chord, ARP_LOW);
-        lineNotes(song.arp, 4, from, left, function (k, step, len) {
+    if (arpOn) {
+        var tones = voiced(key, chord, ARP_LOW + (o.arpHigh ? 12 : 0));
+        lineNotes(arpLine(song, inSec, o.arpLevel || ARP_FROM), 4, from, left, function (k, step, len) {
             var note = tones[step % tones.length] + 12 * Math.floor(step / tones.length);
-            playArp(c, m, when + k * beatSec / 4, note, len * beatSec / 4, bright);
+            playArp(c, m, when + k * beatSec / 4, note, len * beatSec / 4, bright, k == 0);
         });
     }
-    lineNotes(sec.laser ? song.lead : song.melody, 2, from, left, function (k, step, len) {
-        playLead(c, m, song.waves, when + k * beatSec / 2, song.key + step, len * beatSec / 2, bright);
+    lineNotes(sec.laser ? song.lead : phrase.melody, 2, from, left, function (k, step, len) {
+        playLead(c, m, song.waves, when + k * beatSec / 2, key + step + (sec.laser ? 0 : phrase.octave), len * beatSec / 2, bright);
     });
 }
 
@@ -199,12 +264,14 @@ function songTune(def, n, bar) { // what the tune does over bar `bar` of level n
     // chord: the bar's chord's notes, in the tune's octave
     var song = actSong(n);
     var sec = musicSection(def, bar);
-    var s = words(sec.laser ? song.lead : song.melody);
+    var key = song.key + songLift(def, bar, n), phrase = songPhrase(song, sec, bar); // as the song plays it
+    var tuneKey = key + (sec.laser ? 0 : phrase.octave); // the tune's notes, up an octave on the first phrase's second time
+    var s = words(sec.laser ? song.lead : phrase.melody);
     var tune = { onset: [], hold: [], sound: [], lo: Infinity, hi: -Infinity };
     s.forEach(function (w) {
         if (w != "-" && w != ".") {
-            tune.lo = Math.min(tune.lo, song.key + Number(w));
-            tune.hi = Math.max(tune.hi, song.key + Number(w));
+            tune.lo = Math.min(tune.lo, tuneKey + Number(w));
+            tune.hi = Math.max(tune.hi, tuneKey + Number(w));
         }
     });
     var first = (bar - sec.first) * BEATS_PER_BAR * 2; // the bar's first step, and the section's
@@ -213,7 +280,7 @@ function songTune(def, n, bar) { // what the tune does over bar `bar` of level n
         var step = first + i * 2;
         var w = s[step % s.length];
         var on = w != "-" && w != ".";
-        tune.onset.push(on ? song.key + Number(w) : null);
+        tune.onset.push(on ? tuneKey + Number(w) : null);
         var len = 1; // the note's length in steps: through the "-"s after it, to the section's end at most
         while (on && step + len < steps && s[(step + len) % s.length] == "-") {
             len++;
@@ -223,7 +290,7 @@ function songTune(def, n, bar) { // what the tune does over bar `bar` of level n
         for (var back = step; back >= 0 && back > step - s.length; back--) { // back through its holds, to the note
             var v = s[back % s.length]; // they hold, but not past the section's start: nothing is held into it
             if (v != "-") {
-                sounding = v == "." ? null : song.key + Number(v);
+                sounding = v == "." ? null : tuneKey + Number(v);
                 break;
             }
         }
@@ -231,8 +298,8 @@ function songTune(def, n, bar) { // what the tune does over bar `bar` of level n
     }
     // and the bass under it: the MIDI note the bass sounds on each beat, or null in a rest, and the bass line's range
     // over the section's chords, so a cage can stand where the bass is (bassAt, waves.js)
-    var chordLine = sec.laser && song.leadChords || song.chords;
-    var roots = bassRoots(song.key, chordLine);
+    var chordLine = sec.laser && song.leadChords || phrase.chords;
+    var roots = bassRoots(key, chordLine);
     var bass = song.bass ? words(song.bass) : [];
     tune.bass = [];
     tune.bassLo = Infinity;
@@ -248,7 +315,7 @@ function songTune(def, n, bar) { // what the tune does over bar `bar` of level n
     var root = roots[(bar - sec.first) % roots.length];
     var chordNames = words(chordLine), chord = CHORDS[chordNames[(bar - sec.first) % chordNames.length]];
     tune.chord = chord.map(function (t) { // the bar's chord, its notes taken into the tune's own octave, from lo up
-        var n = song.key + t;
+        var n = key + t;
         return tune.lo + ((n - tune.lo) % 12 + 12) % 12;
     });
     for (var j = 0; j < BEATS_PER_BAR; j++) {
@@ -294,11 +361,12 @@ function lineNotes(line, per, from, left, play) { // the notes a part's line sta
     }
 }
 
-function musicEnd(c, m, song, when) { // the level cleared: the key's own chord, the bass under it and the lead over,
+function musicEnd(c, m, song, when, lift) { // the level cleared: the key's own chord, the bass under it and the lead over,
     // left to ring
-    playPad(c, m, when, voiced(song.key, "i", PAD_LOW), 0.1, 1, END_RING);
-    playBass(c, m, when, register(song.key, BASS_LOW), 0.1, 1, END_RING);
-    playLead(c, m, song.waves, when, song.key + 12, 0.1, 1, END_RING);
+    var key = song.key + (lift || 0);
+    playPad(c, m, when, voiced(key, "i", PAD_LOW), 0.1, 1, END_RING);
+    playBass(c, m, when, register(key, BASS_LOW), 0.1, 1, END_RING);
+    playLead(c, m, song.waves, when, key + 12, 0.1, 1, END_RING);
 }
 
 // An act's intro plays its theme under the lore: the chords, the bass and the melody, round and round with no beat
@@ -331,7 +399,7 @@ function introTick() { // hand the audio clock the theme's beats coming up
     var m = music || (music = musicBus(c, intro.beatSec));
     while (intro.start + intro.next * intro.beatSec < now + INTRO_AHEAD) {
         songBeat(c, m, intro.song, INTRO_SECTION, intro.next, intro.start + intro.next * intro.beatSec, intro.beatSec,
-            1, false);
+            { bright: 1, arp: false, lift: 0 });
         intro.next++;
     }
 }
@@ -363,7 +431,17 @@ function musicBus(c, beatSec) { // where a song's notes go, made as it starts or
     feedback.connect(echo);
     tone.connect(wet);
     wet.connect(duck);
-    return { out: out, duck: duck, echo: echo, padUntil: -1 };
+    var pan = function (where) { // a part's place across the stereo field, into duck; or duck itself where a browser
+        if (!c.createStereoPanner) { // has no panner
+            return duck;
+        }
+        var p = c.createStereoPanner();
+        p.pan.value = where;
+        p.connect(duck);
+        return p;
+    };
+    return { out: out, duck: duck, echo: echo, padUntil: -1, arpPan: pan(PAN_ARP), leadPan: pan(PAN_LEAD), padL: pan(-PAN_PAD),
+        padR: pan(PAN_PAD) };
 }
 
 function musicStop(fade) { // the song stops where it stands, going over `fade` seconds; a beat handed to musicBeat
@@ -479,26 +557,35 @@ function playPad(c, m, when, notes, len, bright, ring) { // the chord on saws, t
     var v = VOICES.pad;
     var release = ring || v.release;
     var off = when + len;
-    var f = lowpass(c, v.cutoff * bright, 0.7);
-    notes.forEach(function (note) {
-        osc(c, "sawtooth", note, -v.spread, when, off + release + 0.02).connect(f);
-        osc(c, "sawtooth", note, v.spread, when, off + release + 0.02).connect(f);
+    [[-v.spread, m.padL], [v.spread, m.padR]].forEach(function (side) { // each note's two saws to either side
+        var f = lowpass(c, v.cutoff * bright, 0.7);
+        var lfo = c.createOscillator(), depth = c.createGain(); // the filter drifting, either side out of step
+        lfo.frequency.value = PAD_SWEEP_HZ * (side[0] < 0 ? 1 : 1.13);
+        depth.gain.value = v.cutoff * bright * PAD_SWEEP;
+        lfo.connect(depth);
+        depth.connect(f.frequency);
+        lfo.start(when);
+        lfo.stop(off + release + 0.02);
+        notes.forEach(function (note) {
+            osc(c, "sawtooth", note, side[0], when, off + release + 0.02).connect(f);
+        });
+        var g = noteGain(c, when, v.level, Math.min(v.attack, len / 2), off, release);
+        f.connect(g);
+        g.connect(side[1] || m.duck);
     });
-    var g = noteGain(c, when, v.level, Math.min(v.attack, len / 2), off, release);
-    f.connect(g);
-    g.connect(m.duck);
 }
 
-function playArp(c, m, when, note, len, bright) { // a square, plucked: its filter opens at the start and closes
+function playArp(c, m, when, note, len, bright, accent) { // a square, plucked: its filter opens at the start and
+    // closes; louder on the beat than off it
     var v = VOICES.arp;
     var release = Math.max(v.release, len);
     var f = lowpass(c, v.cutoff * bright, 3);
     f.frequency.setValueAtTime(v.cutoff * bright * 3, when);
     f.frequency.exponentialRampToValueAtTime(v.cutoff * bright, when + 0.08);
     osc(c, "square", note, 0, when, when + release + 0.02).connect(f);
-    var g = noteGain(c, when, v.level, 0.003, when, release);
+    var g = noteGain(c, when, v.level * (accent ? ARP_ACCENT : ARP_OFF), 0.003, when, release);
     f.connect(g);
-    g.connect(m.duck);
+    g.connect(m.arpPan || m.duck);
     g.connect(m.echo);
 }
 
@@ -522,8 +609,14 @@ function playLead(c, m, waves, when, note, len, bright, ring) { // two oscillato
         depth.connect(o.detune);
         o.connect(f);
     });
+    if (bright > 1) { // a chorus: the note doubled an octave up, quieter, so it shines
+        var shine = c.createGain();
+        shine.gain.value = LEAD_SHINE;
+        osc(c, waves[0], note + 12, 0, when, end).connect(shine);
+        shine.connect(f);
+    }
     var g = noteGain(c, when, v.level, 0.01, off, release);
     f.connect(g);
-    g.connect(m.duck);
+    g.connect(m.leadPan || m.duck);
     g.connect(m.echo);
 }

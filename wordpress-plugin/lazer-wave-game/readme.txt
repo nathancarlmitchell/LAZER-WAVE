@@ -4,7 +4,7 @@ Tags: game, rhythm, arcade, html5, embed
 Requires at least: 6.1
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 1.5.0
+Stable tag: 1.6.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -18,9 +18,11 @@ to become a laser, untouchable, for eight beats. At a gate, Space switches you t
 targets in their colours while you dodge the lasers crossing your path.
 
 Twenty-five levels in five acts climb the visible spectrum from Infrared to Ultraviolet, at 96 to 132 BPM, with lore
-between them. Every act has a synth song of its own, and the lasers fire on its notes. Each cleared level is ranked
-from F to S+, and keeps its best rank and best score; a level select opens each level once the one before is beaten. Four difficulties, EASY to TRUE, set a run's lives, shields, timing
-windows and warnings.
+between them and a boss at the end of every act. Every act has a synth song of its own, and the lasers fire on its
+notes. A performance meter fills on every hit and drains on every miss, and at empty the level is failed. Each cleared
+level is ranked from F to SS, and keeps its best rank and best score; a level select opens each level once the one
+before is beaten. Four difficulties, EASY to TRUE, set a run's lives, shields, warnings, points and how fast the meter
+fills and drains.
 
 The game runs in its own frame, so your theme can't restyle it and it can't clash with the rest of the page.
 
@@ -51,7 +53,7 @@ volumes, and CALIBRATE, which finds a player's timing offset as they tap along t
 = How do I play? =
 
 Mouse: your piece follows the cursor. Z or the left button hits a cyan beat, X or the right button a magenta one.
-Space or the middle button passes a gate, and anywhere else spends a full overdrive meter. P or Esc to pause, H for help.
+Space or the middle button passes a gate (Z and X pass it too), and anywhere else spends a full overdrive meter. P or Esc to pause, H for help.
 Touch: drag anywhere to steer, and tap the CYAN, MAGENTA and GATE / OVERDRIVE buttons. On a phone, use Fullscreen or
 "Open in a new window". A controller works too: the left stick or the D-pad steers, LT, LB or X hit cyan, RT, RB or B
 magenta, A or Y take the gates and overdrive, and START pauses.
@@ -65,6 +67,20 @@ In the game's OPTIONS, CALIBRATE plays a beat to tap along to and suggests the t
 Click the game first so it has the keyboard.
 
 == Changelog ==
+
+= 1.6.0 =
+* A boss at the end of every act: RED GIANT, INTERFERENCE, STATIC BLOOM, OVERDRIVE and LAZER WAVE, each with a fight
+  of its own and its health in the progress stripe; the level ends on the bar the boss falls in.
+* Levels two bars longer, mixing their laser types in new combinations; the sweeper takes a bar and leaves a soft
+  hole; segments fade at their ends; a beat ring on the orb in laser form.
+* A performance meter: from 75%, every hit fills it by what it earned, twice as fast in overdrive, every miss drains
+  it, and at empty the level is failed (never on EASY). The timing windows are the same on every difficulty: PERFECT
+  50 ms, GREAT 80, GOOD 110, BAD 160.
+* An SS rank over S+: every beat PERFECT, nothing stray, no shield lost and the boss down.
+* A gate takes Z or X as well as Space.
+* The music: a second phrase, a lift at the end of a level, a drum kit for every act with a backbeat, fills and
+  hats, an arpeggio whose figure changes through the act, a breakdown before the lasers, and a stereo spread.
+* A startup sequence as the game comes on, or at the first press where the browser holds sound until one.
 
 = 1.5.0 =
 * A death animation: a flash and a ring of the laser's red, the laser that struck whitening, the core splitting into

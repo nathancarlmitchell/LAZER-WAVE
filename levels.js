@@ -14,6 +14,7 @@ function startGame(e) { // START, or a level picked on the level select: the run
     startScreenIntervals.forEach(function (id) { clearInterval(id); });
     loadAudio();
     playSound(aud_click);
+    startupStop(); // the startup sequence, if it is still going: the run has its own sounds
     startTime = Date.now();
     startRunLives(); // the difficulty is locked in from here: its button only lives on the start screen
     carryHp = carryMeter = null; // a run begins on full shields and an empty meter

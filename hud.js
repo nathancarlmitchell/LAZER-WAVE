@@ -37,6 +37,7 @@ function drawStats(color, scoreColor) { // score, combo, shields, and the level 
         ctx.fillRect(50 + i * 26, 146, 18, 18);
     }
     drawDriveMeter(touch);
+    drawPerfMeter(touch);
     ctx.globalAlpha = 1;
     ctx.font = (touch ? TOUCH_STAT_FONT : 30) + "px Arial";
     ctx.fillStyle = color;
@@ -64,6 +65,24 @@ function drawDriveMeter(touch) { // overdrive's meter: charging, then full and t
         ctx.font = "bold 16px Arial";
         ctx.fillText(label, meterX() + METER_W + 10, METER_Y + METER_H + 2);
     }
+}
+
+var PERF_Y = 178, PERF_TOUCH_Y = 168, PERF_W = 186, PERF_H = 6; // the performance meter (perf, loop.js): under the
+                                                                // shields' row, above the level's line in either layout
+
+function drawPerfMeter(touch) { // from empty, the track failed, to full: green with room to spare, amber below half,
+    // red below a quarter, its figure beside it
+    var y = touch ? PERF_TOUCH_Y : PERF_Y;
+    ctx.globalAlpha = 0.18;
+    ctx.fillStyle = COLORS.laserCore;
+    ctx.fillRect(50, y, PERF_W, PERF_H);
+    ctx.globalAlpha = 0.9;
+    ctx.fillStyle = perf < 0.25 ? COLORS.warn : perf < 0.5 ? COLORS.late : COLORS.good;
+    ctx.fillRect(50, y, PERF_W * perf, PERF_H);
+    ctx.globalAlpha = 1;
+    ctx.font = "bold 12px Arial";
+    ctx.fillStyle = COLORS.dim;
+    ctx.fillText(Math.round(perf * 100) + "%", 50 + PERF_W + 8, y + PERF_H);
 }
 
 function drawProgress() { // the top stripe filling as the level plays through its bars

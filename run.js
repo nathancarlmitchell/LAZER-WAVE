@@ -7,19 +7,21 @@
 
 // The difficulties, picked on the start screen because they define a run rather than configure one. Each is a few
 // numbers. lives: the deaths a run survives, each buying the level again with its points kept, the death after the
-// last being the game over. shields: what an attempt starts with. window: what the timing windows are multiplied by
-// (PERFECT_MS and GOOD_MS, loop.js). warn: what a level's warning time is multiplied by (its `warn`, waves.js: how
-// many beats ahead a laser shows itself). points: what every point scored is multiplied by. blurb: what all that
-// comes to, said under or beside the button in a line or two. Records are kept per difficulty (rec).
+// last being the game over. shields: what an attempt starts with. warn: what a level's warning time is multiplied by
+// (its `warn`, waves.js: how many beats ahead a laser shows itself). points: what every point scored is multiplied
+// by. perfGain and perfDrain: what the performance meter's fill on a hit and drain on a miss are multiplied by
+// (loop.js), and perfFail: false means an empty meter never fails the track. The timing windows are the same on
+// every difficulty. blurb: what all that comes to, said under or beside the button in a line or two. Records are
+// kept per difficulty (rec).
 const DIFFICULTIES = [
-    { name: "easy", label: "EASY 簡単", lives: 5, shields: 4, window: 1.3, warn: 1.25, points: 0.5,
-        blurb: ["5 lives · 4 shields · half points", "wide timing · long warnings"] },
-    { name: "normal", label: "NORMAL 普通", lives: 3, shields: 3, window: 1, warn: 1, points: 1,
-        blurb: ["3 lives · 3 shields · points as scored", "timing and warnings as written"] },
-    { name: "hard", label: "HARD 難しい", lives: 2, shields: 2, window: 0.8, warn: 0.85, points: 1.5,
-        blurb: ["2 lives · 2 shields · points x1.5", "tight timing · short warnings"] },
-    { name: "true", label: "TRUE 真", lives: 0, shields: 1, window: 0.65, warn: 0.7, points: 2,
-        blurb: ["no lives · 1 shield · points x2", "the tightest timing · the shortest warnings"] },
+    { name: "easy", label: "EASY 簡単", lives: 5, shields: 4, warn: 1.25, points: 0.5, perfGain: 1.25, perfDrain: 0.75,
+        perfFail: false, blurb: ["5 lives · 4 shields · half points", "long warnings · performance can't fail you"] },
+    { name: "normal", label: "NORMAL 普通", lives: 3, shields: 3, warn: 1, points: 1, perfGain: 1, perfDrain: 1,
+        blurb: ["3 lives · 3 shields · points as scored", "warnings as written · performance fails at empty"] },
+    { name: "hard", label: "HARD 難しい", lives: 2, shields: 2, warn: 0.85, points: 1.5, perfGain: 0.8, perfDrain: 1.25,
+        blurb: ["2 lives · 2 shields · points x1.5", "short warnings · performance fills slower, drains faster"] },
+    { name: "true", label: "TRUE 真", lives: 0, shields: 1, warn: 0.7, points: 2, perfGain: 0.65, perfDrain: 1.5,
+        blurb: ["no lives · 1 shield · points x2", "the shortest warnings · performance fills slowest, drains fastest"] },
 ];
 var difficulty = "normal";
 var runLives = 0; // lives left this run

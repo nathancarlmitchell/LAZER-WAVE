@@ -179,7 +179,7 @@ function strokeBeam(dim) { // a laser: a white beam down the middle of the trail
 
 function strokeAhead(head, reach, dim) { // laser form: the beam the piece fires across the screen, as far as it has
     // reached, kicking wider on each beat; overdrive widens it, as it widens what counts as lined up (loop.js)
-    var end = head.x + (gameArea.canvas.width - head.x) * reach;
+    var end = head.x + (facing > 0 ? gameArea.canvas.width - head.x : -head.x) * reach; // the way it faces
     var wide = (driveOn() ? 2 : 1) * (1 + 0.35 * Math.max(0, 1 - beatFrac() * 4));
     ctx.strokeStyle = COLORS.laserCore;
     ctx.beginPath();
@@ -230,8 +230,25 @@ function drawPlayer(o) { // the two waves and the core, flickering while a hit h
     ctx.beginPath();
     ctx.arc(head.x, head.y, CORE_R, 0, Math.PI * 2);
     ctx.fill();
+    if (laser) {
+        drawBeatRing(head, dim, want);
+    }
     drawDriveRing(head, dim);
     ctx.restore();
+}
+
+var BEAT_RING_R = 34; // px: where the beat ring starts each beat, closing on the core as the next beat comes: the cue
+                      // the waves give in wave form, which pull in too tight round a laser to give it
+
+function drawBeatRing(head, dim, want) { // a laser's beat cue: a ring in the coming beat's colour that closes on the
+    // core as the beat comes, brightening, and arrives on it, as the waves meet on the beat in wave form
+    var f = beatFrac(); // 0 on the beat, 1 just before the next
+    ctx.globalAlpha = (0.15 + 0.6 * f) * dim;
+    ctx.strokeStyle = want ? COLORS[want] || COLORS.laserCore : COLORS.laserCore;
+    ctx.lineWidth = 1.5 + 1.5 * f;
+    ctx.beginPath();
+    ctx.arc(head.x, head.y, CORE_R + BEAT_RING_R * (1 - f), 0, Math.PI * 2);
+    ctx.stroke();
 }
 
 function drawDriveRing(head, dim) { // overdrive, on the orb: with the meter full and unspent, a ring round the head

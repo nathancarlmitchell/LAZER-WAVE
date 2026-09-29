@@ -109,6 +109,13 @@ function titleLight() { // set the laser going, if the start screen is up and th
     tl.frame = requestAnimationFrame(titleLightFrame);
 }
 
+function titleLightRestart() { // the laser comes up again from its start, with the startup sequence (startupPlay,
+    // audio.js): the sound and the light run together, wherever the browser held the sound until a press
+    if (tl.frame !== null) {
+        tl.t0 = performance.now();
+    }
+}
+
 function titleLightWanted() { // the start screen itself (not a menu over it, not a level), with the effects at full
     return !gameStart && !menuUp() && fxLook() == "full" && !tl.broken;
 }

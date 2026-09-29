@@ -561,6 +561,8 @@ function helpPages() { // every page: a heading is a line of its own, and the li
         { t: "every " + COMBO_STEP + " in a row raises it, up to x" + MULT_MAX + ". A missed, BAD or WRONG beat resets it" },
         { t: "SHIELDS", head: true },
         { t: shieldsMax() + " to start on " + modeName() + ", kept from level to level. A laser takes one and breaks your combo" },
+        { t: "PERFORMANCE", head: true },
+        { t: "the meter under them starts at 75%: hits fill it, PERFECTs most, misses drain it; empty, the track is failed" },
         { t: "Survive every bar to clear a level: " + RUN_LEVELS + " of them, in " + (ACTS.length - 1) + " acts" },
     ], [
         { t: "OVERDRIVE オーバードライブ", title: true },
@@ -573,8 +575,8 @@ function helpPages() { // every page: a heading is a line of its own, and the li
         { t: "Fly through a laser as it fires to absorb it for a bonus" },
     ], [
         { t: "WAVE / LASER 変形", title: true },
-        { t: touch ? "A GATE sweeps in: tap GATE as it reaches you, on the beat"
-            : "A GATE sweeps in: press " + actionKey("gate") + " as it reaches you, on the beat" },
+        { t: touch ? "A GATE sweeps in: tap GATE, or either colour, as it reaches you, on the beat"
+            : "A GATE sweeps in: press " + actionKey("gate") + " or either colour's key as it reaches you, on the beat" },
         { t: "to switch between wave and laser. Miss one and it costs a shield" },
         { t: "LASER FORM", head: true },
         { t: "You lock to the left and fire across the screen: steer up and down" },
