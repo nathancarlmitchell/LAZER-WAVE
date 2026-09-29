@@ -22,6 +22,8 @@ var BEAM_SIZE_V = 0.09; // and a vertical one, of the width
 var BEAM_CORE_MAX = 8; // px: the white line down a beam's middle, at most
 var BEAM_INSET = 0.15; // of a beam's thickness on each side that is glow rather than hitbox: grazes are forgiven
 var BEAM_ABSORB = 0.3; // beats an absorbed beam takes to collapse (overdrive, loop.js)
+var FALL_LAND = 0.6; // of its warning a faller takes to land: from there it sits on its outline, warning as any beam
+                     // does, until it fires
 var PINCER_GAP = 0.2; // of the height: the gap a pincer leaves at its note, between its two beams
 var CAGE_GAP = 0.2; // of the width: the cell a cage leaves at the bass's note, between its two beams down the screen
 var CAGE_LEFT = 0.2, CAGE_RIGHT = 0.8; // where the bass's lowest note and its highest put that cell's middle
@@ -73,7 +75,7 @@ const LEVELS = [null,
     { name: "Signal",
         lore: ["Beneath the red, a carrier wave wakes.", "The lasers fire where the melody goes. Listen."],
         bpm: 96, bars: 8, warn: 2, phrases: ["melody", "melody", "rest"], colors: [], laser: [] },
-    { name: "Carrier", lore: ["Some lasers fall from above now: the fall is the warning, and they fire where they land.",
+    { name: "Carrier", lore: ["Some lasers drop in from above now: they land on their outline, and fire from it on the beat.",
             "Every beat is a door, and every door opens on the beat."],
         bpm: 98, bars: 8, warn: 2, phrases: ["fall", "rain", "melody", "rest"], colors: [], laser: [] },
     { name: "Ember Line", lore: ["A white gate burns ahead. Cross it on the beat,", "and the wave becomes a beam."],
@@ -199,6 +201,8 @@ var GATE_GONE = 0.5; // beats a gate takes to go after its beat; unpassed, it to
 // holds on the target it just hit, and is out before the next is due. It only goes where the two are far enough
 // apart for it, and keeps DODGE_MARGIN clear round each, so lining up with a target never touches it
 var DODGE_GAP = 0.3; // how far apart two targets must be for a laser between them, as a fraction of the height
+var DODGE_HOLD = 0.5; // of a note a dodge laser burns for (BEAM_FIRE of it): a quarter of a beat, so the way on to the
+                      // next target is open for three quarters of it
 var DODGE_MARGIN = 0.08; // clear round each target's height: its size, the reach of lining up, and the piece's own
 
 // Colour. A beat a beam fires on is cyan or magenta, and that is the key that hits it: Z for cyan, X for magenta (the
@@ -731,7 +735,8 @@ function dodgeLasers(events, def, n) { // laser form's lasers: in each laser bar
             var lo = Math.min(target[at].pos, target[at + 1].pos) + DODGE_MARGIN;
             var hi = Math.max(target[at].pos, target[at + 1].pos) - DODGE_MARGIN;
             var size = Math.min(BEAM_SIZE, hi - lo);
-            lasers.push({ fire: at, axis: "h", pos: (lo + hi - size) / 2, size: size, color: target[at].color });
+            lasers.push({ fire: at, axis: "h", pos: (lo + hi - size) / 2, size: size, color: target[at].color,
+                hold: DODGE_HOLD });
         }
     }
     return lasers;
@@ -753,7 +758,8 @@ function makeHazard(ev, warn) { // the thing on screen for a timeline event
 // A laser. It shows its outline from `fire - warn` beats, burns from `fire` for BEAM_FIRE of its note (half a beat, or
 // half of a held note's length: the only time it can hit), and fades for BEAM_FADE more. A mover comes to where it
 // fires over its warning instead of flickering in place, its landing place marked: a faller (kind "fall") down from
-// just over the top edge, a slider (kind "slide") from wherever its event says (`from`, on its axis). A chaser (kind
+// just over the top edge, landing FALL_LAND of the way through its warning to sit on its outline until it fires, a
+// slider (kind "slide") from wherever its event says (`from`, on its axis). A chaser (kind
 // "chase") follows the piece's height until CHASE_LOCK before its beat, then locks, and its outline goes solid: the
 // tell. A segment (`span`) covers only that stretch of the width. Its place is kept as fractions of the screen, so a
 // resize refits it. A
@@ -768,6 +774,7 @@ function Beam(ev, warn) {
     this.span = ev.span || null; // a horizontal beam's stretch of the width, [left, right] as fractions: the whole
                                  // width unless given (a segment)
     this.from = ev.kind == "fall" ? -ev.size : ev.from; // a mover's start on its axis: a faller's just over the top
+    this.fall = ev.kind == "fall"; // a faller lands early (FALL_LAND) and waits on its outline
                                                         // edge, a slider's where its event says; undefined, it stays put
     this.chase = ev.kind == "chase"; // a chaser: its height follows the piece's until it locks
     this.lockAt = ev.fire - CHASE_LOCK;
@@ -799,8 +806,16 @@ Beam.prototype.fallen = function () { // 0..1: how far into its warning it is, w
 };
 
 Beam.prototype.placeNow = function () { // where it is now on its axis, as a fraction: a mover on its way from where it
-    // started to where it fires, or its place as given
-    return this.from === undefined ? this.pos : this.from + (this.pos - this.from) * this.fallen();
+    // started to where it fires, or its place as given. A faller comes down in the first FALL_LAND of its warning,
+    // slowing as it lands, and sits there
+    if (this.from === undefined) {
+        return this.pos;
+    }
+    var t = this.fallen();
+    if (this.fall) {
+        t = 1 - Math.pow(1 - Math.min(1, t / FALL_LAND), 2);
+    }
+    return this.from + (this.pos - this.from) * t;
 };
 
 Beam.prototype.landing = function () { // where a mover will fire, in px on its axis
@@ -852,11 +867,19 @@ Beam.prototype.update = function () { // draw it: an outline that sharpens as it
     } else if (beatPos < this.fireAt) { // the warning
         var t = this.chase && beatPos >= this.lockAt ? 1 : this.fallen(); // a chaser's goes solid once it has locked
         var blink = (beatPos * 4) % 1 < 0.5 ? 1 : 0.6; // flickers in sixteenths, so it reads as live
-        if (this.from !== undefined) { // where a mover will fire, dim and firming up as it comes, under it on its way
-            ctx.globalAlpha = (0.12 + 0.3 * t) * blink;
+        if (this.from !== undefined) { // where a mover will fire, under it on its way. A faller's is its warning
+            // proper, as bright and as blinking as any beam's, since that is where to read it; a slider's or a
+            // chaser's is dim, firming up as it comes
             ctx.strokeStyle = tint;
-            ctx.lineWidth = 1;
-            ctx.setLineDash([4, 6]);
+            if (this.fall) {
+                ctx.globalAlpha = (0.3 + 0.6 * t) * blink;
+                ctx.lineWidth = this.color ? 3 : 2;
+                ctx.setLineDash(this.color == "cyan" ? [] : [12, 8]);
+            } else {
+                ctx.globalAlpha = (0.12 + 0.3 * t) * blink;
+                ctx.lineWidth = 1;
+                ctx.setLineDash([4, 6]);
+            }
             if (this.axis == "h") {
                 ctx.strokeRect(this.x + 1, this.landing() + 1, this.width - 2, this.height - 2);
             } else {
@@ -866,7 +889,8 @@ Beam.prototype.update = function () { // draw it: an outline that sharpens as it
         ctx.globalAlpha = (0.05 + 0.12 * t) * blink;
         ctx.fillStyle = tint;
         ctx.fillRect(this.x, this.y, this.width, this.height);
-        ctx.globalAlpha = (0.3 + 0.6 * t) * blink;
+        ctx.globalAlpha = (0.3 + 0.6 * t) * blink * (this.fall && t < FALL_LAND ? 0.4 : 1); // a faller still on its
+        // way is the fainter of its two outlines
         ctx.strokeStyle = tint;
         ctx.lineWidth = this.color ? 3 : 2;
         ctx.setLineDash(this.color == "cyan" ? [] : [12, 8]);

@@ -7,9 +7,11 @@ var BAR_ALPHA = 0.6;
 var BAR_TRACK = 0.15; // the unfilled remainder, just enough to show how far there is left to go
 
 // On a phone the stats are the same size as on a desktop but the screen is a third of the height, so in touch play
-// the two secondary readouts shrink and close up under the score, which keeps its size.
+// the two secondary readouts shrink and close up under the score, which keeps its size against them, and the whole
+// corner is then drawn at TOUCH_HUD_SCALE (useHud, layout.js), so it takes a fifth of the height rather than a third.
+var TOUCH_HUD_SCALE = 0.7;
 var TOUCH_STAT_FONT = 26; // px, against the score's 40
-var TOUCH_STAT_LEVEL = 195, TOUCH_STAT_DEATHS = 230; // instead of 220 and 260
+var TOUCH_STAT_LEVEL = 195, TOUCH_STAT_LIVES = 230; // instead of 220 and 260
 var METER_Y = 151, METER_W = 100, METER_H = 8; // the overdrive meter, on the shields' row after them, so it crowds
                                                // neither layout
 function meterX() { // where it starts: after the shields the difficulty gives, however many
@@ -40,10 +42,9 @@ function drawStats(color, scoreColor) { // score, combo, shields, and the level 
     ctx.fillStyle = color;
     ctx.fillText("Act " + roman(levelAct(level)) + "  Level " + level + "   " + wave.bpm + " BPM", 50,
         touch ? TOUCH_STAT_LEVEL : 220);
-    ctx.fillText(mistakes(deaths), 50, touch ? TOUCH_STAT_DEATHS : 260);
-    var status = runStatusText(); // and only when the difficulty gives something
+    var status = runStatusText(); // the lives, when the difficulty gives any
     if (status) {
-        ctx.fillText(status, 50, touch ? TOUCH_STAT_DEATHS + 35 : 300);
+        ctx.fillText(status, 50, touch ? TOUCH_STAT_LIVES : 260);
     }
     ctx.restore();
 }

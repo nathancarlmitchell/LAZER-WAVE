@@ -4,7 +4,7 @@ Tags: game, rhythm, arcade, html5, embed
 Requires at least: 6.1
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 1.4.0
+Stable tag: 1.5.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -65,6 +65,20 @@ In the game's OPTIONS, CALIBRATE plays a beat to tap along to and suggests the t
 Click the game first so it has the keyboard.
 
 == Changelog ==
+
+= 1.5.0 =
+* A death animation: a flash and a ring of the laser's red, the laser that struck whitening, the core splitting into
+  its two colours and the waves scattering; 1.3 s, or a press.
+* Overdrive on the orb: a ring round it throbs when the meter is full and shrinks as the time runs out, and for one
+  beat after it ends the lasers still can't hurt you.
+* Results: a scale of where every press landed, in the colour of what it earned, with the average marked; the
+  level's backdrop keeps moving behind them.
+* The orb lights on every press, a miss and the count-in included, at half strength.
+* The pause panel has RESUME, RETRY and QUIT. The HUD no longer counts mistakes, and is smaller on phones.
+* A level played from the level select ends on its results, with LEVELS back to the select.
+* The start screen shows the most a run has scored.
+* Fallers land on their outline early and warn from it, and the lasers of laser form burn a quarter of a beat.
+* A level no longer starts paused on phones and in embedded frames.
 
 = 1.4.0 =
 * Lives across the run: a death spends one and offers the level again with its points kept, on results of its own

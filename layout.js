@@ -90,9 +90,12 @@ function useScreenFrame() { // draw in that same frame, so what is drawn and wha
     ctx.setTransform(f.scale, 0, 0, f.scale, f.x, f.y);
 }
 
-function hudScale() { // the in-game HUD keeps its size unless the window is too short or narrow for it
-    // below the top banner (ends at 70px) it needs 240px of stats, and 400px across
-    return Math.max(0.1, Math.min(1, (gameArea.canvas.height - 130) / 270, gameArea.canvas.width / 400));
+function hudScale() { // the in-game HUD keeps its size unless the window is too short or narrow for it: below the
+    // top banner (ends at 70px) it needs 240px of stats, and 400px across. In touch play it is drawn smaller again
+    // (TOUCH_HUD_SCALE, hud.js): a phone's screen is a third of a desktop's height, and the corner was taking too
+    // much of it
+    var fit = Math.max(0.1, Math.min(1, (gameArea.canvas.height - 130) / 270, gameArea.canvas.width / 400));
+    return fit * (inputMode == "touch" ? TOUCH_HUD_SCALE : 1);
 }
 
 function useHud() { // draw the top-left HUD, shrunk toward the top banner if needed

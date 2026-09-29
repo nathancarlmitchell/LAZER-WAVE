@@ -227,7 +227,6 @@ function startResumeCountdown() { // the resume's 3, 2, 1 (400ms each): by touch
 // P, ESC and, by touch, a tap anywhere else resume as they always did
 const PAUSE_BUTTONS = {
     resume: { label: "RESUME", keys: "P / ESC", jp: "再開" },
-    help: { label: "HELP", keys: "H", jp: "説明" },
     retry: { label: "RETRY", keys: "R", jp: "リトライ" },
     quit: { label: "QUIT", keys: "Q", jp: "終了" },
 };
@@ -235,8 +234,8 @@ var PAUSE_PANEL = 28; // how far the panel reaches past what is on it
 var pauseHover = ""; // the pause button under the mouse, under a finger held on it, or picked with a controller
 var pauseArmed = false; // a mouse press began on the panel, so its click may press a button
 
-function pauseButtons() { // the pause buttons, in order: every input gets the lot
-    return ["resume", "help", "retry", "quit"];
+function pauseButtons() { // the pause buttons, in order: every input gets the lot (H opens the help over the panel)
+    return ["resume", "retry", "quit"];
 }
 
 function drawPauseScreen(countdown) { // over the level, frozen as it stood: how to resume and the buttons, or by
@@ -303,7 +302,7 @@ function setPauseHover(name) { // light the pause button under the mouse, a fing
     }
 }
 
-function pausePress(name) { // a pause button: RESUME, HELP, RETRY or QUIT
+function pausePress(name) { // a pause button: RESUME, RETRY or QUIT
     if (!alive || !pause || menuUp() || resumeTimer || !PAUSE_BUTTONS[name]) {
         return;
     }
@@ -313,8 +312,6 @@ function pausePress(name) { // a pause button: RESUME, HELP, RETRY or QUIT
         } else {
             startResumeCountdown();
         }
-    } else if (name == "help") {
-        openMenu("help"); // over the frozen level; closing it puts the panel back
     } else {
         playSound(aud_click);
         if (name == "retry") {
@@ -538,6 +535,8 @@ function onTouchStart(e) {
             if (calTaking() && !buttonAt(p.x, p.y)) { // the timing test: a finger taps as it comes down, anywhere but
                 calTap(eventTime(e)); // on BACK
             }
+        } else if (deathAnimUp()) { // the death animation: a touch cuts it short
+            skipDeathAnim();
         } else if (wasTouch && pauseButtonAt(p.x, p.y)) { // a pause button, on the panel that was showing: not an
             info.role = "pbutton"; // action and not a resume, and it keeps the role until it lifts
             info.button = pauseButtonAt(p.x, p.y);
@@ -861,12 +860,15 @@ function padButton(button, down, time, source) { // a controller button went dow
 }
 
 function padScreen() { // the screen a controller is working: "menu", "start", "pause", "results", "finish", "story",
-    // or "" for none it can (a level playing, a death, a touch resume counting down)
+    // "death" (the animation), or "" for none it can (a level playing, a touch resume counting down)
     if (menuUp()) {
         return "menu";
     }
     if (storyUp()) {
         return "story";
+    }
+    if (deathAnimUp()) {
+        return "death";
     }
     if (!gameStart) {
         return "start";
@@ -978,6 +980,8 @@ function padConfirm(screen) { // A: press the lit button, or the one that would 
         padPlayAgain();
     } else if (screen == "story") {
         storyPress();
+    } else if (screen == "death") {
+        skipDeathAnim();
     }
 }
 
@@ -986,6 +990,8 @@ function padBack(screen) { // B: out of a menu, or back into the level from the 
         closeMenu();
     } else if (screen == "pause") {
         pausePress("resume");
+    } else if (screen == "death") {
+        skipDeathAnim();
     }
 }
 
@@ -1002,6 +1008,8 @@ function padStart(screen) { // START: the way on from wherever it is pressed
         padPlayAgain();
     } else if (screen == "story") {
         storyPress();
+    } else if (screen == "death") {
+        skipDeathAnim();
     }
 }
 
@@ -1068,6 +1076,10 @@ function bindInput() { // the touch, mouse, keyboard, controller and page listen
             setInputMode("mouse");
         }
         window.focus(); // preventDefault stops the page taking focus when embedded in an iframe
+        if (deathAnimUp()) { // the death animation: a press cuts it short
+            skipDeathAnim();
+            return;
+        }
         if (e.button == 0 && runFinished && Date.now() - finishTime >= 1000) {
             // only a click that starts on the finish screen restarts, and not in the first second,
             // so a press held as the last level ends doesn't wipe the results before they're seen
@@ -1137,6 +1149,13 @@ function bindInput() { // the touch, mouse, keyboard, controller and page listen
         if (key == "Escape" && menuUp()) { // a menu screen's other way out, for anyone who expects it
             e.preventDefault();
             closeMenu();
+            return;
+        }
+        if (deathAnimUp() && !e.ctrlKey && !e.metaKey) { // the death animation: any key cuts it short, and nothing
+            e.preventDefault(); // else hears the key
+            if (!e.repeat) {
+                skipDeathAnim();
+            }
             return;
         }
         if (calTaking() && actionForKey(key) && !e.ctrlKey && !e.metaKey) { // the timing test: an action key taps

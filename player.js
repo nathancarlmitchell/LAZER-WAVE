@@ -24,6 +24,8 @@ var WAVE_RIPPLE = 0; // px the waves wiggle by, both together, so they are sine 
 var WAVE_CYCLES = 2; // wiggles per beat
 var TRAIL_CHUNKS = 10; // the trail is stroked in this many pieces, each fainter than the one in front
 var CORE_R = 4; // px: the glowing core at the head, which is the hitbox
+var DRIVE_RING_R = 14; // px: the ring round the head that says overdrive is ready, and once it runs, how much is left
+var DRIVE_RING_W = 2.5; // px: its line
 var FLASH_STEPS = 18; // how long a good hit lights the head up
 var WAVE_UNLIT = 0.3; // how bright the wave of the other colour stays while a coloured beat is coming
 
@@ -31,7 +33,8 @@ var trail = { samples: [], next: 0, count: 0 }; // a ring of reused { x, y, beat
 while (trail.samples.length < TRAIL_STEPS) {
     trail.samples.push({ x: 0, y: 0, beat: 0, gap: 0, laser: false });
 }
-var playerFlash = { age: FLASH_STEPS, color: COLORS.cyan };
+var playerFlash = { age: FLASH_STEPS, color: COLORS.cyan, strength: 1 }; // the head's light on a press: how long ago,
+                                                                        // in what colour, and how much of a burst
 var waveSize = WAVE_GAP; // the waves' size as it stands, easing toward waveTarget()
 
 function isLaser() { // is the piece a laser: in overdrive, or in laser form
@@ -70,10 +73,12 @@ function playerRecord() { // each step, after the piece has moved: where it is n
     }
 }
 
-function playerHitFlash(grade, color) { // a hit on the beat: the head lights up, white for a PERFECT, else in the
-    // colour it was hit in
+function playerHitFlash(grade, color) { // a press: the head lights up, white for a PERFECT, else in the colour
+    // pressed (a gate's: white). A clean hit gets the full burst; a BAD, or a press that comes to a miss, half of it,
+    // so every press shows on the head, and a hit shows more
     playerFlash.age = 0;
-    playerFlash.color = grade == "perfect" ? COLORS.laserCore : COLORS[color] || COLORS.laserCore; // a gate's: white
+    playerFlash.strength = grade == "perfect" || grade == "great" || grade == "good" ? 1 : 0.5;
+    playerFlash.color = grade == "perfect" ? COLORS.laserCore : COLORS[color] || COLORS.laserCore;
 }
 
 function trailSample(age) { // the sample `age` steps ago (0: the newest)
@@ -84,10 +89,32 @@ function waveGap(beat, size) { // how far each wave sits from the centre: 0 on t
     return size * Math.sin(Math.PI * (beat - Math.floor(beat)));
 }
 
+var waveDecay = 0, waveDecaySeed = 0; // the death animation's decoherence (death.js): how far out of phase the waves
+                                      // are, 0..1, and the frame their noise is re-rolled on
+
 function wavePoint(age, side) { // where wave `side` (-1 above, +1 below) passes through the sample `age` steps back
     var s = trailSample(age);
     var ripple = WAVE_RIPPLE * (s.gap / WAVE_GAP) * Math.sin(2 * Math.PI * WAVE_CYCLES * s.beat);
-    return { x: s.x - age * TRAIL_DRIFT, y: s.y + side * waveGap(s.beat, s.gap) + ripple };
+    var gap = waveGap(s.beat, s.gap) * (1 + 4 * waveDecay); // out of phase: the gap swelling, and noise growing on it
+    var noise = waveDecay > 0 ? (fxHash(age * 7 + waveDecaySeed, side + 3) - 0.5) * 60 * waveDecay : 0;
+    return { x: s.x - age * TRAIL_DRIFT, y: s.y + side * gap + ripple + noise };
+}
+
+function drawPlayerDying(decay, seed) { // the death animation's waves (death.js): as they were at decay 0, then out
+    // of phase and fading by `decay`, the noise re-rolled by `seed` each frame. No core: the animation draws its own
+    if (trail.count < 2) {
+        return;
+    }
+    waveDecay = decay;
+    waveDecaySeed = seed;
+    ctx.save();
+    ctx.globalCompositeOperation = "lighter";
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    strokeWave(-1, COLORS.cyan, 1 - decay);
+    strokeWave(1, COLORS.magenta, 1 - decay);
+    ctx.restore();
+    waveDecay = 0;
 }
 
 function strokeWave(side, color, dim) { // one wave from the head back, fading as it goes, a wide glow under a thin line
@@ -169,7 +196,8 @@ function strokeAhead(head, reach, dim) { // laser form: the beam the piece fires
     ctx.stroke();
 }
 
-function drawPlayer(o) { // the two waves and the core, flickering while a hit has made it untouchable
+function drawPlayer(o) { // the two waves and the core, flickering while a hit has made it untouchable, and the
+    // overdrive ring round the core when there is one to show
     if (trail.count < 2) {
         return;
     }
@@ -190,8 +218,8 @@ function drawPlayer(o) { // the two waves and the core, flickering while a hit h
     var want = wave ? beatColor(cueBeat()) : null; // the coming beat's colour: its wave stays lit, the other dims
     strokeWave(-1, COLORS.cyan, dim * (want == "magenta" ? WAVE_UNLIT : 1));
     strokeWave(1, COLORS.magenta, dim * (want == "cyan" ? WAVE_UNLIT : 1));
-    var flash = playerFlash.age < FLASH_STEPS ? 1 - playerFlash.age / FLASH_STEPS : 0;
-    ctx.globalAlpha = (0.25 + 0.5 * flash) * dim; // the core's glow, and a burst of it on a good hit
+    var flash = (playerFlash.age < FLASH_STEPS ? 1 - playerFlash.age / FLASH_STEPS : 0) * playerFlash.strength;
+    ctx.globalAlpha = (0.25 + 0.5 * flash) * dim; // the core's glow, and a burst of it on a press, most on a clean hit
     ctx.fillStyle = flash > 0 ? playerFlash.color : laser ? COLORS.laserCore : want ? COLORS[want] || COLORS.laserCore
         : COLORS.cyan;
     ctx.beginPath();
@@ -202,5 +230,27 @@ function drawPlayer(o) { // the two waves and the core, flickering while a hit h
     ctx.beginPath();
     ctx.arc(head.x, head.y, CORE_R, 0, Math.PI * 2);
     ctx.fill();
+    drawDriveRing(head, dim);
     ctx.restore();
+}
+
+function drawDriveRing(head, dim) { // overdrive, on the orb: with the meter full and unspent, a ring round the head
+    // throbbing on the beat, as the meter does; spent and waiting for its beat, the ring steady; running, an arc from
+    // the top, clockwise, shrinking as the time runs out. Nothing while it charges: that is the meter's to show
+    var running = driveOn(), grace = !running && driveGrace();
+    if (!running && !grace && !driveReady() && !driveArmed()) {
+        return;
+    }
+    var left = running ? driveMeter() : 1; // the meter runs down with it
+    var throb = grace ? (driveGraceUntil - beatPos) / OVERDRIVE_GRACE // the grace after it: the ring fading out over
+        : driveReady() ? 0.55 + 0.45 * Math.max(0, 1 - beatFrac() * 3) : 1; // the beat it lasts
+    ctx.globalAlpha = throb * dim;
+    ctx.strokeStyle = COLORS.laserCore;
+    ctx.lineWidth = DRIVE_RING_W;
+    ctx.shadowColor = COLORS.laserCore;
+    ctx.shadowBlur = 8;
+    ctx.beginPath();
+    ctx.arc(head.x, head.y, DRIVE_RING_R, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * left);
+    ctx.stroke();
+    ctx.shadowBlur = 0;
 }

@@ -10,6 +10,7 @@
 var SKY_TINT = 0.16; // how strongly the level's colour lights the bottom of the screen
 var SKY_PULSE = 0.35; // how much brighter the backdrop flashes on a beat, and twice that on a bar line
 var SKY_BEHIND = 0.55; // how much of it the screens between levels show behind their words
+var SKY_RESULTS = 0.2; // and the results, less again: they are read, and the backdrop moves on behind them
 
 function levelWavelength(n) { // the level's colour, as a wavelength in nm: its act's band (ACTS, story.js), from the
     // band's first end at the act's first level to its other at the act's last

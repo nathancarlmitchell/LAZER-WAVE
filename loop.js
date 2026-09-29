@@ -25,6 +25,8 @@ var restartArmed = false; // a click began on the finish screen
 var finishTime = 0; // when the finish screen appeared
 var level = 1;
 var runFrom = 1; // the level the run began at: the first, from START, or any the level select opened (menu.js)
+var selectRun = false; // the run was started from the level select: it ends on its level's results, back at the
+                       // select, rather than going on to the next level as a run from START does
 var showFrame = true; // is this step's picture going to be seen, or is another step already due to replace it
 
 
@@ -168,6 +170,8 @@ var beatColors = {}; // beat number -> what it wants: "cyan" or "magenta" (its b
 var nextJudge = 0; // the next beat to check for having gone by unhit
 var judgment = null; // the last grade, shown over the piece: { grade, age }
 var JUDGE_SHOW = 45; // steps it stays up
+var timings = []; // this attempt's presses inside the window, each how far off the beat in ms (negative early), for
+                  // the scale on the results (levels.js)
 var timingSum = 0, timingCount = 0; // this attempt's presses on the beat (inside the window), how far off it they
                                     // were on average: early or late by the same amount every time is a latency,
                                     // not the player. A press off the beat is a slip, and left out
@@ -187,11 +191,14 @@ var deathProgress = 0; // how far through the level the last attempt got, for th
 // the press is inside that beat's window, or else the next, so it never asks for SPACE and a colour at once -- and
 // runs OVERDRIVE_BEATS from there. For that
 // long the piece is a laser: the lasers can't hurt it, hits score double, and a laser it flies through is absorbed
-// for ABSORB_POINTS more. The colours still count.
+// for ABSORB_POINTS more. The colours still count. For OVERDRIVE_GRACE beats after it runs out the lasers still can't
+// hurt the piece, though it is a wave again and scores as one: room to come back out of it.
 var OVERDRIVE_PERFECTS = 16; // PERFECTs from empty to full; nothing charges it while it runs
 var OVERDRIVE_GREAT = 0.75, OVERDRIVE_GOOD = 0.5, OVERDRIVE_BAD = 0.25; // what a GREAT, a GOOD and a BAD charge,
                                                                         // against a PERFECT's 1 (as their points are)
 var OVERDRIVE_BEATS = 2 * BEATS_PER_BAR;
+var OVERDRIVE_GRACE = 1; // beats after it runs out that the lasers still can't hurt the piece
+var driveGraceUntil = 0; // the beat position that grace runs to, once it has run out
 var OVERDRIVE_SCORE = 2; // what it multiplies the points for hits and absorbs by
 var ABSORB_POINTS = 50; // a laser absorbed, before the multipliers: half a PERFECT, a bonus rather than the point
 var drive = emptyDrive();
@@ -212,6 +219,15 @@ function driveOn() { // running
     return drive.start !== null && beatPos >= drive.start && beatPos < drive.end;
 }
 
+function driveGrace() { // in the beat after it ran out: untouchable still, though a wave again, scoring as one
+    return beatPos < driveGraceUntil;
+}
+
+function driveOut() { // it has run out: its grace begins
+    driveGraceUntil = drive.end + OVERDRIVE_GRACE;
+    drive = emptyDrive();
+}
+
 function driveOver(b) { // spent, and running on beat b: for the music, which is played a little ahead of the beat
     return drive.start !== null && b >= drive.start && b < drive.end;
 }
@@ -230,7 +246,7 @@ function chargeDrive(n, worth) { // a hit on beat n charges the meter by `worth`
         return; // waiting for its beat, or running
     }
     if (drive.start !== null) { // it ran out before beat n, though the step hasn't put it out yet
-        drive = emptyDrive();
+        driveOut();
     }
     var was = drive.meter;
     drive.meter = Math.min(1, drive.meter + worth / OVERDRIVE_PERFECTS);
@@ -268,7 +284,7 @@ function driveStep() { // each step: announce it when its beat comes, and put it
         playSound(aud_powerUp);
     }
     if (beatPos >= drive.end) {
-        drive = emptyDrive();
+        driveOut();
     }
 }
 
@@ -533,8 +549,10 @@ function startLevel() { // a level is about to be played: from the start, or aga
     invuln = 0;
     drive = emptyDrive();
     drive.meter = carryMeter === null ? 0 : carryMeter; // and the charge it had; a fresh attempt charges its own
+    driveGraceUntil = 0;
     carryHp = carryMeter = null;
     timingSum = timingCount = 0;
+    timings = [];
     playerReset();
 }
 
@@ -623,6 +641,8 @@ function beatOpen(n) { // can beat n still be hit: its window hasn't closed on t
 function hitBeat(time, color) { // a hit in `color`: judge it against the nearest beat
     var b = pressBeat(time);
     var n = Math.round(b);
+    playerHitFlash("miss", color); // every press shows on the head, in the count-in too, whatever it comes to; a hit
+    // lights it fully below
     if (n < firstPlayBeat() || n >= totalBeats) {
         return; // the count-in, and after the last beat: tap along freely
     }
@@ -640,6 +660,7 @@ function hitBeat(time, color) { // a hit in `color`: judge it against the neares
     }
     timingSum += signed; // a press inside the window says where this player's presses land; one off the beat is a
     timingCount++; // slip, and left out, as it would only drag the average about
+    timings.push(signed);
     var want = beatColor(n);
     if (want && color != want) { // on the beat, in the wrong colour: the beat is spent
         judged[n] = "wrong";
@@ -671,15 +692,15 @@ function hitBeat(time, color) { // a hit in `color`: judge it against the neares
         bads++;
         chargeDrive(n, OVERDRIVE_BAD);
     }
-    if (grade == "bad") { // the beat is spent, but not cleanly: the combo goes, as on a miss, and the head stays dark
+    if (grade == "bad") { // the beat is spent, but not cleanly: the combo goes, as on a miss
         combo = 0;
     } else {
         combo++;
         bestCombo = Math.max(bestCombo, combo);
-        playerHitFlash(grade, color);
     }
     score += modePoints(POINTS[grade] * pointsMult());
     judge(grade, signed, color);
+    playerHitFlash(grade, color); // the full burst for a clean hit, half for a BAD
     if (target) { // the beam strikes it
         target.hitX = target.center().x;
         target.hitAt = beatPos;
@@ -882,7 +903,8 @@ function drawJudgment() { // the last grade, rising off the piece and fading
     ctx.restore();
 }
 
-function drawLevel() { // draw the level as it stands, without moving anything (also used while paused)
+function drawLevel(forDeath) { // draw the level as it stands, without moving anything (also used while paused). For
+    // the death animation's picture (death.js): without the piece and without the CRT, which it draws live itself
     drawSky(level, beatPos * msPerBeat() / 1000, judgePos()); // the ground: its act's backdrop, its colour, and the
     // beat as the player plays it to pulse on
     drawBeatPulse();
@@ -896,10 +918,14 @@ function drawLevel() { // draw the level as it stands, without moving anything (
     drawStats(COLORS.text, COLORS.cyan);
     useWindow();
     drawTouchControls(); // over the HUD, under the piece
-    gamePiece.update(); // the two waves: where they meet is the beat
+    if (!forDeath) {
+        gamePiece.update(); // the two waves: where they meet is the beat
+    }
     drawJudgment();
     drawPops();
-    fxDrawScreen(fxLook()); // the CRT last, over the finished picture
+    if (!forDeath) {
+        fxDrawScreen(fxLook()); // the CRT last, over the finished picture
+    }
 }
 
 function steerPiece() { // move the piece toward where it is steered; true if that ran it into a laser, and that was
@@ -918,7 +944,7 @@ function steerPiece() { // move the piece toward where it is steered; true if th
     if (form == "wave" && gameArea.x === undefined) {
         return false; // nothing has steered it yet
     }
-    return movePiece(tx - w / 2, ty - h / 2, invuln > 0 || driveOn()) && takeHit(); // stepped, so a laser can't be
+    return movePiece(tx - w / 2, ty - h / 2, invuln > 0 || driveOn() || driveGrace()) && takeHit(); // stepped, so a laser can't be
     // crossed while it burns, in either form
 }
 
@@ -955,7 +981,8 @@ function updateGameArea() {
     agePops();
     if (driveOn()) { // a laser can't hurt it: it eats them
         absorbHazards();
-    } else if (hitHazard() && takeHit()) { // a beam fired on the piece
+    } else if (!driveGrace() && hitHazard() && takeHit()) { // a beam fired on the piece (in the grace after
+        // overdrive, it still can't hurt it, though it eats nothing)
         gameOver();
         return;
     }

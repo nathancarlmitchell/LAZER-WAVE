@@ -1,6 +1,7 @@
-// Lazer Wave -- the run. The difficulties and what each gives, and the records: the best run and what it cost,
-// a best rank and a best score per level, and the furthest level reached, kept per difficulty in localStorage and
-// read defensively. A level runs the length of its song whoever plays it, so its time is no record.
+// Lazer Wave -- the run. The difficulties and what each gives, and the records: the best run and what it cost, the
+// most a run has banked, a best rank and a best score per level, and the furthest level reached, kept per difficulty
+// in localStorage and read defensively. A level runs the length of its song whoever plays it, so its time is no
+// record.
 // And the m:ss the finish and the start screen print. index.html loads this with a plain <script src>, as globals
 // rather than modules, so the game still opens straight off disk.
 
@@ -69,6 +70,7 @@ function rec() { // the record set for the difficulty now selected
             rank: {}, // best rank each level has been cleared with, "F" to "S+"
             score: {}, // most points each level has been cleared with
             reached: 0, // furthest level started, so a run that never finishes still leaves a mark
+            runScore: 0, // the most a run has banked: its total after a CONTINUE, so a run that never finishes counts
         };
     }
     return records.modes[difficulty];
@@ -102,7 +104,8 @@ function loadRecords() { // whatever previous runs left, if the browser will tel
                 continue; // a mode never played, or something that isn't a record set
             }
             var to = { run: storedTime(from.run), runDeaths: storedTime(from.runDeaths) || 0,
-                reached: Math.min(RUN_LEVELS, storedTime(from.reached) || 0), rank: {}, score: {} };
+                reached: Math.min(RUN_LEVELS, storedTime(from.reached) || 0), runScore: storedScore(from.runScore) || 0,
+                rank: {}, score: {} };
             // older records kept each level's time too: nothing reads it now, so the next save lets it go
             if (from.rank && typeof from.rank == "object") {
                 for (var r = 1; r <= RUN_LEVELS; r++) {
@@ -180,18 +183,24 @@ function recordRun(ms, cost) { // every level cleared, from the first: the run's
     return beat;
 }
 
+function recordRunScore(total) { // CONTINUE banked a level's points: the run's total, against the most a run has had
+    if (total > (rec().runScore || 0)) {
+        rec().runScore = total;
+        saveRecords();
+    }
+}
+
 function mistakes(n) {
     return n + (n == 1 ? " mistake" : " mistakes");
 }
 
-function recordsLine() { // what the start screen has to say about how this has gone before, or "" the first time
+function recordsLine() { // what the start screen has to say about how this has gone before, or "" the first time:
+    // the most a run has scored, and once a run has been finished, its best time and what that cost
+    var line = rec().runScore ? "BEST RUN " + rec().runScore : "";
     if (rec().run) {
-        return "BEST " + millisToMinutesAndSeconds(rec().run) + "   " + mistakes(rec().runDeaths);
+        line += (line ? "   " : "") + "BEST TIME " + millisToMinutesAndSeconds(rec().run) + "   " + mistakes(rec().runDeaths);
     }
-    if (rec().reached > 1) {
-        return "FURTHEST   Act " + roman(levelAct(rec().reached)) + "  Level " + rec().reached;
-    }
-    return "";
+    return line;
 }
 
 function millisToMinutesAndSeconds(millis) { // m:ss, to the nearest second. Rounded to whole seconds first and split

@@ -21,6 +21,7 @@ function startGame(e) { // START, or a level picked on the level select: the run
     gamePiece.update = function () { drawPlayer(this); };
     gameStart = true;
     runFrom = level;
+    selectRun = false; // START's run goes on from level to level; the level select says otherwise after this
     enterLevel();
 }
 
@@ -36,6 +37,7 @@ function startRunAt(n, p) { // the level select: a run from level n, started as 
     } else {
         startGame({ pageX: p ? p.x : gameArea.canvas.width / 4, pageY: p ? p.y : gameArea.canvas.height / 2 });
     }
+    selectRun = true; // one level: its results end at the select
 }
 
 function enterLevel() { // the run comes to a level it hasn't played: the story of the act it opens, if it opens one,
@@ -65,9 +67,9 @@ function playLevel() { // an attempt at the level begins: after its card, after 
         gamePiece.y = gameArea.y - gamePiece.height / 2;
     }
     startLevel(); // the game's own setup for the level about to be played
-    if (!document.hasFocus()) { // player left during the level transition; wait for them
-        setPause(true);
-    }
+    // No pause here for a window without focus: a press brought the player here (the card's, or a results button),
+    // and the card waits for a player who has gone away before going on by itself (storyFrame, story.js). Phones and
+    // embedded frames report no focus even as they are tapped, and were starting every level paused
 }
 
 function startTouchGame() { // start from a tap: the piece starts at the left middle, and sounds are unlocked in this tap
@@ -192,7 +194,7 @@ function msgBottom() { // the lowest line queued so far, so another can be put u
     // line's baseline, or a button's foot
     var low = 0;
     for (let i = 0; i < msgBlock.length; i++) {
-        low = Math.max(low, msgBlock[i].dy + (msgBlock[i].button ? msgBlock[i].h : 0));
+        low = Math.max(low, msgBlock[i].dy + (msgBlock[i].button ? msgBlock[i].h : msgBlock[i].scale ? msgBlock[i].below : 0));
     }
     return low;
 }
@@ -206,8 +208,77 @@ var RESULTS_SHARE_X = -165; // and where its shares end
 var RESULTS_RANK_X = 0; // the rank's middle
 var RESULTS_SCORE_X = 165; // the score: where its names start,
 var RESULTS_POINTS_X = 490; // and where its points end
+var TIMING_SCALE_MS = 200; // the results' timing scale runs this far either side of the beat, as the calibration's does
+var TIMING_SCALE_W = 300; // layout px from its middle to either end
+var TIMING_BIN_MS = 10; // the presses are counted by this much of offset, and each count drawn as one cell of the heat map
 var RESULTS_TOP = -95, RESULTS_BOTTOM = 50; // every column's first and last lines: over the grade, RANK, level with
                                             // the tables' headings; under it, the best, level with their last rows
+
+function showTimingScale() { // queue the timing scale under whatever is up, if the attempt pressed inside the window
+    // at all: a drawing, measured by the box it fills
+    if (timings.length) {
+        msgBlock.push({ scale: true, x: 0, dy: msgBottom() + 70, w: 2 * TIMING_SCALE_W + 180, above: 48, below: 36 });
+    }
+}
+
+function drawTimingScale(cx, ay) { // the scale, as the calibration's: a line from early to late with the beat in its
+    // middle and the windows shaded either side of it, a heat map over it of where the attempt's presses landed --
+    // each cell of TIMING_BIN_MS in the colour of what a press there earned, and brighter the more landed in it --
+    // and a marker where they come to on average, as the line over it says in words
+    var k = TIMING_SCALE_W / TIMING_SCALE_MS; // px a ms
+    var at = function (ms) { return cx + Math.max(-TIMING_SCALE_MS, Math.min(TIMING_SCALE_MS, ms)) * k; };
+    var grade = function (off) { // the colour of what a press this far off earns
+        return off <= perfectMs() ? COLORS.cyan : off <= greatMs() ? COLORS.text : off <= goodMs() ? COLORS.magenta
+            : COLORS.late;
+    };
+    [badMs(), goodMs(), greatMs(), perfectMs()].forEach(function (w) { // the windows, widest first, each over the last
+        ctx.globalAlpha = 0.08;
+        ctx.fillStyle = grade(w);
+        ctx.fillRect(at(-w), ay - 30, at(w) - at(-w), 30);
+    });
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = COLORS.dim;
+    ctx.fillRect(cx - TIMING_SCALE_W, ay - 1, 2 * TIMING_SCALE_W, 2);
+    ctx.font = "18px Arial";
+    ctx.textAlign = "center";
+    for (var ms = -TIMING_SCALE_MS; ms <= TIMING_SCALE_MS; ms += 50) {
+        var major = ms % 100 == 0;
+        ctx.fillStyle = ms == 0 ? COLORS.text : COLORS.dim;
+        ctx.fillRect(at(ms) - 1, ay - (major ? 8 : 5), 2, major ? 16 : 10);
+        if (major) {
+            ctx.fillText(ms == 0 ? "BEAT" : (ms > 0 ? "+" : "") + ms, at(ms), ay + 30);
+        }
+    }
+    ctx.font = "20px Arial";
+    ctx.fillStyle = COLORS.dim;
+    ctx.textAlign = "right";
+    ctx.fillText("EARLY", cx - TIMING_SCALE_W - 12, ay + 7);
+    ctx.textAlign = "left";
+    ctx.fillText("LATE", cx + TIMING_SCALE_W + 12, ay + 7);
+    ctx.textAlign = "center";
+    var bins = {}, most = 0; // the presses by cell
+    timings.forEach(function (t) {
+        var b = Math.floor(Math.max(-TIMING_SCALE_MS, Math.min(TIMING_SCALE_MS - 1, t)) / TIMING_BIN_MS);
+        bins[b] = (bins[b] || 0) + 1;
+        most = Math.max(most, bins[b]);
+    });
+    for (var b in bins) {
+        ctx.fillStyle = grade(Math.abs((Number(b) + 0.5) * TIMING_BIN_MS));
+        ctx.globalAlpha = 0.3 + 0.7 * bins[b] / most;
+        ctx.fillRect(at(Number(b) * TIMING_BIN_MS), ay - 28, TIMING_BIN_MS * k, 26);
+    }
+    ctx.globalAlpha = 1;
+    if (timingCount >= 4) { // where they come to: a marker over them, in the average's colour
+        var mx = at(timingSum / timingCount);
+        ctx.fillStyle = timingColor();
+        ctx.beginPath();
+        ctx.moveTo(mx - 8, ay - 46);
+        ctx.lineTo(mx + 8, ay - 46);
+        ctx.lineTo(mx, ay - 34);
+        ctx.closePath();
+        ctx.fill();
+    }
+}
 
 function showResults() { // the three columns, under whatever the screen has put up so far
     var dy = msgBottom() + 160;
@@ -326,6 +397,13 @@ function showMessage(panel) { // draw the queued lines centred and as large as t
             bottom = Math.max(bottom, line.dy + line.h);
             continue;
         }
+        if (line.scale) { // a drawing: the box it says it fills, above and below its baseline
+            left = Math.min(left, line.x - line.w / 2);
+            right = Math.max(right, line.x + line.w / 2);
+            top = Math.min(top, line.dy - line.above);
+            bottom = Math.max(bottom, line.dy + line.below);
+            continue;
+        }
         ctx.font = line.font;
         var m = ctx.measureText(line.text);
         var start = line.x - m.width * LEFT_OF_X[line.align]; // where the line begins
@@ -347,6 +425,10 @@ function showMessage(panel) { // draw the queued lines centred and as large as t
         var l = msgBlock[i];
         if (l.button) {
             drawMsgButton(l, dx, dy, s);
+            continue;
+        }
+        if (l.scale) {
+            drawTimingScale(dx + l.x, dy + l.dy);
             continue;
         }
         ctx.font = l.font;
@@ -375,6 +457,8 @@ var RESULTS_GRACE_MS = 1000;
 var resultsUp = false; // a level's results are showing: a clear's, a death's, or the game over's
 var resultsKind = "clear"; // which: "clear", "death" (a life spent, the level again on offer) or "over" (none left)
 var resultsAt = 0; // when they came up
+var resultsSky = 0, resultsClock = 0, resultsFrame = 0; // the level's backdrop moves on behind them: the second it had
+    // reached, when (performance.now()) the results came up, and the frame that draws them again over it
 var resultsHover = ""; // the button under the mouse, or under a finger held on it
 var resultsArmed = false; // a mouse press began on them once they could take one
 const RESULT_BUTTONS = { // by the results' kind, left to right: where each sits (-1 left, 1 right), and the line under
@@ -387,8 +471,13 @@ const RESULT_BUTTONS = { // by the results' kind, left to right: where each sits
         again: { side: 1, label: "PLAY AGAIN", keys: "ENTER / R", jp: "もう一度", primary: true } },
 };
 
-function resultButtons() { // the buttons the results up have
-    return RESULT_BUTTONS[resultsKind];
+function resultButtons() { // the buttons the results up have: a clear's way on is CONTINUE, or after a level played
+    // from the level select, LEVELS, which is where it goes
+    var buttons = RESULT_BUTTONS[resultsKind];
+    if (resultsKind == "clear" && selectRun) {
+        return { retry: buttons.retry, next: { side: 1, label: "LEVELS", keys: "ENTER / SPACE", jp: "レベル", primary: true } };
+    }
+    return buttons;
 }
 
 function resultPrimary() { // the way on: the button a controller lights first, and START presses
@@ -415,10 +504,28 @@ function raiseResults(kind) { // the level ended: its results come up, of the ki
     resultsAt = Date.now();
     resultsHover = "";
     resultsArmed = false;
+    resultsSky = wave ? beatPos * msPerBeat() / 1000 : 0; // the backdrop carries on from where the level left it
+    resultsClock = performance.now();
     if (kind == "clear") {
         playSound(aud_menuSound);
     }
     drawResultsScreen();
+    cancelAnimationFrame(resultsFrame);
+    if (fxLook() == "full") { // the backdrop moves, so they are drawn again every frame; with less motion it is still
+        resultsFrame = requestAnimationFrame(resultsStep);
+    }
+}
+
+function resultsSkyTime() { // the second the backdrop is at behind the results
+    return resultsSky + (performance.now() - resultsClock) / 1000;
+}
+
+function resultsStep() { // each frame while they are up: the backdrop has moved, so draw them again over it
+    if (!resultsUp) {
+        return;
+    }
+    drawResultsScreen();
+    resultsFrame = requestAnimationFrame(resultsStep);
 }
 
 function drawResultsScreen() { // drawn as they come up, and again on a resize, a hover or a change of input
@@ -426,7 +533,8 @@ function drawResultsScreen() { // drawn as they come up, and again on a resize, 
         drawDeathResults();
         return;
     }
-    drawSky(level, 0, null, SKY_BEHIND); // the level's backdrop, still and dimmed, behind them: the ground as well
+    drawSky(level, resultsSkyTime(), null, SKY_RESULTS); // the level's backdrop, moving on and dimmed, behind them:
+    // the ground as well
     ctx.font = "80px Arial";
     printText("Level " + level + " Clear", -175);
     ctx.font = "60px Arial";
@@ -436,6 +544,7 @@ function drawResultsScreen() { // drawn as they come up, and again on a resize, 
         ctx.fillStyle = timingColor();
         centerText(timingText(), 0);
     }
+    showTimingScale(); // and where every one of them landed, under that
     showResults();
     showResultButtons();
     showMessage();
@@ -478,6 +587,7 @@ function chooseResult(name) { // a button on the results: a clear's CONTINUE ("n
         return;
     }
     resultsUp = false;
+    cancelAnimationFrame(resultsFrame);
     resultsHover = "";
     playSound(aud_click);
     startTime += Date.now() - resultsAt; // off the run's clock
@@ -488,10 +598,15 @@ function chooseResult(name) { // a button on the results: a clear's CONTINUE ("n
     } else if (resultsKind == "over") { // the run again, from where it began
         restartRun();
     } else {
+        if (name == "next" && selectRun) { // a level played from the level select ends here: back to the select, its
+            endRun(); // bests recorded
+            return;
+        }
         if (name == "next") { // on to the next level, with the shields and the charge this one left
             carryHp = hp;
             carryMeter = drive.start === null ? drive.meter : 0;
             runScore += score;
+            recordRunScore(runScore); // the run's total, against the most a run has had
             level++;
         }
         score = 0; // the next level, or this one again, starts from nothing
@@ -581,7 +696,8 @@ function quitRun() { // QUIT, from the pause: the run ends, unrecorded, and the 
     endRun();
 }
 
-function endRun() { // the run ends, unrecorded, from the pause's QUIT or the results': the start screen comes back
+function endRun() { // the run ends, unrecorded, from the pause's QUIT or the results': the start screen comes back,
+    // or the level select, for a run that came from it
     stopLevel();
     gameStart = false; // so the next START is a first start again: a new run, its lives and its clock
     level = 1;
@@ -593,10 +709,14 @@ function endRun() { // the run ends, unrecorded, from the pause's QUIT or the re
     hoveredButton = "";
     startMenuTimers();
     updateSloganText(); // which draws the start screen
+    if (selectRun) { // the run came from the level select: back to it, with any bests it just set
+        openMenu("levels");
+    }
 }
 
 function gameOver() { // the level was cleared or the player died
     var levelCleared = levelComplete();
+    var picture = levelCleared ? null : deathPicture(); // the hit as it stands, before the level is cleared away
     stopLevel();
     if (levelCleared) {
         recordLevel(level); // its rank and its score
@@ -605,11 +725,16 @@ function gameOver() { // the level was cleared or the player died
     }
     deaths += 1;
     playSound(aud_death);
+    var kind = "over"; // none left: the run is over
     if (runLives > 0) { // a life buys the level again, its points kept: the death's results say so, and wait for TRY
         runLives--; // AGAIN
-        raiseResults("death");
-    } else { // none left: the run is over
-        raiseResults("over");
+        kind = "death";
+    }
+    var results = function () { raiseResults(kind); };
+    if (picture) { // the death animation first (death.js), then them
+        startDeathAnim(picture, results);
+    } else {
+        results();
     }
 }
 
@@ -617,7 +742,7 @@ function drawDeathResults() { // a death's results, over the level's backdrop, s
     // got, its beats so far and its points, the lives left, and TRY AGAIN or QUIT; or, with none left, the game over,
     // and PLAY AGAIN or QUIT
     var over = resultsKind == "over";
-    drawSky(level, 0, null, SKY_BEHIND);
+    drawSky(level, resultsSkyTime(), null, SKY_RESULTS);
     ctx.font = "80px Arial";
     printText(over ? "Game Over" : deathProgress >= 0.9 ? "So Close" : "Try Again", -175);
     ctx.font = "60px Arial";

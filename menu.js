@@ -567,7 +567,7 @@ function helpPages() { // every page: a heading is a line of its own, and the li
         { t: "PERFECTs charge the meter by your shields; GREATs three quarters, GOODs half, BADs a quarter" },
         { t: touch ? "FULL: TAP OVERDRIVE" : "FULL: PRESS " + actionKey("gate"), head: true },
         { t: "It starts on the next beat: the one you press it on, or the one after" },
-        { t: "and lasts eight beats. The colours still count." },
+        { t: "and lasts eight beats, plus a beat of grace. The colours still count." },
         { t: "LASER FORM", head: true },
         { t: "Lasers can't hurt you, and your hits score double" },
         { t: "Fly through a laser as it fires to absorb it for a bonus" },
