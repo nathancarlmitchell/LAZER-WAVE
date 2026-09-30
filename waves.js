@@ -64,12 +64,14 @@ var FILL_SIZE = RIPPLE_SIZE; // a fill's thin beams
 // bars are drawn from (a repeat makes that one more common, and the draw being seeded, the order decides which bars
 // get which; an entry "a+b" is a combination, both phrases dealt into one bar, which is how the later levels make
 // patterns of their own out of the types before them: a box from a pincer and a cage, a crosshair from a ring and a
-// diagonal); colors is the colour patterns its bars are painted from
+// diagonal; a corridor goes with nothing, as its gap is the only place to be and a cage or a pincer across it shuts
+// it, which .claude/safegap.js is there to catch); colors is the colour patterns its bars are painted from
 // (see COLOR_PATTERNS), none for a colourless level; laser is the bars played in laser form, as [first bar, bars]
 // pairs, each opened and closed by a gate; targets is what those bars are drawn from (TARGET_PHRASES); dodges is how
 // many lasers each of them fires across the path between its targets, at most. boss, if given ({ name, kind }), makes
 // the level a fight with the Array (boss.js): its targets are the boss's health, and its kind is its signature,
-// "node", "twin", "radar", "chaser" or "mirror".
+// "node", "twin", "radar", "chaser" or "mirror"; the level does not end while the boss stands, but goes round again
+// from the bar before its last laser section (loopFrom) until it falls.
 //
 // The curve climbs a step at a time, bringing in one thing at once and letting it settle before the next: the melody's
 // beams, then fallers and a beam on every beat (2), then laser form (3), pincers (4) and the cage (5); colours (6),
@@ -114,7 +116,7 @@ const LEVELS = [null,
         bpm: 108, bars: 14, warn: 2, phrases: ["cage", "fall", "pincer+cage", "rest", "melody", "rain", "wall"], colors: ["solid", "pairs"],
         laser: [[6, 4]], targets: ["tune", "steps", "jump"], dodges: 1 },
     { name: "Interference", lore: ["Signals collide at the edge of the amber city.", "Hold your frequency."],
-        bpm: 110, bars: 16, warn: 2, phrases: ["wall", "corridor", "corridor+cage", "pincer+cage", "rest", "rain", "melody"], colors: ["solid", "pairs"],
+        bpm: 110, bars: 16, warn: 2, phrases: ["wall", "corridor", "corridor", "pincer+cage", "rest", "rain", "melody"], colors: ["solid", "pairs"],
         laser: [[3, 3], [8, 3]], boss: { name: "INTERFERENCE", kind: "twin" }, targets: ["tune", "hold", "steps", "jump"], dodges: 1 },
     // Act III, Phosphor: beams down the screen, columns, and less warning
     { name: "Phosphor", lore: ["Beams fall down the screen as well as across it. Look up.",
@@ -187,7 +189,7 @@ const LEVELS = [null,
         colors: ["pairs", "alt"],
         laser: [[5, 4], [13, 4]], targets: ["zigzag", "scatter", "scatter"], dodges: 2 },
     { name: "Lazer Wave", lore: ["Coherent. In phase. One wavelength, one beat.", "This is what you were made for."],
-        bpm: 132, bars: 22, warn: 1, phrases: ["wall", "corridor", "cross", "diagonal", "close", "ring", "chase", "corridor+cage", "ring+diagonal", "spin+ring", "chase+cage", "fill"],
+        bpm: 132, bars: 22, warn: 1, phrases: ["wall", "corridor", "cross", "diagonal", "close", "ring", "chase", "corridor", "ring+diagonal", "spin+ring", "chase+cage", "fill"],
         colors: ["pairs", "alt"], laser: [[5, 4], [13, 4]], boss: { name: "LAZER WAVE", kind: "mirror" }, targets: ["tune", "zigzag", "scatter", "scatter"],
         dodges: 2 },
 ];
@@ -654,6 +656,16 @@ function laserBars(def) { // the level's bars played in laser form: bar -> true
     return bars;
 }
 
+function loopFrom(def) { // the bar a boss level goes back to when its end comes with the boss still up: the bar before
+    // its last laser section, a run-up in wave form, so the fight goes on from there, its wave bars to survive and its
+    // laser bars to hurt the boss in, as many times as it takes (extendLevel, loop.js); null for a level without a boss
+    if (!def.boss || !def.laser || !def.laser.length) {
+        return null;
+    }
+    var last = def.laser[def.laser.length - 1];
+    return Math.max(1, last[0] - 1); // never the opening rest bar
+}
+
 function buildTimeline(n) { // everything the level holds, in beat order: beams { fire, axis, pos, size, color, and a
     // held note's hold or a faller's kind },
     // targets (axis "target", pos their height) and gates (axis "gate", to the form they switch to, color "gate")
@@ -774,6 +786,42 @@ function makeHazard(ev, warn) { // the thing on screen for a timeline event
 // coloured beam warns in its colour -- cyan in a solid line, magenta dashed, so the two differ by more than colour --
 // and burns with a glow of it round the laser core, which stays the laser's own colour: that is what can hit. A
 // beam the piece absorbs in overdrive can't hit any more, and collapses to a white line and goes.
+// How every laser is drawn, so that a busy screen still reads. A warning is dim and thin until WARN_LAST beats before it
+// fires, then comes up to full over that last beat, flickering in sixteenths only once it is that near: what is about
+// to fire stands out from what is not. The footprint of anything due within that last beat is hatched in its colour
+// (laserHatch), so the ground left clear reads as the safe area. A burning laser's core, the part that can hit, is drawn
+// to its hitbox with a hard white edge, and its glow, which is forgiven, is faint outside it.
+var WARN_LAST = 1; // beats before it fires that a warning comes up to full over
+var WARN_DIM = 0.2; // of full: a warning's brightness before that
+var WARN_HATCH = 0.32; // the hatch's alpha over a footprint due within WARN_LAST
+var GLOW_ALPHA = 0.22; // the glow's alpha round a burning core, the whole band
+var EDGE_ALPHA = 0.9; // the hard edge's, along a burning core
+var hatchCache = {}; // the hatch pattern in each colour, made once
+
+function warnLook(fireAt) { // how a warning due at beat fireAt is drawn now: near, 0 until WARN_LAST beats before it and
+    // 1 on its beat; blink, its flicker, once near; alpha, of full; width, of its line, in px; wash, of the faint fill of
+    // its footprint; hatch, of the hatch over it, 0 until it is near
+    var near = Math.max(0, Math.min(1, 1 - (fireAt - beatPos) / WARN_LAST));
+    var blink = near > 0 && (beatPos * 4) % 1 >= 0.5 ? 0.6 : 1;
+    return { near: near, blink: blink, alpha: (WARN_DIM + (1 - WARN_DIM) * near) * blink, width: 1 + 2 * near,
+        wash: (0.03 + 0.12 * near) * blink, hatch: near > 0 ? WARN_HATCH * blink : 0 };
+}
+
+function laserHatch(tint) { // a diagonal hatch in `tint`, a repeating pattern, over the footprint of what is about to fire
+    if (!hatchCache[tint]) {
+        var c = document.createElement("canvas"), g = c.getContext("2d");
+        c.width = c.height = 10;
+        g.strokeStyle = tint;
+        g.lineWidth = 2;
+        g.beginPath();
+        g.moveTo(0, 10);
+        g.lineTo(10, 0);
+        g.stroke();
+        hatchCache[tint] = ctx.createPattern(c, "repeat");
+    }
+    return hatchCache[tint];
+}
+
 function Beam(ev, warn) {
     this.axis = ev.axis;
     this.pos = ev.pos;
@@ -879,17 +927,17 @@ Beam.prototype.update = function () { // draw it: an outline that sharpens as it
         this.band((this.axis == "h" ? this.height : this.width) * 0.5 * gone);
     } else if (beatPos < this.fireAt) { // the warning
         var t = this.chase && beatPos >= this.lockAt ? 1 : this.fallen(); // a chaser's goes solid once it has locked
-        var blink = (beatPos * 4) % 1 < 0.5 ? 1 : 0.6; // flickers in sixteenths, so it reads as live
+        var look = warnLook(this.fireAt), blink = look.blink;
         if (this.from !== undefined) { // where a mover will fire, under it on its way. A faller's is its warning
             // proper, as bright and as blinking as any beam's, since that is where to read it; a slider's or a
             // chaser's is dim, firming up as it comes
             ctx.strokeStyle = tint;
             if (this.fall) {
-                ctx.globalAlpha = (0.3 + 0.6 * t) * blink;
-                ctx.lineWidth = this.color ? 3 : 2;
+                ctx.globalAlpha = look.alpha;
+                ctx.lineWidth = look.width;
                 ctx.setLineDash(this.color == "cyan" ? [] : [12, 8]);
             } else {
-                ctx.globalAlpha = (0.12 + 0.3 * t) * blink;
+                ctx.globalAlpha = look.alpha * 0.4;
                 ctx.lineWidth = 1;
                 ctx.setLineDash([4, 6]);
             }
@@ -899,20 +947,26 @@ Beam.prototype.update = function () { // draw it: an outline that sharpens as it
                 ctx.strokeRect(this.landing() + 1, this.y + 1, this.width - 2, this.height - 2);
             }
         }
-        ctx.globalAlpha = (0.05 + 0.12 * t) * blink;
+        ctx.globalAlpha = look.wash;
         ctx.fillStyle = tint;
         this.strip(this.x, this.y, this.width, this.height);
-        ctx.globalAlpha = (0.3 + 0.6 * t) * blink * (this.fall && t < FALL_LAND ? 0.4 : 1); // a faller still on its
-        // way is the fainter of its two outlines
+        if (look.hatch) { // due within the beat: its footprint hatched
+            var due = this.solidSpan();
+            ctx.globalAlpha = look.hatch;
+            ctx.fillStyle = laserHatch(tint);
+            ctx.fillRect(due.x, this.y, due.w, this.height);
+        }
+        ctx.globalAlpha = look.alpha * (this.fall && t < FALL_LAND ? 0.4 : 1); // a faller still on its way is the fainter
+        // of its two outlines
         ctx.strokeStyle = tint;
-        ctx.lineWidth = this.color ? 3 : 2;
+        ctx.lineWidth = look.width;
         ctx.setLineDash(this.color == "cyan" ? [] : [12, 8]);
         var solid = this.solidSpan(); // a segment's outline stops where its light will dissolve
         ctx.strokeRect(solid.x + 1, this.y + 1, solid.w - 2, this.height - 2);
     } else { // burning, then its afterglow
         var fade = beatPos < this.endAt ? 1 : Math.max(0, 1 - (beatPos - this.endAt) / BEAM_FADE);
         var across = this.axis == "h" ? this.height : this.width;
-        ctx.globalAlpha = 0.45 * fade; // the glow, the whole band
+        ctx.globalAlpha = GLOW_ALPHA * fade; // the glow, the whole band, forgiven
         ctx.fillStyle = tint;
         this.strip(this.x, this.y, this.width, this.height);
         ctx.globalAlpha = 0.95 * fade; // the core: what can actually hit
@@ -921,8 +975,21 @@ Beam.prototype.update = function () { // draw it: an outline that sharpens as it
         this.band(inset);
         ctx.fillStyle = COLORS.laserCore; // and a hot white line down its middle, thin however wide the beam
         this.band((across - Math.min(across * 0.2, BEAM_CORE_MAX)) / 2);
+        ctx.globalAlpha = EDGE_ALPHA * fade; // and a hard edge where the core, what can hit, ends
+        this.edges(inset);
     }
     ctx.restore();
+};
+
+Beam.prototype.edges = function (inset) { // a line a pixel wide along each long edge of the core, `inset` in from the band's
+    var solid = this.solidSpan();
+    if (this.axis == "h") {
+        ctx.fillRect(solid.x, this.y + inset, solid.w, 1);
+        ctx.fillRect(solid.x, this.y + this.height - inset - 1, solid.w, 1);
+    } else {
+        ctx.fillRect(this.x + inset, this.y, 1, this.height);
+        ctx.fillRect(this.x + this.width - inset - 1, this.y, 1, this.height);
+    }
 };
 
 Beam.prototype.band = function (inset) { // fill the beam less `inset` px off each long side
@@ -1056,22 +1123,27 @@ Corridor.prototype.update = function () { // draw it: the walls as an outline sc
         ctx.fillStyle = COLORS.laserCore;
         this.trace(gone * gameArea.canvas.height / 2, true);
         ctx.fill();
-    } else if (beatPos < this.fireAt) { // the warning: the walls faint, their edges flickering, the path scrolling in
-        var t = Math.max(0, Math.min(1, (beatPos - this.warnAt) / (this.fireAt - this.warnAt)));
-        var blink = (beatPos * 4) % 1 < 0.5 ? 1 : 0.6;
-        ctx.globalAlpha = (0.05 + 0.12 * t) * blink;
+    } else if (beatPos < this.fireAt) { // the warning: the walls faint, their edges dim and thin until the last beat, the
+        // path scrolling in; due within the beat, the walls hatched
+        var look = warnLook(this.fireAt);
+        ctx.globalAlpha = look.wash;
         ctx.fillStyle = tint;
         this.trace(0, true);
         ctx.fill();
-        ctx.globalAlpha = (0.3 + 0.6 * t) * blink;
+        if (look.hatch) {
+            ctx.globalAlpha = look.hatch;
+            ctx.fillStyle = laserHatch(tint);
+            ctx.fill(); // the same walls
+        }
+        ctx.globalAlpha = look.alpha;
         ctx.strokeStyle = tint;
-        ctx.lineWidth = this.color ? 3 : 2;
+        ctx.lineWidth = look.width;
         ctx.setLineDash(this.color == "cyan" ? [] : [12, 8]);
         this.trace(0, false);
         ctx.stroke();
     } else { // burning, then its afterglow: the glow, the core that can hit, and a hot line along its edge
         var fade = beatPos < this.endAt ? 1 : Math.max(0, 1 - (beatPos - this.endAt) / BEAM_FADE);
-        ctx.globalAlpha = 0.45 * fade;
+        ctx.globalAlpha = GLOW_ALPHA * fade;
         ctx.fillStyle = tint;
         this.trace(0, true);
         ctx.fill();
@@ -1191,23 +1263,30 @@ Sweeper.prototype.update = function () { // draw it: an outline at its edge, the
         ctx.globalAlpha = 0.9 * (1 - gone);
         ctx.fillStyle = COLORS.laserCore;
         this.band(this.x, this.width * 0.5 * gone);
-    } else if (beatPos < this.fireAt) { // the warning: at the edge it sets out from, flickering, its hole showing
-        var t = Math.max(0, Math.min(1, (beatPos - this.warnAt) / (this.fireAt - this.warnAt)));
-        var blink = (beatPos * 4) % 1 < 0.5 ? 1 : 0.6;
+    } else if (beatPos < this.fireAt) { // the warning: at the edge it sets out from, its hole showing, dim and thin until
+        // its last beat; due within the beat, hatched
+        var look = warnLook(this.fireAt);
         var x = this.dir > 0 ? 0 : W - this.width, h = this.holeEdges();
-        ctx.globalAlpha = (0.05 + 0.12 * t) * blink;
+        var fade = SWEEP_FADE * this.gap * H; // the outline and the hatch stop where the band will dissolve
+        ctx.globalAlpha = look.wash;
         ctx.fillStyle = tint;
         this.band(x, 0);
-        ctx.globalAlpha = (0.3 + 0.6 * t) * blink;
+        if (look.hatch) {
+            ctx.globalAlpha = look.hatch;
+            ctx.fillStyle = laserHatch(tint);
+            ctx.fillRect(x, 0, this.width, h.top - fade);
+            ctx.fillRect(x, h.bottom + fade, this.width, H - h.bottom - fade);
+        }
+        ctx.globalAlpha = look.alpha;
         ctx.strokeStyle = tint;
-        ctx.lineWidth = this.color ? 3 : 2;
+        ctx.lineWidth = look.width;
         ctx.setLineDash(this.color == "cyan" ? [] : [12, 8]);
-        var fade = SWEEP_FADE * this.gap * H; // the outline stops where the band will dissolve
         ctx.strokeRect(x + 1, 1, this.width - 2, h.top - fade - 2);
         ctx.strokeRect(x + 1, h.bottom + fade + 1, this.width - 2, H - h.bottom - fade - 2);
-    } else { // burning as it wipes across, then its afterglow where it stopped
+    } else { // burning as it wipes across, then its afterglow where it stopped: the glow, the core that can hit, a hot
+        // line down it, and hard edges where the core ends, its sides and its hole's
         var fade = beatPos < this.endAt ? 1 : Math.max(0, 1 - (beatPos - this.endAt) / BEAM_FADE);
-        ctx.globalAlpha = 0.45 * fade;
+        ctx.globalAlpha = GLOW_ALPHA * fade;
         ctx.fillStyle = tint;
         this.band(this.x, 0);
         ctx.globalAlpha = 0.95 * fade;
@@ -1215,6 +1294,14 @@ Sweeper.prototype.update = function () { // draw it: an outline at its edge, the
         this.band(this.x, this.width * BEAM_INSET);
         ctx.fillStyle = COLORS.laserCore;
         this.band(this.x, (this.width - Math.min(this.width * 0.2, BEAM_CORE_MAX)) / 2);
+        var hole = this.holeEdges(), give = BEAM_INSET * this.gap * H, side = this.width * BEAM_INSET;
+        ctx.globalAlpha = EDGE_ALPHA * fade;
+        [this.x + side, this.x + this.width - side - 1].forEach(function (ex) {
+            ctx.fillRect(ex, 0, 1, hole.top - give);
+            ctx.fillRect(ex, hole.bottom + give, 1, H - hole.bottom - give);
+        }, this);
+        ctx.fillRect(this.x + side, hole.top - give - 1, this.width - 2 * side, 1);
+        ctx.fillRect(this.x + side, hole.bottom + give, this.width - 2 * side, 1);
     }
     ctx.restore();
 };
@@ -1284,24 +1371,35 @@ Ring.prototype.update = function () { // draw it: growing as an outline, its ful
         ctx.globalAlpha = 0.9 * (1 - gone);
         ctx.strokeStyle = COLORS.laserCore;
         this.draw(R, Math.max(1, RING_WIDTH * (1 - gone)));
-    } else if (beatPos < this.fireAt) { // the warning: the ring growing, flickering, its full size dashed round it
-        var t = this.fallen();
-        var blink = (beatPos * 4) % 1 < 0.5 ? 1 : 0.6;
+    } else if (beatPos < this.fireAt) { // the warning: the ring growing, its full size dashed round it, dim and thin until
+        // its last beat; due within the beat, its full size hatched, as wide as its core will be
+        var t = this.fallen(), look = warnLook(this.fireAt);
         ctx.strokeStyle = tint;
-        ctx.globalAlpha = (0.12 + 0.3 * t) * blink;
+        ctx.globalAlpha = look.alpha * 0.5;
         ctx.setLineDash([4, 6]);
         this.draw(R, 1);
-        ctx.globalAlpha = (0.3 + 0.6 * t) * blink;
+        if (look.hatch) {
+            ctx.setLineDash([]);
+            ctx.globalAlpha = look.hatch;
+            ctx.strokeStyle = laserHatch(tint);
+            this.draw(R, RING_WIDTH);
+            ctx.strokeStyle = tint;
+        }
+        ctx.globalAlpha = look.alpha;
         ctx.setLineDash(this.color == "cyan" ? [] : [12, 8]);
-        this.draw(R * t, this.color ? 3 : 2);
-    } else { // burning, then its afterglow: the glow, the core that can hit, and a hot line through it
+        this.draw(R * t, look.width);
+    } else { // burning, then its afterglow: the glow, a hard white edge, the core that can hit, and a hot line through it
         var fade = beatPos < this.endAt ? 1 : Math.max(0, 1 - (beatPos - this.endAt) / BEAM_FADE);
-        ctx.globalAlpha = 0.45 * fade;
+        var core = RING_WIDTH * (1 - 2 * BEAM_INSET); // the core as wide as what can hit
+        ctx.globalAlpha = GLOW_ALPHA * fade;
         ctx.strokeStyle = tint;
         this.draw(R, RING_WIDTH * 2.2);
+        ctx.globalAlpha = EDGE_ALPHA * fade;
+        ctx.strokeStyle = COLORS.laserCore;
+        this.draw(R, core + 2);
         ctx.globalAlpha = 0.95 * fade;
         ctx.strokeStyle = COLORS.laser;
-        this.draw(R, RING_WIDTH);
+        this.draw(R, core);
         ctx.strokeStyle = COLORS.laserCore;
         this.draw(R, 3);
     }
@@ -1375,27 +1473,35 @@ Diagonal.prototype.update = function () { // draw it: an outline that sharpens a
         ctx.globalAlpha = 0.9 * (1 - gone);
         ctx.fillStyle = COLORS.laserCore;
         this.band(half * gone, false);
-    } else if (beatPos < this.fireAt) { // the warning
-        var t = Math.max(0, Math.min(1, (beatPos - this.warnAt) / (this.fireAt - this.warnAt)));
-        var blink = (beatPos * 4) % 1 < 0.5 ? 1 : 0.6;
-        ctx.globalAlpha = (0.05 + 0.12 * t) * blink;
+    } else if (beatPos < this.fireAt) { // the warning: dim and thin until its last beat; due within the beat, hatched
+        var look = warnLook(this.fireAt);
+        ctx.globalAlpha = look.wash;
         ctx.fillStyle = tint;
         this.band(0, false);
-        ctx.globalAlpha = (0.3 + 0.6 * t) * blink;
+        if (look.hatch) {
+            ctx.globalAlpha = look.hatch;
+            ctx.fillStyle = laserHatch(tint);
+            this.band(0, false);
+        }
+        ctx.globalAlpha = look.alpha;
         ctx.strokeStyle = tint;
-        ctx.lineWidth = this.color ? 3 : 2;
+        ctx.lineWidth = look.width;
         ctx.setLineDash(this.color == "cyan" ? [] : [12, 8]);
         this.band(1, true);
-    } else { // burning, then its afterglow
+    } else { // burning, then its afterglow: the glow, the core that can hit with a hard edge, and a hot line down it
         var fade = beatPos < this.endAt ? 1 : Math.max(0, 1 - (beatPos - this.endAt) / BEAM_FADE);
-        ctx.globalAlpha = 0.45 * fade;
+        var inset = half * 2 * BEAM_INSET, L = gameArea.canvas.width + gameArea.canvas.height;
+        ctx.globalAlpha = GLOW_ALPHA * fade;
         ctx.fillStyle = tint;
         this.band(0, false);
         ctx.globalAlpha = 0.95 * fade;
         ctx.fillStyle = COLORS.laser;
-        this.band(half * 2 * BEAM_INSET, false);
+        this.band(inset, false);
         ctx.fillStyle = COLORS.laserCore;
         this.band(half - Math.min(half * 0.2, BEAM_CORE_MAX / 2), false);
+        ctx.globalAlpha = EDGE_ALPHA * fade;
+        ctx.fillRect(-L, -half + inset, 2 * L, 1);
+        ctx.fillRect(-L, half - inset - 1, 2 * L, 1);
     }
     ctx.restore();
 };
@@ -1566,19 +1672,28 @@ Radar.prototype.update = function () { // draw it: the ray's outline where it wi
         ctx.globalAlpha = 0.9 * (1 - gone);
         ctx.strokeStyle = COLORS.laserCore;
         this.ray(this.at, Math.max(1, RADAR_WIDTH * (1 - gone)));
-    } else if (beatPos < this.fireAt) { // the warning: the ray where it will start, and the disc, flickering
-        var t = Math.max(0, Math.min(1, (beatPos - this.warnAt) / (this.fireAt - this.warnAt)));
-        var blink = (beatPos * 4) % 1 < 0.5 ? 1 : 0.6;
-        ctx.globalAlpha = (0.3 + 0.6 * t) * blink;
+    } else if (beatPos < this.fireAt) { // the warning: the ray where it will start, and the disc, dim and thin until its
+        // last beat; due within the beat, both hatched
+        var look = warnLook(this.fireAt);
+        if (look.hatch) {
+            ctx.globalAlpha = look.hatch;
+            ctx.strokeStyle = laserHatch(tint);
+            this.ray(0, RADAR_WIDTH);
+            ctx.fillStyle = laserHatch(tint);
+            this.disc(1);
+            ctx.fill();
+        }
+        ctx.globalAlpha = look.alpha;
         ctx.strokeStyle = tint;
         ctx.setLineDash(this.color == "cyan" ? [] : [12, 8]);
-        this.ray(0, this.color ? 3 : 2);
+        this.ray(0, look.width);
         ctx.setLineDash([]);
-        ctx.lineWidth = 2;
+        ctx.lineWidth = look.width;
         this.disc(1);
         ctx.stroke();
-    } else { // burning: the phosphor behind the ray, its glow, its core, its hot line, and the disc
+    } else { // burning: the phosphor behind the ray, its glow, a hard white edge, its core, its hot line, and the disc
         var fade = beatPos < this.endAt ? 1 : Math.max(0, 1 - (beatPos - this.endAt) / BEAM_FADE);
+        var core = RADAR_WIDTH * (1 - 2 * BEAM_INSET); // the core as wide as what can hit
         ctx.globalAlpha = 0.2 * fade;
         ctx.fillStyle = tint;
         ctx.beginPath();
@@ -1586,12 +1701,15 @@ Radar.prototype.update = function () { // draw it: the ray's outline where it wi
         ctx.arc(W / 2, H / 2, this.reach(), this.at - RADAR_TRAIL, this.at);
         ctx.closePath();
         ctx.fill();
-        ctx.globalAlpha = 0.45 * fade;
+        ctx.globalAlpha = GLOW_ALPHA * fade;
         ctx.strokeStyle = tint;
         this.ray(this.at, RADAR_WIDTH * 2.2);
+        ctx.globalAlpha = EDGE_ALPHA * fade;
+        ctx.strokeStyle = COLORS.laserCore;
+        this.ray(this.at, core + 2);
         ctx.globalAlpha = 0.95 * fade;
         ctx.strokeStyle = COLORS.laser;
-        this.ray(this.at, RADAR_WIDTH);
+        this.ray(this.at, core);
         ctx.strokeStyle = COLORS.laserCore;
         this.ray(this.at, 3);
         ctx.fillStyle = COLORS.laser;
@@ -1700,25 +1818,34 @@ Spinner.prototype.update = function () { // draw it: its outline turning in thro
         ctx.globalAlpha = 0.9 * (1 - gone);
         ctx.strokeStyle = COLORS.laserCore;
         this.cross(Math.max(1, SPIN_WIDTH * (1 - gone)));
-    } else if (beatPos < this.fireAt) { // the warning: the X where it is, turning, and its pivot, flickering
-        var t = Math.max(0, Math.min(1, (beatPos - this.warnAt) / (this.fireAt - this.warnAt)));
-        var blink = (beatPos * 4) % 1 < 0.5 ? 1 : 0.6;
-        ctx.globalAlpha = (0.3 + 0.6 * t) * blink;
+    } else if (beatPos < this.fireAt) { // the warning: the X where it is, turning, and its pivot, dim and thin until its
+        // last beat; due within the beat, the arms hatched
+        var look = warnLook(this.fireAt);
+        if (look.hatch) {
+            ctx.globalAlpha = look.hatch;
+            ctx.strokeStyle = laserHatch(tint);
+            this.cross(SPIN_WIDTH);
+        }
+        ctx.globalAlpha = look.alpha;
         ctx.strokeStyle = tint;
         ctx.setLineDash(this.color == "cyan" ? [] : [12, 8]);
-        this.cross(this.color ? 3 : 2);
+        this.cross(look.width);
         ctx.setLineDash([]);
-        ctx.lineWidth = 2;
+        ctx.lineWidth = look.width;
         this.hub(SPIN_WIDTH);
         ctx.stroke();
-    } else { // burning: the arms' glow, their core and their hot line, and the pivot
+    } else { // burning: the arms' glow, a hard white edge, their core and their hot line, and the pivot
         var fade = beatPos < this.endAt ? 1 : Math.max(0, 1 - (beatPos - this.endAt) / BEAM_FADE);
-        ctx.globalAlpha = 0.45 * fade;
+        var core = SPIN_WIDTH * (1 - 2 * BEAM_INSET); // the core as wide as what can hit
+        ctx.globalAlpha = GLOW_ALPHA * fade;
         ctx.strokeStyle = tint;
         this.cross(SPIN_WIDTH * 2.2);
+        ctx.globalAlpha = EDGE_ALPHA * fade;
+        ctx.strokeStyle = COLORS.laserCore;
+        this.cross(core + 2);
         ctx.globalAlpha = 0.95 * fade;
         ctx.strokeStyle = COLORS.laser;
-        this.cross(SPIN_WIDTH);
+        this.cross(core);
         ctx.strokeStyle = COLORS.laserCore;
         this.cross(3);
         ctx.fillStyle = COLORS.laser;
@@ -1750,10 +1877,6 @@ function Pendulum(ev, warn) {
 
 Pendulum.prototype.absorb = function () {
     this.absorbedAt = beatPos;
-};
-
-Pendulum.prototype.fallen = function () { // 0..1: how far into its warning it is
-    return Math.max(0, Math.min(1, (beatPos - this.warnAt) / (this.fireAt - this.warnAt)));
 };
 
 Pendulum.prototype.place = function () { // its top now, as a fraction: there and back over its beats from its beat
@@ -1808,34 +1931,46 @@ Pendulum.prototype.update = function () { // draw it: its outline swinging, burn
         ctx.globalAlpha = 0.9 * (1 - gone);
         ctx.fillStyle = COLORS.laserCore;
         this.band(this.height * 0.5 * gone);
-    } else if (beatPos < this.endAt && !this.firing()) { // between burns, and before its first: an outline on its way
-        var t = this.fallen();
-        var blink = (beatPos * 4) % 1 < 0.5 ? 1 : 0.6;
+    } else if (beatPos < this.endAt && !this.firing()) { // between burns, and before its first: an outline on its way,
+        // dim and thin until the last beat before its first burn, and hatched once due within a beat, which between
+        // burns it always is, its next burn being the next beat
+        var next = beatPos < this.fireAt ? this.fireAt : this.fireAt + Math.ceil(beatPos - this.fireAt);
+        var look = warnLook(next);
         if (beatPos < this.fireAt) { // its other end, where it will swing to, dashed
-            ctx.globalAlpha = (0.12 + 0.3 * t) * blink;
+            ctx.globalAlpha = look.alpha * 0.5;
             ctx.strokeStyle = tint;
             ctx.lineWidth = 1;
             ctx.setLineDash([4, 6]);
             ctx.strokeRect(1, this.to * H + 1, W - 2, this.height - 2);
         }
-        ctx.globalAlpha = (0.05 + 0.12 * t) * blink;
+        ctx.globalAlpha = look.wash;
         ctx.fillStyle = tint;
         this.band(0);
-        ctx.globalAlpha = (0.3 + 0.6 * t) * blink;
+        if (look.hatch) {
+            ctx.globalAlpha = look.hatch;
+            ctx.fillStyle = laserHatch(tint);
+            this.band(0);
+        }
+        ctx.globalAlpha = look.alpha;
         ctx.strokeStyle = tint;
-        ctx.lineWidth = this.color ? 3 : 2;
+        ctx.lineWidth = look.width;
         ctx.setLineDash(this.color == "cyan" ? [] : [12, 8]);
         ctx.strokeRect(1, this.y + 1, W - 2, this.height - 2);
-    } else { // burning, on a beat, or its afterglow after the last
+    } else { // burning, on a beat, or its afterglow after the last: the glow, the core that can hit with a hard edge,
+        // and a hot line down it
         var fade = beatPos < this.endAt ? 1 : Math.max(0, 1 - (beatPos - this.endAt) / BEAM_FADE);
-        ctx.globalAlpha = 0.45 * fade;
+        var inset = this.height * BEAM_INSET;
+        ctx.globalAlpha = GLOW_ALPHA * fade;
         ctx.fillStyle = tint;
         this.band(0);
         ctx.globalAlpha = 0.95 * fade;
         ctx.fillStyle = COLORS.laser;
-        this.band(this.height * BEAM_INSET);
+        this.band(inset);
         ctx.fillStyle = COLORS.laserCore;
         this.band((this.height - Math.min(this.height * 0.2, BEAM_CORE_MAX)) / 2);
+        ctx.globalAlpha = EDGE_ALPHA * fade;
+        ctx.fillRect(0, this.y + inset, W, 1);
+        ctx.fillRect(0, this.y + this.height - inset - 1, W, 1);
     }
     ctx.restore();
 };

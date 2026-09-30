@@ -1,5 +1,6 @@
 // Lazer Wave -- the run. The difficulties and what each gives, and the records: the best run and what it cost, the
-// most a run has banked, a best rank and a best score per level, and the furthest level reached, kept per difficulty
+// most a run has banked, a best rank and a best score per level, the furthest level reached, and how far through each
+// unbeaten level an attempt has got, kept per difficulty
 // in localStorage and read defensively. A level runs the length of its song whoever plays it, so its time is no
 // record.
 // And the m:ss the finish and the start screen print. index.html loads this with a plain <script src>, as globals
@@ -72,6 +73,7 @@ function rec() { // the record set for the difficulty now selected
             rank: {}, // best rank each level has been cleared with, "F" to "S+"
             score: {}, // most points each level has been cleared with
             reached: 0, // furthest level started, so a run that never finishes still leaves a mark
+            reach: {}, // how far through each unbeaten level an attempt has got, 0 to 1; let go once it is beaten
             runScore: 0, // the most a run has banked: its total after a CONTINUE, so a run that never finishes counts
         };
     }
@@ -80,6 +82,7 @@ function rec() { // the record set for the difficulty now selected
 var levelGrade = ""; // the rank the level just cleared was given, and whether that is the best it has had
 var gradeRecord = false;
 var scoreRecord = false; // and whether its points are the most it has been cleared with
+var reachRecord = false; // whether the death just had got further through its unbeaten level than any attempt before
 
 var RECORD_MAX_MS = 86400000; // a day: past this a stored time is not a run, and printing it would look broken
 var RECORD_MAX_SCORE = 10000000; // and past this a stored score is not one a level can give
@@ -107,7 +110,7 @@ function loadRecords() { // whatever previous runs left, if the browser will tel
             }
             var to = { run: storedTime(from.run), runDeaths: storedTime(from.runDeaths) || 0,
                 reached: Math.min(RUN_LEVELS, storedTime(from.reached) || 0), runScore: storedScore(from.runScore) || 0,
-                rank: {}, score: {} };
+                rank: {}, score: {}, reach: {} };
             // older records kept each level's time too: nothing reads it now, so the next save lets it go
             if (from.rank && typeof from.rank == "object") {
                 for (var r = 1; r <= RUN_LEVELS; r++) {
@@ -121,6 +124,14 @@ function loadRecords() { // whatever previous runs left, if the browser will tel
                     var points = storedScore(from.score[k]);
                     if (points !== null) {
                         to.score[k] = points;
+                    }
+                }
+            }
+            if (from.reach && typeof from.reach == "object") { // a share of a level, and only of one still unbeaten
+                for (var j = 1; j <= RUN_LEVELS; j++) {
+                    var far = from.reach[j];
+                    if (typeof far == "number" && isFinite(far) && far > 0 && far <= 1 && to.rank[j] === undefined) {
+                        to.reach[j] = far;
                     }
                 }
             }
@@ -170,9 +181,28 @@ function recordLevel(n) { // a level was cleared: its rank and its score, and wh
     if (scoreRecord) {
         rec().score[n] = score;
     }
+    if (rec().reach[n] !== undefined) { // beaten: how far attempts got is no record any more
+        delete rec().reach[n];
+        saveRecords();
+    }
     if (gradeRecord || scoreRecord) {
         saveRecords();
     }
+}
+
+function recordReach(n, progress) { // an attempt at level n died `progress` of the way through it (or, on a boss level,
+    // through the boss): while the level is unbeaten, the furthest an attempt has got is a record of its own. True when
+    // this one got further than the one before; the first attempt sets the mark without beating one
+    if (rec().rank[n] !== undefined || !(progress > 0)) {
+        return false; // beaten, its attempts have got through the whole of it; and one that got nowhere is no mark
+    }
+    var was = rec().reach[n];
+    if (was !== undefined && progress <= was) {
+        return false;
+    }
+    rec().reach[n] = progress;
+    saveRecords();
+    return was !== undefined;
 }
 
 function recordRun(ms, cost) { // every level cleared, from the first: the run's time, against the best there has been

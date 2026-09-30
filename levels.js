@@ -214,6 +214,8 @@ var TIMING_SCALE_W = 300; // layout px from its middle to either end
 var TIMING_BIN_MS = 10; // the presses are counted by this much of offset, and each count drawn as one cell of the heat map
 var RESULTS_TOP = -95, RESULTS_BOTTOM = 50; // every column's first and last lines: over the grade, RANK, level with
                                             // the tables' headings; under it, the best, level with their last rows
+var REACH_BEST_DY = 26; // a death's results: the furthest-yet line under how far this attempt got, and the lives
+var REACH_LIVES_DOWN = 12; // line moved down below the other columns' last lines to leave it room
 
 function showTimingScale() { // queue the timing scale under whatever is up, if the attempt pressed inside the window
     // at all: a drawing, measured by the box it fills
@@ -362,21 +364,26 @@ function showScore(dy, dead) { // what the level scored, the breakdown's mirror:
     // cleared with (NEW BEST when that is these, as the rank's best says under it; after a death, just the best, or
     // none yet), and the run's total with its points in, which is what CONTINUE banks and a life keeps
     var best = rec().score[level];
-    var rows = [["LEVEL " + level, score], [!dead && scoreRecord ? "NEW BEST" : "BEST", best === undefined ? "-" : best],
-        ["TOTAL", runScore + score]];
+    var rows = [["LEVEL " + level, score, ""]];
+    if (!dead && bossBonusWon > 0) { // of the level's points, what the boss paid (bossBonus, boss.js)
+        rows.push(["BOSS", "+" + bossBonusWon, "boss"]);
+    }
+    rows.push([!dead && scoreRecord ? "NEW BEST" : "BEST", best === undefined ? "-" : best, !dead && scoreRecord ? "top" : ""]);
+    rows.push(["TOTAL", runScore + score, "total"]);
     var pitch = (RESULTS_BOTTOM - RESULTS_TOP) / rows.length;
     ctx.font = "30px Arial";
     ctx.fillStyle = COLORS.dim;
     columnText("SCORE スコア", RESULTS_SCORE_X, dy + RESULTS_TOP, "left");
     rows.forEach(function (row, i) {
         var at = dy + RESULTS_TOP + (i + 1) * pitch;
-        var total = i == rows.length - 1; // the one that matters most, set apart
-        var top = i == 1 && !dead && scoreRecord; // and a new best, in the colour the other new bests are in
+        var total = row[2] == "total"; // the one that matters most, set apart
+        var top = row[2] == "top"; // a new best, in the colour the other new bests are in
+        var bonus = row[2] == "boss"; // and the boss's bonus, in its colour
         ctx.font = "bold 30px Arial";
         ctx.fillStyle = top ? COLORS.good : total ? COLORS.text : COLORS.dim;
         columnText(row[0], RESULTS_SCORE_X, at, "left");
         ctx.font = (total ? "bold 36px" : "30px") + " Arial";
-        ctx.fillStyle = top ? COLORS.good : total ? COLORS.cyan : COLORS.text;
+        ctx.fillStyle = top ? COLORS.good : total ? COLORS.cyan : bonus ? COLORS.laser : COLORS.text;
         columnText(String(row[1]), RESULTS_POINTS_X, at, "right");
     });
 }
@@ -725,6 +732,7 @@ function gameOver() { // the level was cleared or the player died
         return;
     }
     deaths += 1;
+    reachRecord = recordReach(level, deathProgress); // the furthest an attempt has got, while the level is unbeaten
     playSound(aud_death);
     var kind = "over"; // none left: the run is over
     if (runLives > 0) { // a life buys the level again, its points kept: the death's results say so, and wait for TRY
@@ -766,14 +774,25 @@ function drawDeathResults() { // a death's results, over the level's backdrop, s
     drawBanners(40, 20, bannerScale());
 }
 
-function showReached(dy, over) { // in the rank's place: how far through the level the attempt got, and the lives left
+function showReached(dy, over) { // in the rank's place: how far through the level the attempt got (on a boss level, how
+    // far the boss was worn down: at full health it is 0%), and the lives left
     ctx.font = "30px Arial";
     ctx.fillStyle = COLORS.dim;
     centerText("REACHED 到達", dy + RESULTS_TOP, 1, RESULTS_RANK_X);
     ctx.font = "100px Arial";
     ctx.fillStyle = over ? COLORS.warn : COLORS.text;
     centerText(Math.round(deathProgress * 100) + "%", dy, 3, RESULTS_RANK_X);
+    var far = rec().reach[level]; // the furthest an attempt has got while the level is unbeaten (recordReach has this one)
+    if (reachRecord) { // this one got further than any before: under it, as the rank's new best is
+        ctx.font = "bold 22px Arial";
+        ctx.fillStyle = COLORS.good;
+        centerText("NEW BEST", dy + REACH_BEST_DY, 1, RESULTS_RANK_X);
+    } else if (far !== undefined && far > deathProgress) { // or the furthest one before, in the same terms
+        ctx.font = "22px Arial";
+        ctx.fillStyle = COLORS.text;
+        centerText("best " + Math.round(far * 100) + "%", dy + REACH_BEST_DY, 1, RESULTS_RANK_X);
+    }
     ctx.font = "30px Arial";
     ctx.fillStyle = over ? COLORS.warn : COLORS.good;
-    centerText(over ? "NO LIVES LEFT" : "LIVES " + runLives + " LEFT", dy + RESULTS_BOTTOM, 1, RESULTS_RANK_X);
+    centerText(over ? "NO LIVES LEFT" : "LIVES " + runLives + " LEFT", dy + RESULTS_BOTTOM + REACH_LIVES_DOWN, 1, RESULTS_RANK_X);
 }

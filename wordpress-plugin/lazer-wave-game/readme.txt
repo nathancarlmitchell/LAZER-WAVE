@@ -4,7 +4,7 @@ Tags: game, rhythm, arcade, html5, embed
 Requires at least: 6.1
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 1.6.0
+Stable tag: 1.7.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -18,7 +18,8 @@ to become a laser, untouchable, for eight beats. At a gate, Space switches you t
 targets in their colours while you dodge the lasers crossing your path.
 
 Twenty-five levels in five acts climb the visible spectrum from Infrared to Ultraviolet, at 96 to 132 BPM, with lore
-between them and a boss at the end of every act. Every act has a synth song of its own, and the lasers fire on its
+between them and a boss at the end of every act, a fight that goes round again until the boss falls. Every act has a
+synth song of its own, and the lasers fire on its
 notes. A performance meter fills on every hit and drains on every miss, and at empty the level is failed. Each cleared
 level is ranked from F to SS, and keeps its best rank and best score; a level select opens each level once the one
 before is beaten. Four difficulties, EASY to TRUE, set a run's lives, shields, warnings, points and how fast the meter
@@ -67,6 +68,19 @@ In the game's OPTIONS, CALIBRATE plays a beat to tap along to and suggests the t
 Click the game first so it has the keyboard.
 
 == Changelog ==
+
+= 1.7.0 =
+* A boss level runs until its boss falls: with the boss still up at the level's end it goes round again from the bar
+  before its last laser section, the health bar counting the rounds. Brought down, the boss pays a bonus, 1,000 points
+  an act, the whole of it for a fight finished in the first round and less the longer it runs; the rest of that bar is
+  a pause, with no beat to hit or miss.
+* Lasers that read on a busy screen: a warning is thin and dim until its last beat, the ground about to burn is hatched
+  so what is left clear is safe, and a burning laser's core has a hard edge with the glow faint outside it.
+* Nothing can hit you on a gate's beat or through the glide after the switch, so a bar after a laser section can open
+  on a corridor. Corridors are dealt on their own: a cage across one shut its gap.
+* While a level is unbeaten the furthest an attempt has got is kept, and a death that gets further says NEW BEST; on a
+  boss level that is how far the boss was worn down.
+* A startup sequence as the game comes on.
 
 = 1.6.0 =
 * A boss at the end of every act: RED GIANT, INTERFERENCE, STATIC BLOOM, OVERDRIVE and LAZER WAVE, each with a fight

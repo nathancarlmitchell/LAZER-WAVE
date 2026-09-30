@@ -209,17 +209,28 @@ function musicBeat(n, delay, beatSec, over) { // beat n of the level proper (0 i
     var song = actSong(level);
     var m = music || (music = musicBus(c, beatSec));
     var when = c.currentTime + delay;
-    var sec = musicSection(wave, Math.floor(n / BEATS_PER_BAR));
+    var bar = levelBar(Math.floor(n / BEATS_PER_BAR)), at = bar * BEATS_PER_BAR + n % BEATS_PER_BAR; // the bar as the
+    // level's definition has it, and the beat in it: a boss level's loop plays its bars again (levelBar, loop.js)
+    var sec = musicSection(wave, bar), next = musicBarAfter(n);
     duckAt(m, when, beatSec);
-    var bar = Math.floor(n / BEATS_PER_BAR);
-    songBeat(c, m, song, sec, n, when, beatSec, { bright: over ? OVERDRIVE_BRIGHT : sec.laser ? LASER_BRIGHT : 1,
+    if (at < m.lastAt) { // the loop went round: the chord starts over with it
+        m.padUntil = at;
+    }
+    m.lastAt = at;
+    songBeat(c, m, song, sec, at, when, beatSec, { bright: over ? OVERDRIVE_BRIGHT : sec.laser ? LASER_BRIGHT : 1,
         arp: levelInAct(level) >= ARP_FROM, arpLevel: levelInAct(level), arpHigh: levelInAct(level) >= ARP_HIGH_FROM, lift: songLift(wave, bar, level),
-        breakdown: !sec.laser && bar + 1 < wave.bars && musicSection(wave, bar + 1).laser }); // the bar before a laser
+        breakdown: !sec.laser && next !== null && musicSection(wave, next).laser }); // the bar before a laser
         // section is a breakdown: the bass and the drums alone under the melody, so the chorus lands
-    if (n == totalBeats - firstPlayBeat() - 1) { // the last beat (a boss brought down brings it in): the next one is
+    if (n == totalBeats - firstPlayBeat() - 1) { // the last beat (a boss brought down has musicFinish instead): the next one is
         // the level cleared
         musicEnd(c, m, song, when + beatSec, songLift(wave, wave.bars - 1, level));
     }
+}
+
+function musicBarAfter(n) { // the bar, as the level's definition has it, that follows the bar beat n is in, or null
+    // when the level ends with that bar: past its last bar, a boss level's loop goes round (levelBar, loop.js)
+    var bar = Math.floor(n / BEATS_PER_BAR) + 1;
+    return (COUNT_IN_BARS + bar) * BEATS_PER_BAR < totalBeats ? levelBar(bar) : null;
 }
 
 function songBeat(c, m, song, sec, n, when, beatSec, o) { // o: bright, arp, arpLevel, arpHigh, lift, breakdown // a song's notes from beat n to the next, the beat
@@ -334,7 +345,7 @@ function songTune(def, n, bar) { // what the tune does over bar `bar` of level n
 
 function zapNote(b) { // the note a laser firing on beat b sounds (b counted from the count-in's first beat): the
     // tune's, sounding on that beat, which is the note the laser was placed on, or else the tune's lowest
-    var bar = Math.floor((b - firstPlayBeat()) / BEATS_PER_BAR);
+    var bar = levelBar(Math.floor((b - firstPlayBeat()) / BEATS_PER_BAR)); // as the level's definition has it
     var tune = songTune(wave, level, bar);
     var note = tune.sound[(b - firstPlayBeat()) % BEATS_PER_BAR];
     return note === null ? tune.lo : note;
@@ -376,6 +387,16 @@ var INTRO_AHEAD = 0.2; // s
 var intro = null; // the theme playing: { song, beatSec, start (the audio time of its first beat), next (the beat to
                   // hand over next), timer }
 const INTRO_SECTION = { laser: false, first: 0, end: Infinity }; // the whole intro is one wave section
+
+function musicFinish(delay) { // the level's beats over before its bars are (a boss down, boss.js): the song's last chord
+    // `delay` seconds from now, rung out over the pause, as musicBeat plays it after a level's last beat
+    var c = beatAudio();
+    if (!c || !music || c.state != "running") {
+        return;
+    }
+    var bar = levelBar(Math.floor((beatPos - firstPlayBeat()) / BEATS_PER_BAR));
+    musicEnd(c, music, actSong(level), c.currentTime + Math.max(0, delay), songLift(wave, bar, level));
+}
 
 function musicIntro(act, bpm) { // play an act's theme at bpm until musicIntroStop
     musicIntroStop(MUSIC_CUT);
@@ -440,7 +461,7 @@ function musicBus(c, beatSec) { // where a song's notes go, made as it starts or
         p.connect(duck);
         return p;
     };
-    return { out: out, duck: duck, echo: echo, padUntil: -1, arpPan: pan(PAN_ARP), leadPan: pan(PAN_LEAD), padL: pan(-PAN_PAD),
+    return { out: out, duck: duck, echo: echo, padUntil: -1, lastAt: -1, arpPan: pan(PAN_ARP), leadPan: pan(PAN_LEAD), padL: pan(-PAN_PAD),
         padR: pan(PAN_PAD) };
 }
 

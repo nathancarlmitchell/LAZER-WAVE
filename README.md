@@ -15,7 +15,9 @@ For WordPress, `node wordpress-plugin/build.js` copies the game into the plugin 
 
 ### How to play:
 
- - Lasers flicker as a warning, then fire **on the beat**. Steer out of them. One on a held note burns for as long as
+ - Lasers warn, then fire **on the beat**. Steer out of them. A warning is a thin, dim outline until its last beat, when
+   it comes up to full and flickers, and the ground it will burn is hatched: what is left clear is safe. A burning
+   laser's red core, with a hard white edge, is all that can hit; the glow outside it is forgiven. One on a held note burns for as long as
    the note holds. Some drop in from the top of the screen: their outline warns from the start where they will land,
    and they land on it early and sit there, then fire from it on the beat. Some come as a pair closing on a note from
    above and below, a pincer: the gap between
@@ -58,7 +60,9 @@ For WordPress, `node wordpress-plugin/build.js` copies the game into the plugin 
    across your path, on a target's beat, between it and the next: hit it, hold the quarter beat the laser burns, then
    cross. In laser form, and in overdrive, a ring closes on your orb as each beat comes, in the coming beat's colour,
    and arrives on it: the cue the waves give in wave form, where they meet on the beat.
-   Overdrive makes you untouchable and widens your beam. Another gate switches you back.
+   Overdrive makes you untouchable and widens your beam. Another gate switches you back. On a gate's beat, and through
+   the glide after the switch, nothing can hit you: the piece goes where the cursor is, through anything, so when the
+   next bar opens on a corridor, put the cursor in its gap before the gate and the piece lands there.
  - Survive every bar to clear the level. There are **five acts of five levels**, climbing the visible spectrum from
    Infrared to Ultraviolet at 96 to 132 BPM, each level the same every attempt. New things come in one at a time: the
    melody's lasers, the fallers, laser form, the pincers and the cage in Act I, colours, walls and the corridor in Act II, beams down the screen, mirrors, ripples, the radar, crossfire, sweepers, marching columns and
@@ -72,8 +76,15 @@ For WordPress, `node wordpress-plugin/build.js` copies the game into the plugin 
  - **Boss fights.** Each act's fifth level is a fight with the Array. In Red Giant its node stands at the right edge, where the
    targets come from, with a health bar in the progress stripe's slot. Every target struck lined up takes a point of
    its health, and so does every laser absorbed in overdrive: its own bars are the wave bars, to survive, and yours
-   are the laser bars. At none it breaks up, the bar plays out, and the level ends there, cleared. Health left at the
-   end costs the rank, up to 20%, and nothing else. Each fight has a signature:
+   are the laser bars. At none it breaks up and the bar plays out as a pause, the beat stopped, the song's last chord
+   ringing and nothing left in it to hit or miss, and the level ends there, cleared. It does not end
+   before that: at its last bar with the boss still up, the level goes round again from the bar before its last laser
+   section, as many times as it takes, the health bar counting the rounds, and every beat of every round counts in
+   the rank; a death's results count how far the boss was worn down as how far the attempt got, so a boss at full
+   health reads 0%. Brought down, the boss pays a bonus, 1,000 points an act
+   (Red Giant 1,000, Lazer Wave 5,000, at the difficulty's rate): the whole of it for a fight finished within the
+   level's own bars, and less the longer it runs on, a round more halving it; the health bar says what it pays now,
+   and the results list what it paid. Each fight has a signature:
    Interference has a node at each edge, and its second laser section faces left, the piece locked on the right and
    the targets coming from the left; Static Bloom's node is the radar's pivot in the middle of the screen, and its
    arm runs slower the more it is hurt; Overdrive's node follows your height, and its ports open only while overdrive
@@ -98,10 +109,11 @@ For WordPress, `node wordpress-plugin/build.js` copies the game into the plugin 
  - A cleared level is ranked F, D, C, B, A, S, S+ or SS on how its beats were hit: a PERFECT counts the beat, a GREAT
    three quarters of it, a GOOD half and a BAD a quarter, a press off the beat or in the wrong colour takes half back,
    and a lost shield costs 5%. S+ needs every beat hit clean (no BAD), nothing off the beat or WRONG, and no shield
-   lost, and SS all of that with every beat PERFECT, and on a boss level the boss down. Beside the rank, the level's
+   lost, and SS all of that with every beat PERFECT. Beside the rank, the level's
    beats are broken down: how many were PERFECT, GREAT, GOOD, BAD and MISS (gone by
    unhit, WRONG or OFF TARGET), each one's share of them, and the longest
-   combo; and so is its score: its points, the most it has been cleared with (NEW BEST when that is these), and the
+   combo; and so is its score: its points (on a boss level, with what the boss paid of them on a line of its own), the
+   most it has been cleared with (NEW BEST when that is these), and the
    run's TOTAL with them. Over the columns, a scale from early to late shows where every press landed, in the colour
    of what it earned and brighter where more did, with the average marked over them.
  - Every level keeps its bests, on each difficulty: its best rank and its best score. Not its time, as a level lasts
@@ -115,7 +127,9 @@ For WordPress, `node wordpress-plugin/build.js` copies the game into the plugin 
    laser as the waves lose phase and their trail scatters, and it fades to dark (skipped with the effects
    reduced or off). Then it has results of its own: how far the
    attempt got, its beats so far and its points, and the lives left, with **TRY AGAIN**, which the life spent pays
-   for, the points kept, and **QUIT**. Out of lives it is **GAME OVER**, with **PLAY AGAIN** and **QUIT**.
+   for, the points kept, and **QUIT**. While a level is unbeaten, the furthest an attempt has got through it is kept
+   (on a boss level, how far the boss was worn down), and a death that gets further says **NEW BEST** under how far it got;
+   one that doesn't says how far the best got. Out of lives it is **GAME OVER**, with **PLAY AGAIN** and **QUIT**.
  - **Performance:** a meter under your shields starts each attempt at 75%. Every beat hit fills it, a PERFECT by 3%, a
    GREAT by 2%, a GOOD by 1% and a BAD not at all, twice that in overdrive; every beat missed, gone by unhit, WRONG,
    OFF TARGET or a gate not passed, drains it by 4%. Empty, the track is failed, which costs what a death costs.
@@ -190,11 +204,11 @@ For WordPress, `node wordpress-plugin/build.js` copies the game into the plugin 
 | `waves.js` | `LEVELS` (the 25 levels: name and lore, bpm, bars, warning lead, phrases, colours, laser sections, and the curve they climb), the `PHRASES` that fill a bar, placing their beams on the tune's notes, the `COLOR_PATTERNS` that paint one, laser form's `TARGET_PHRASES` (`tune` traces the chorus), the seeded timeline, and what goes on screen: `Beam`, `Target`, `Gate` |
 | `story.js` | The acts (`ACTS`: name, their band of the spectrum, backdrop and lore; five levels each) and the epilogue, and the story screens between levels: an act's intro, typed over its backdrop to its theme, a level's card, the epilogue before the finish |
 | `music.js` | Each act's song as MIDI notes (`SONGS`: a key, the `CHORDS` of its bars, its melody, the laser sections' lead, bass and arpeggio lines, and its lead's voice), and the Web Audio synths that play it on the beat track's clock: bass, pad, arpeggio and lead, an echo, and a dip under every kick. It builds through its act, the laser sections play the chorus, overdrive opens the filters, a pause or a death cuts it, a clear rings out on the key's chord, and an act's intro plays its theme. The MUSIC setting (`musicLevel`) scales all of it, or at OFF plays none, and a change plays a moment of Act I's theme to be heard. `songTune` tells the timeline where the tune's notes are, and `zapNote` which one a laser sounds |
-| `run.js` | Difficulties (lives, shields, timing windows, warning times, points, and the blurb the start screen says them in), records per difficulty in localStorage (v3, for the 25 levels): best run and the most a run has banked, each level's best rank and best score, furthest level; which levels are beaten, and so open on the level select |
+| `run.js` | Difficulties (lives, shields, timing windows, warning times, points, and the blurb the start screen says them in), records per difficulty in localStorage (v3, for the 25 levels): best run and the most a run has banked, each level's best rank and best score, furthest level, how far through each unbeaten level an attempt has got; which levels are beaten, and so open on the level select |
 | `world.js` | `component`, the player piece's stepped movement, the `hazards` list and hit testing |
 | `player.js` | The player's look: two sine waves drawn off its position history, drifting into a glowing trail, meeting on each beat, the coming beat's colour lit |
 | `death.js` | The death animation: the picture of the hit, taken as the level stops, worked over for 1.3 s before the results in three overlapping movements (the prism split, burn-through, decoherence); a press cuts it short, and reduced effects skip it |
-| `boss.js` | The bosses: the Array's node at the right edge, its health (a point a target), the health bar in the progress stripe's slot, the break-up and the level's end at the bar it falls in; a level's `boss` in `LEVELS` names its fight |
+| `boss.js` | The bosses: the Array's node at the right edge, its health (a point a target), the health bar in the progress stripe's slot, the break-up and the level's end at the bar it falls in, the loop that deals the level's last bars again while it stands, and the bonus it pays brought down, less the longer the fight ran; a level's `boss` in `LEVELS` names its fight |
 | `hud.js` | Score / deaths / act and level readout, the overdrive meter and the progress stripe |
 | `fx.js` | The effects setting (auto / full / reduced / off, honouring reduced motion), `fxHash`, the CRT overlay |
 | `sky.js` | Each level's colour, from its act's band of the spectrum, and each act's backdrop in it (`SKY_STYLES`: rising embers, a sun over a grid, an oscilloscope, a warp, an aurora), pulsing on the beat under the level and the story screens, still under the screens between levels. Moving at full effects, still when reduced, only the colour when off |
@@ -207,6 +221,11 @@ For WordPress, `node wordpress-plugin/build.js` copies the game into the plugin 
 | `loop.js` | Game state, the fixed 10ms step loop, the beat clock (`beatPos`) and audio scheduling, the judging clock behind it (`judgePos`, `beatOpen`: a press less the audio's delay and the timing offset, which the misses, the lit wave and a target's or gate's stay all go by), hit judging, combo, shields, overdrive, and wave / laser form |
 
 ### Adding gameplay
+
+- To check that a level always leaves somewhere to stand, serve the game, open the browser console, paste in
+  `.claude/safegap.js` and run `validateAll([10], 1000)`: it plays the level with the real lasers over a grid of piece
+  positions and reports any moment with nowhere safe to reach, and the tightest moment (the share of the screen a piece
+  could stand on and reach at a hand speed of 1000 px/s). Reload afterwards: it disarms the level to run it.
 
 - A new pattern is a function in `PHRASES` (waves.js) that fills one bar with `add(fireBeat, axis, pos, size, more)`,
   `more` being anything else the event carries (`{ hold }`, the beats a held note's beam burns for; `{ kind: "fall" }`
