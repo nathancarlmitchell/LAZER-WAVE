@@ -47,12 +47,14 @@ function modePoints(points) { // points scored, at what this difficulty makes th
     return Math.round(points * mode().points);
 }
 
-function startRunLives() { // a run begins: the lives are its own
+function startRunLives() { // a run begins: the lives are its own (the HUD shows them, drawLife)
     runLives = mode().lives;
 }
 
-function runStatusText() { // what this difficulty is giving, for the HUD, or "" when it is giving nothing
-    return mode().lives > 0 ? "LIVES " + runLives : "";
+function runLivesMax() { // the lives the run has to spend: the difficulty's, on a run from START; none for a level played
+    // from the level select, where a death only ever offers the level again, from nothing, so there is nothing to run
+    // out of (gameOver, levels.js)
+    return selectRun ? 0 : mode().lives;
 }
 
 // Records, kept as one JSON blob beside the settings and read the same defensive way -- a private window throws rather

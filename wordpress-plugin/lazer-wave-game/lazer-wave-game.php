@@ -3,7 +3,7 @@
  * Plugin Name:       Lazer Wave Game
  * Plugin URI:        https://github.com/nathancarlmitchell/Lazer-Wave
  * Description:       Play Lazer Wave, the neon rhythm arcade game, on your site. Add the "Lazer Wave Game" block or the [lazer_wave] shortcode to any post or page.
- * Version:           1.8.0
+ * Version:           1.9.0
  * Requires at least: 6.1
  * Requires PHP:      7.4
  * Author:            Nathan Mitchell
@@ -18,7 +18,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'LAZER_WAVE_GAME_VERSION', '1.8.0' ); // also busts the cache of the game's own files (see build.js)
+define( 'LAZER_WAVE_GAME_VERSION', '1.9.0' ); // also busts the cache of the game's own files (see build.js)
 
 /**
  * The game runs in an iframe of its own: it is a full-window canvas built from plain global scripts, so it keeps its

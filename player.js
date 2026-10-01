@@ -15,7 +15,7 @@
 
 var TRAIL_STEPS = 120; // steps of position history the trail is drawn from (1.2s)
 var TRAIL_DRIFT = 3; // px a step the trail drifts left: the waves travel away behind the piece even when it holds still
-var WAVE_GAP = 6; // px from the centre line to each wave at the widest point of a beat, with no combo...
+var WAVE_GAP = 12; // px from the centre line to each wave at the widest point of a beat, with no combo...
 var WAVE_GAP_MAX = 24; // ...growing with every hit in a row up to this, at the combo that maxes the multiplier
 var WAVE_GROW = 0.08; // of the way to the size the combo calls for, a step: it swells and shrinks, never jumps
 var WAVE_DRIVE = 5; // px: the waves' size while the piece is a laser, pulled in round the beam

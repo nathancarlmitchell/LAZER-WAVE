@@ -151,11 +151,18 @@ function columnText(text, x, dy, align) { // queue a line that ends at x instead
 }
 
 var PRINT_TRAIL = 8; // copies a printed line trails
+var COMBO_TRAIL = 3; // and a line in the results' smaller face (the MAX COMBO heading), in proportion
 
 function printText(text, dy, x) { // queue a line printed as the title is: cyan copies trailing up and left, a pixel
     // apart, and magenta over them, in the font set now, centred x from the block's middle (on it, by default)
     msgBlock.push({ text: text, x: x || 0, align: "center", dy: dy, passes: 1, font: ctx.font, fill: COLORS.magenta,
         print: COLORS.cyan, trail: PRINT_TRAIL });
+}
+
+function columnPrint(text, x, dy, align, trail) { // a printed line, as printText's, that lines up at x as columnText's
+    // does, trailing `trail` copies
+    msgBlock.push({ text: text, x: x, align: align, dy: dy, passes: 1, font: ctx.font, fill: COLORS.magenta,
+        print: COLORS.cyan, trail: trail });
 }
 
 var LEFT_OF_X = { left: 0, center: 0.5, right: 1 }; // how much of a line's width lies left of its x, by its alignment
@@ -210,7 +217,7 @@ function msgBottom() { // the lowest line queued so far, so another can be put u
     // line's baseline, or a button's foot
     var low = 0;
     for (let i = 0; i < msgBlock.length; i++) {
-        low = Math.max(low, msgBlock[i].dy + (msgBlock[i].button ? msgBlock[i].h : msgBlock[i].scale ? msgBlock[i].below : 0));
+        low = Math.max(low, msgBlock[i].dy + (msgBlock[i].button ? msgBlock[i].h : msgBlock[i].drawing ? msgBlock[i].below : 0));
     }
     return low;
 }
@@ -229,13 +236,21 @@ var TIMING_SCALE_W = 300; // layout px from its middle to either end
 var TIMING_BIN_MS = 10; // the presses are counted by this much of offset, and each count drawn as one cell of the heat map
 var RESULTS_TOP = -95, RESULTS_BOTTOM = 50; // every column's first and last lines: over the grade, RANK, level with
                                             // the tables' headings; under it, the best, level with their last rows
-var REACH_BEST_DY = 26; // a death's results: the furthest-yet line under how far this attempt got, and the lives
-var REACH_LIVES_DOWN = 12; // line moved down below the other columns' last lines to leave it room
+var REACH_UP = 8; // a death's results: how far over the rank's baseline the figure for how far this attempt got sits,
+var REACH_BEST_DY = 26; // the furthest-yet line under it, and the lives'
+var REACH_LIVES_DOWN = 2; // row, its middle a little below the other columns' last lines to leave it room
+var LIFE_OUT_MS = 900; // the life a death spent goes out over this long as its results come up
+var LIFE_RESULTS = 1.25; // the lives drawn up to this much larger there than in the HUD, to stand with the column's
+var LIFE_RESULTS_ROOM = 280; // lines, but never in a row longer than this, which keeps clear of the columns either side
+
+function resultsLifeScale() { // the lives' size on a death's results
+    return Math.min(LIFE_RESULTS, LIFE_RESULTS_ROOM / livesWidth(runLivesMax()));
+}
 
 function showTimingScale() { // queue the timing scale under whatever is up, if the attempt pressed inside the window
     // at all: a drawing, measured by the box it fills
     if (timings.length) {
-        msgBlock.push({ scale: true, x: 0, dy: msgBottom() + 70, w: 2 * TIMING_SCALE_W + 180, above: 48, below: 36 });
+        msgBlock.push({ drawing: drawTimingScale, x: 0, dy: msgBottom() + 70, w: 2 * TIMING_SCALE_W + 180, above: 48, below: 36 });
     }
 }
 
@@ -298,6 +313,99 @@ function drawTimingScale(cx, ay) { // the scale, as the calibration's: a line fr
     }
 }
 
+// FLAWLESS, under a clear's title when the attempt missed nothing, broke no combo and lost no shield (levelFlawless,
+// loop.js). Worth no points: a flare, the word in the waves' two colours meeting in white, a streak of light through it,
+// stamped in a moment after the results come up and glinting while they stay, where they are drawn every frame (with
+// less motion, still)
+var FLAWLESS_FONT = "bold 56px Arial";
+var FLAWLESS_DY = 12; // its baseline, under the title's Japanese line
+var FLAWLESS_NEXT = 52; // from its foot to the baseline of the line under it
+var FLAWLESS_REACH = 120; // layout px the streak runs past the word at either end
+var FLAWLESS_IN = 0.4, FLAWLESS_STAMP = 0.3; // seconds after the results come up that it stamps in, and how long that takes
+var FLAWLESS_GLINT = 2.6, FLAWLESS_SWEEP = 0.7; // seconds from one glint to the next, and a glint's sweep across it
+
+function showFlawless(dy) { // queue it: a drawing, measured by the word and its streak
+    ctx.font = FLAWLESS_FONT;
+    var w = ctx.measureText("FLAWLESS").width;
+    msgBlock.push({ drawing: drawFlawless, x: 0, dy: dy, w: w + 2 * FLAWLESS_REACH, above: 48, below: 10 });
+}
+
+function drawFlawless(cx, ay) { // the flare, the word's baseline at ay, centred on cx
+    var moving = fxLook() == "full", t = (Date.now() - resultsAt) / 1000 - FLAWLESS_IN;
+    var k = moving ? Math.max(0, Math.min(1, t / FLAWLESS_STAMP)) : 1;
+    if (k <= 0) {
+        return; // not in yet
+    }
+    var ease = 1 - Math.pow(1 - k, 3);
+    ctx.save();
+    ctx.font = FLAWLESS_FONT;
+    ctx.textAlign = "center";
+    var w = ctx.measureText("FLAWLESS").width, my = ay - 20; // the word's middle, by its capitals
+    ctx.translate(cx, my); // stamped: from half as big again, coming up to full
+    ctx.scale(1 + 0.5 * (1 - ease), 1 + 0.5 * (1 - ease));
+    ctx.translate(-cx, -my);
+    ctx.globalAlpha = ease;
+    var reach = w / 2 + FLAWLESS_REACH; // the streak, behind the word: cyan from the left, magenta from the right, white
+    var streak = ctx.createLinearGradient(cx - reach, 0, cx + reach, 0); // where they meet
+    streak.addColorStop(0, COLORS.cyan + "00");
+    streak.addColorStop(0.35, COLORS.cyan + "aa");
+    streak.addColorStop(0.5, COLORS.laserCore);
+    streak.addColorStop(0.65, COLORS.magenta + "aa");
+    streak.addColorStop(1, COLORS.magenta + "00");
+    ctx.strokeStyle = streak;
+    ctx.lineCap = "round";
+    [[14, 0.12], [5, 0.3], [2, 0.9]].forEach(function (pass) { // haze, glow, core
+        ctx.globalAlpha = ease * pass[1];
+        ctx.lineWidth = pass[0];
+        ctx.beginPath();
+        ctx.moveTo(cx - reach, my);
+        ctx.lineTo(cx + reach, my);
+        ctx.stroke();
+    });
+    ctx.globalAlpha = ease;
+    ctx.lineJoin = "round";
+    ctx.lineWidth = 8; // a dark edge, so it reads over the backdrop and its own streak
+    ctx.strokeStyle = COLORS.bg;
+    ctx.strokeText("FLAWLESS", cx, ay);
+    var fill = ctx.createLinearGradient(cx - w / 2, 0, cx + w / 2, 0);
+    fill.addColorStop(0, COLORS.cyan);
+    fill.addColorStop(0.5, COLORS.laserCore);
+    fill.addColorStop(1, COLORS.magenta);
+    ctx.shadowColor = COLORS.laserCore + "99";
+    ctx.shadowBlur = 18;
+    ctx.fillStyle = fill;
+    ctx.fillText("FLAWLESS", cx, ay);
+    ctx.shadowBlur = 0;
+    var sweep = moving ? (t % FLAWLESS_GLINT) / FLAWLESS_SWEEP : 2; // a glint crossing the letters, now and then
+    if (sweep < 1) {
+        var gx = cx - w / 2 - 40 + sweep * (w + 80);
+        var glint = ctx.createLinearGradient(gx - 36, 0, gx + 36, 0);
+        glint.addColorStop(0, "#ffffff00");
+        glint.addColorStop(0.5, "#ffffffee");
+        glint.addColorStop(1, "#ffffff00");
+        ctx.fillStyle = glint;
+        ctx.fillText("FLAWLESS", cx, ay);
+    }
+    var star = moving ? Math.max(0, 1 - Math.abs(sweep - 1.05) * 3) : 0.6; // and a star where it leaves them
+    if (star > 0) {
+        var sx = cx + w / 2 + 4, sy = ay - 42, r = 16 * star;
+        ctx.globalAlpha = ease * star;
+        ctx.fillStyle = COLORS.laserCore;
+        ctx.beginPath(); // four points, thin
+        ctx.moveTo(sx, sy - r);
+        ctx.lineTo(sx + r * 0.18, sy - r * 0.18);
+        ctx.lineTo(sx + r, sy);
+        ctx.lineTo(sx + r * 0.18, sy + r * 0.18);
+        ctx.lineTo(sx, sy + r);
+        ctx.lineTo(sx - r * 0.18, sy + r * 0.18);
+        ctx.lineTo(sx - r, sy);
+        ctx.lineTo(sx - r * 0.18, sy - r * 0.18);
+        ctx.closePath();
+        ctx.fill();
+    }
+    ctx.restore();
+}
+
 function showResults() { // the three columns, under whatever the screen has put up so far
     var dy = msgBottom() + 160;
     showBreakdown(dy);
@@ -325,9 +433,9 @@ function shareTexts(counts) { // the counts as whole percentages of their total 
     return p.map(function (v) { return v + "%"; });
 }
 
-function showBreakdown(dy, judged) { // how the level's beats went, which is what its rank is worked out from: how
-    // many there were (or, after a death, how many the attempt got through: `judged`) and the longest combo of them,
-    // then a row for each way a beat can go, with how many went that way and what share
+function showBreakdown(dy, judged) { // how the level's beats went, which is what its rank is worked out from: the
+    // longest combo of them against how many there were (or, after a death, how many the attempt got through:
+    // `judged`), then a row for each way a beat can go, with how many went that way and what share
     var beats = judged === undefined ? playBeats() : judged;
     if (beats <= 0) {
         return; // nothing judged, nothing to break down
@@ -338,11 +446,16 @@ function showBreakdown(dy, judged) { // how the level's beats went, which is wha
     var shares = shareTexts(rows.map(function (row) { return row[1]; }));
     var pitch = (RESULTS_BOTTOM + 30 - RESULTS_TOP) / rows.length; // five rows against the other columns' three: they
     // run on a little under them, in a smaller face
+    var heading = "MAX COMBO " + bestCombo + " / " + beats, tier = rankFor(bestCombo / beats); // the column's heading,
+    // in the colour the rank's scale gives that share of the beats: one combo through them all is an S's, printed as
+    // the title is
     ctx.font = "30px Arial";
-    ctx.fillStyle = COLORS.dim;
-    columnText(beats + " BEATS", RESULTS_LABEL_X, dy + RESULTS_TOP, "left");
-    ctx.font = "24px Arial"; // and the longest run of them hit, over the shares
-    columnText("MAX COMBO " + bestCombo, RESULTS_SHARE_X, dy + RESULTS_TOP, "right");
+    if (tier.color) {
+        ctx.fillStyle = tier.color;
+        columnText(heading, RESULTS_LABEL_X, dy + RESULTS_TOP, "left");
+    } else {
+        columnPrint(heading, RESULTS_LABEL_X, dy + RESULTS_TOP, "left", COMBO_TRAIL);
+    }
     rows.forEach(function (row, i) {
         var at = dy + RESULTS_TOP + (i + 1) * pitch;
         ctx.font = "bold 26px Arial";
@@ -425,7 +538,8 @@ function showMessage(panel) { // draw the queued lines centred and as large as t
             bottom = Math.max(bottom, line.dy + line.h);
             continue;
         }
-        if (line.scale) { // a drawing: the box it says it fills, above and below its baseline
+        if (line.drawing) { // a drawing (the timing scale, a death's lives): the box it says it fills, above and below
+            // its baseline
             left = Math.min(left, line.x - line.w / 2);
             right = Math.max(right, line.x + line.w / 2);
             top = Math.min(top, line.dy - line.above);
@@ -455,8 +569,8 @@ function showMessage(panel) { // draw the queued lines centred and as large as t
             drawMsgButton(l, dx, dy, s);
             continue;
         }
-        if (l.scale) {
-            drawTimingScale(dx + l.x, dy + l.dy);
+        if (l.drawing) {
+            l.drawing(dx + l.x, dy + l.dy);
             continue;
         }
         ctx.font = l.font;
@@ -567,10 +681,15 @@ function drawResultsScreen() { // drawn as they come up, and again on a resize, 
     printText("Level " + level + " Clear", -175);
     ctx.font = "60px Arial";
     printText("クリア", -75);
+    var next = 0; // the line under the title
+    if (levelFlawless()) { // no miss, one combo through every beat, no hit: said, and worth nothing more
+        showFlawless(FLAWLESS_DY);
+        next = msgBottom() + FLAWLESS_NEXT;
+    }
     if (timingText()) { // how the presses sat against the beat, under the title
         ctx.font = "30px Arial";
         ctx.fillStyle = timingColor();
-        centerText(timingText(), 0);
+        centerText(timingText(), next);
     }
     showTimingScale(); // and where every one of them landed, under that
     showResults();
@@ -621,7 +740,12 @@ function chooseResult(name) { // a button on the results: a clear's CONTINUE ("n
     startTime += Date.now() - resultsAt; // off the run's clock
     if (name == "quit") {
         endRun();
-    } else if (resultsKind == "death") { // the level again, its points kept by the life spent, from full shields
+    } else if (resultsKind == "death") { // the level again, from full shields: on a run with its points kept, which the
+        // life spent paid for; from the level select, which has no lives, from nothing, as the pause's RETRY, so its
+        // best score is always one attempt's
+        if (selectRun) {
+            score = 0;
+        }
         startNextLevel();
     } else if (resultsKind == "over") { // the run again, from where it began
         restartRun();
@@ -756,8 +880,10 @@ function gameOver() { // the level was cleared or the player died
     reachRecord = recordReach(level, deathProgress); // the furthest an attempt has got, while the level is unbeaten
     playSound(aud_death);
     var kind = "over"; // none left: the run is over
-    if (runLives > 0) { // a life buys the level again, its points kept: the death's results say so, and wait for TRY
-        runLives--; // AGAIN
+    if (selectRun) { // a level from the level select has no lives (runLivesMax, run.js): a death offers it again, as
+        kind = "death"; // often as it takes, and is never the game over
+    } else if (runLives > 0) { // a life buys the level again, its points kept: the death's results say so, and wait
+        runLives--; // for TRY AGAIN
         kind = "death";
     }
     var results = function () { raiseResults(kind); };
@@ -769,8 +895,8 @@ function gameOver() { // the level was cleared or the player died
 }
 
 function drawDeathResults() { // a death's results, over the level's backdrop, still and dimmed: how far the attempt
-    // got, its beats so far and its points, the lives left, and TRY AGAIN or QUIT; or, with none left, the game over,
-    // and PLAY AGAIN or QUIT
+    // got, its beats so far and its points, the lives left (on a run), and TRY AGAIN or QUIT; or, with none left, the
+    // game over, and PLAY AGAIN or QUIT
     var over = resultsKind == "over";
     drawSky(level, resultsSkyTime(), null, SKY_RESULTS);
     ctx.font = "80px Arial";
@@ -800,9 +926,10 @@ function showReached(dy, over) { // in the rank's place: how far through the lev
     ctx.font = "30px Arial";
     ctx.fillStyle = COLORS.dim;
     centerText("REACHED 到達", dy + RESULTS_TOP, 1, RESULTS_RANK_X);
-    ctx.font = "100px Arial";
-    ctx.fillStyle = COLORS.text; // white on a game over too: the lives line under it carries the red
-    centerText(Math.round(deathProgress * 100) + "%", dy, 3, RESULTS_RANK_X);
+    ctx.font = "84px Arial"; // a little under the rank's 100px: a figure runs wider than a letter. Its baseline a little
+    ctx.fillStyle = COLORS.text; // over the rank's, so it sits midway between the heading and the line under it; white
+    centerText(Math.round(deathProgress * 100) + "%", dy - REACH_UP, 3, RESULTS_RANK_X); // on a game over too: the
+    // banners carry the red
     var far = rec().reach[level]; // the furthest an attempt has got while the level is unbeaten (recordReach has this one)
     if (reachRecord) { // this one got further than any before: under it, as the rank's new best is
         ctx.font = "bold 22px Arial";
@@ -813,7 +940,24 @@ function showReached(dy, over) { // in the rank's place: how far through the lev
         ctx.fillStyle = COLORS.text;
         centerText("best " + Math.round(far * 100) + "%", dy + REACH_BEST_DY, 1, RESULTS_RANK_X);
     }
-    ctx.font = "30px Arial";
-    ctx.fillStyle = over ? COLORS.warn : COLORS.good;
-    centerText(over ? "NO LIVES LEFT" : "LIVES " + runLives + " LEFT", dy + RESULTS_BOTTOM + REACH_LIVES_DOWN, 1, RESULTS_RANK_X);
+    if (runLivesMax() > 0) { // the lives, as the HUD shows them (drawLife, hud.js): all of them spent on a game over;
+        // none from the level select, which has none
+        msgBlock.push({ drawing: drawLivesLeft, x: RESULTS_RANK_X, dy: dy + RESULTS_BOTTOM + REACH_LIVES_DOWN,
+            w: livesWidth(runLivesMax()) * resultsLifeScale(), above: 9 * resultsLifeScale(), below: 9 * resultsLifeScale() });
+    }
+}
+
+function drawLivesLeft(cx, cy) { // a death's lives, centred on (cx, cy): lit while they last, dim once spent, and the one
+    // this death spent going out as the results come up, where they are drawn again every frame (with less motion,
+    // already out)
+    var n = runLivesMax();
+    var out = fxLook() == "full" ? Math.min(1, (Date.now() - resultsAt) / LIFE_OUT_MS) : 1;
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.scale(resultsLifeScale(), resultsLifeScale());
+    for (var i = 0; i < n; i++) {
+        drawLife(i * (LIFE_W + LIFE_GAP) - livesWidth(n) / 2, 0,
+            i < runLives ? 1 : resultsKind == "death" && i == runLives ? 1 - out : 0);
+    }
+    ctx.restore();
 }

@@ -1,6 +1,6 @@
-// Lazer Wave -- the HUD. The score, combo, shields, overdrive meter and level in the corner, packed up in touch
-// play, and the progress stripe filling the top banner's slot as the level plays through. index.html loads this with a
-// plain <script src>, as globals rather than modules, so the game still opens straight off disk.
+// Lazer Wave -- the HUD. The score, combo, shields, overdrive meter, level and the run's lives in the corner, packed up
+// in touch play, and the progress stripe filling the top banner's slot as the level plays through. index.html loads
+// this with a plain <script src>, as globals rather than modules, so the game still opens straight off disk.
 
 var BAR_TOP = 40, BAR_H = 20; // the progress stripe, in the top banner's own slot
 var BAR_ALPHA = 0.6;
@@ -11,7 +11,10 @@ var BAR_TRACK = 0.15; // the unfilled remainder, just enough to show how far the
 // corner is then drawn at TOUCH_HUD_SCALE (useHud, layout.js), so it takes a fifth of the height rather than a third.
 var TOUCH_HUD_SCALE = 0.7;
 var TOUCH_STAT_FONT = 26; // px, against the score's 40
-var TOUCH_STAT_LEVEL = 195, TOUCH_STAT_LIVES = 230; // instead of 220 and 260
+var TOUCH_STAT_LEVEL = 195; // the level's line, instead of 220
+var LIVES_Y = 250, TOUCH_LIVES_Y = 221; // the middle of the lives' row, under the level's line, in either layout
+var LIFE_W = 38, LIFE_GAP = 12, LIFE_AMP = 7; // a life's icon (drawLife): its waves' length, the room between two, and
+                                              // how far each wave opens from the middle
 var METER_Y = 151, METER_W = 100, METER_H = 8; // the overdrive meter, on the shields' row after them, so it crowds
                                                // neither layout
 function meterX() { // where it starts: after the shields the difficulty gives, however many
@@ -19,7 +22,7 @@ function meterX() { // where it starts: after the shields the difficulty gives, 
 }
 
 function drawStats(color, scoreColor) { // the score (a run's total, or the level's own from the level select: shownScore,
-    // loop.js), combo, shields, and the level in the top-left corner
+    // loop.js), combo, shields, the level and the lives in the top-left corner
     var touch = inputMode == "touch";
     ctx.save();
     ctx.shadowColor = COLORS.bg; // a dark halo, so it stays readable with a beam burning behind it
@@ -44,11 +47,46 @@ function drawStats(color, scoreColor) { // the score (a run's total, or the leve
     ctx.fillStyle = color;
     ctx.fillText("Act " + roman(levelAct(level)) + "  Level " + level + "   " + wave.bpm + " BPM", 50,
         touch ? TOUCH_STAT_LEVEL : 220);
-    var status = runStatusText(); // the lives, when the difficulty gives any
-    if (status) {
-        ctx.fillText(status, 50, touch ? TOUCH_STAT_LIVES : 260);
-    }
+    for (var j = 0; j < runLivesMax(); j++) { // the lives, when the run has any (none from the level select): lit while
+        drawLife(50 + j * (LIFE_W + LIFE_GAP), touch ? TOUCH_LIVES_Y : LIVES_Y, j < runLives); // they last, as the
+    } // shields are
     ctx.restore();
+}
+
+function livesWidth(n) { // a row of n lives, end to end: the last one's core glows a little past its waves
+    return n * LIFE_W + (n - 1) * LIFE_GAP + 8;
+}
+
+function drawLife(x, y, lit) { // a life: the piece in small, its left end at x and its middle at y. A beat and a half
+    // of its two waves, cyan above and magenta below, opening and meeting on their way back from its core on the
+    // right and fading as the trail does. lit: 1 (or true) while it lasts, 0 once spent, dim, and between as it goes
+    var head = x + LIFE_W, steps = 16, a = 0.25 + 0.75 * lit;
+    ctx.globalAlpha = a;
+    ctx.lineWidth = 2.5;
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    [[-1, COLORS.cyan], [1, COLORS.magenta]].forEach(function (w) {
+        var fade = ctx.createLinearGradient(head, 0, x, 0);
+        fade.addColorStop(0, w[1]);
+        fade.addColorStop(1, w[1] + "33"); // the colour at a fifth
+        ctx.strokeStyle = fade;
+        ctx.beginPath();
+        for (var k = 0; k <= steps; k++) {
+            var t = k / steps;
+            ctx.lineTo(head - t * LIFE_W, y + w[0] * LIFE_AMP * Math.abs(Math.sin(1.5 * Math.PI * t)));
+        }
+        ctx.stroke();
+    });
+    ctx.fillStyle = COLORS.cyan; // the core's glow, and the core
+    ctx.globalAlpha = 0.08 + 0.22 * lit;
+    ctx.beginPath();
+    ctx.arc(head, y, 8, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = COLORS.laserCore;
+    ctx.globalAlpha = a;
+    ctx.beginPath();
+    ctx.arc(head, y, 3.5, 0, Math.PI * 2);
+    ctx.fill();
 }
 
 function drawDriveMeter(touch) { // overdrive's meter: charging, then full and throbbing on the beat with what to do,

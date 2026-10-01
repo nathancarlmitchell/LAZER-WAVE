@@ -4,7 +4,7 @@ Tags: game, rhythm, arcade, html5, embed
 Requires at least: 6.1
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 1.8.0
+Stable tag: 1.9.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -25,7 +25,7 @@ miss, and at empty the level is failed. Each cleared level is ranked from F to S
 played on its own from the level select keeps its best score too, and a run keeps its best total. The level select
 opens each level once the one before is beaten. Four difficulties, EASY to TRUE, picked as a run starts, set its
 lives, shields, warnings, points and how fast the meter fills and drains, and each keeps records and unlocks of its
-own.
+own. A level played from the level select has no lives: a death offers it again, as often as it takes.
 
 The game runs in its own frame, so your theme can't restyle it and it can't clash with the rest of the page.
 
@@ -71,6 +71,21 @@ In the game's OPTIONS, CALIBRATE plays a beat to tap along to and suggests the t
 Click the game first so it has the keyboard.
 
 == Changelog ==
+
+= 1.9.0 =
+* Lives are icons, a small copy of your piece for each, in the corner and on a death's results, where the life just
+  spent goes out.
+* A level played from the level select has no lives: a death offers it again from the start, as often as it takes,
+  and is never the game over.
+* The results set the level's longest combo against its beats (MAX COMBO 26 / 72), coloured as a rank on the same
+  scale. The combo counted is the level's own, not the one a run carried in.
+* FLAWLESS: a clear with no miss, one combo through every beat and no hit is flared under the title. It is worth no
+  points.
+* Level 15's second bar fired a laser through the middle of a cage on every beat, right in the cell the cage asks you
+  into. It is a plain cage now, as are the same bars in levels 11, 12 and 23.
+* The death animation plays out whatever is pressed, and the REACHED figure after it is a little smaller.
+* The waves start as wide apart as they did before 1.8.0.
+* Fixed: the menu particles threw an error on every frame while the game's frame had no size, as in a hidden tab.
 
 = 1.8.0 =
 * The multiplier has no ceiling: every eight in a row raise it by one, it pops up at your orb as it climbs, and on a

@@ -71,6 +71,11 @@ function titleParticlesFrame(now) {
     var dt = tp.last ? Math.min(PARTICLE_STEP, (now - tp.last) / 1000) : 0;
     tp.last = now;
     var resized = titleParticlesSync();
+    if (!gameArea.canvas.width || !gameArea.canvas.height) { // a game canvas with no size (a frame hidden in a closed tab,
+        // say) has nothing to read what stands in front from: wait until it has one
+        tp.frame = requestAnimationFrame(titleParticlesFrame);
+        return;
+    }
     if (moving || resized || tp.dirty || moving != tp.moving) {
         if (moving) {
             titleParticlesStep(dt, now);

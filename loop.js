@@ -204,7 +204,9 @@ var POINTS = { perfect: 100, great: 75, good: 50, bad: 25 };
 var COMBO_STEP = 8; // hits in a row per step of multiplier, which has no ceiling: a long streak is the run's stake
 var SURVIVE_POINTS = 10; // for every beat of the level lived through
 var combo = 0;
-var bestCombo = 0; // this level's longest
+var streak = 0; // this level's own hits in a row: the combo without what a run carried into it, and counting on through
+                // a boss's later rounds, where the combo holds (earning)
+var bestCombo = 0; // this level's longest streak, which its results set against its beats
 var perfects = 0, greats = 0, goods = 0, bads = 0, strays = 0; // this attempt's hits by grade, and presses off the
                                                                // beat, for its rank
 var judged = {}; // beat number -> how its one press went: "hit", "wrong" or "wide" (off target), so it only gets one
@@ -614,15 +616,27 @@ function levelRating() { // 0..1: how well this attempt's beats were hit
     return Math.max(0, Math.min(1, hitWorth - (hpAtStart - hp) * RANK_SHIELD_COST));
 }
 
+function levelFlawless() { // the attempt was flawless: no miss, one combo through every beat, no hit. Every way a combo
+    // breaks is a beat missed or BAD, a press off the beat (a stray) or a laser that hits, so the longest streak being the
+    // beats, no stray and no shield lost says it all. The results flare FLAWLESS for it, worth no points; S+ and SS need it
+    var beats = playBeats();
+    return beats > 0 && bestCombo == beats && strays == 0 && hp == hpAtStart;
+}
+
 function levelRank() { // this attempt's rank: { grade, color }
     var r = levelRating();
-    var flawless = perfects + greats + goods == playBeats() && strays == 0 && hp == hpAtStart;
+    var flawless = levelFlawless();
     if (flawless && perfects == playBeats() && r >= RANK_PERFECT.min) { // every beat PERFECT, and nothing lost
         return RANK_PERFECT;
     }
     if (flawless && r >= RANK_TOP.min) {
         return RANK_TOP;
     }
+    return rankFor(r);
+}
+
+function rankFor(r) { // the letter a rating of r (0..1) earns on the scale alone, S to F, and its colour: also how the
+    // results colour a level's longest combo against its beats
     for (let i = 0; i < RANKS.length; i++) {
         if (r >= RANKS[i].min) {
             return RANKS[i];
@@ -717,7 +731,8 @@ function startLevel() { // a level is about to be played: from the start, or aga
     beatPos = 0;
     lastBeat = -1;
     scheduledBeat = -1;
-    combo = bestCombo = carryCombo === null ? 0 : carryCombo; // a level continued into keeps the run's combo
+    combo = carryCombo === null ? 0 : carryCombo; // a level continued into keeps the run's combo
+    streak = bestCombo = 0; // and starts a streak of its own
     perfects = greats = goods = bads = strays = 0;
     perf = PERF_START;
     perfFailed = false;
@@ -828,7 +843,12 @@ function breakCombo(show, off) { // show: say MISS even with no combo to lose (a
     if (combo > 0 || show) {
         judge("miss", off);
     }
+    loseCombo();
+}
+
+function loseCombo() { // the combo goes, and the level's streak with it
     combo = 0;
+    streak = 0;
 }
 
 function pressBeat(time) { // the beat position of a press at real time `time`, less the time the audio takes to
@@ -874,7 +894,7 @@ function hitBeat(time, color) { // a hit in `color`: judge it against the neares
         // beat takes any key, SPACE or either colour's
         judged[n] = "wrong";
         strays++;
-        combo = 0;
+        loseCombo();
         perfMiss();
         judge("wrong", signed, want);
         return;
@@ -883,7 +903,7 @@ function hitBeat(time, color) { // a hit in `color`: judge it against the neares
     if (target && !linedUp(target)) { // on the beat and in its colour, but the beam isn't on it: spent as WRONG is
         judged[n] = "wide";
         strays++;
-        combo = 0;
+        loseCombo();
         perfMiss();
         judge("wide", signed, color);
         return;
@@ -905,11 +925,14 @@ function hitBeat(time, color) { // a hit in `color`: judge it against the neares
     }
     var earns = earning(n); // past a boss level's first round, no points, and the combo holds without climbing
     if (grade == "bad") { // the beat is spent, but not cleanly: the combo goes, as on a miss
-        combo = 0;
-    } else if (earns) {
+        loseCombo();
+    } else {
+        streak++; // the level's own run of hits, which goes on counting whether the beat earns or not
+        bestCombo = Math.max(bestCombo, streak);
+    }
+    if (grade != "bad" && earns) {
         var multWas = multiplier();
         combo++;
-        bestCombo = Math.max(bestCombo, combo);
         if (multiplier() > multWas) { // the multiplier stepped up: said at the orb, as a hit's points are
             popText("x" + multiplier(), "MULTIPLIER", COLORS.good, gamePiece.x + gamePiece.width / 2 + 44, gamePiece.y + gamePiece.height / 2 + 26, 1.3); // under
             // the judgement, which sits over the orb

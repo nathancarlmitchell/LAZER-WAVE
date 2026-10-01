@@ -64,8 +64,10 @@ var FILL_SIZE = RIPPLE_SIZE; // a fill's thin beams
 // bars are drawn from (a repeat makes that one more common, and the draw being seeded, the order decides which bars
 // get which; an entry "a+b" is a combination, both phrases dealt into one bar, which is how the later levels make
 // patterns of their own out of the types before them: a box from a pincer and a cage, a crosshair from a ring and a
-// diagonal; a corridor goes with nothing, as its gap is the only place to be and a cage or a pincer across it shuts
-// it, which .claude/safegap.js is there to catch); colors is the colour patterns its bars are painted from
+// diagonal. A combination never burns the other's place to be: a corridor goes with nothing, as its gap is the only
+// place to be and a cage or a pincer across it shuts it, and a cage goes with nothing that fires on its own note (the
+// melody, the mirror), whose beam would run through the middle of the cell it asks the player into; .claude/safegap.js
+// is there to catch both); colors is the colour patterns its bars are painted from
 // (see COLOR_PATTERNS), none for a colourless level; laser is the bars played in laser form, as [first bar, bars]
 // pairs, each opened and closed by a gate; targets is what those bars are drawn from (TARGET_PHRASES); dodges is how
 // many lasers each of them fires across the path between its targets, at most. boss, if given ({ name, kind }), makes
@@ -121,11 +123,11 @@ const LEVELS = [null,
     // Act III, Phosphor: beams down the screen, columns, and less warning
     { name: "Phosphor", lore: ["Beams fall down the screen as well as across it. Look up.",
             "And every beam has its mirror image now: they close on the middle."],
-        bpm: 111, bars: 14, warn: 2, phrases: ["rain", "wall", "cross", "cage+melody", "mirror", "melody"], colors: ["solid", "pairs"],
+        bpm: 111, bars: 14, warn: 2, phrases: ["rain", "wall", "cross", "cage", "mirror", "melody"], colors: ["solid", "pairs"],
         laser: [[6, 4]], targets: ["tune", "steps", "zigzag"], dodges: 1 },
     { name: "Radar Sweep", lore: ["The sweep comes round every bar, from the middle. It is looking for you:",
             "keep ahead of it. Thin beams run in fours too, quick as a scale."],
-        bpm: 113, bars: 14, warn: 2, phrases: ["cross", "cage+melody", "rain", "radar", "wall", "melody", "ripple", "pincer"],
+        bpm: 113, bars: 14, warn: 2, phrases: ["cross", "cage", "rain", "radar", "wall", "melody", "ripple", "pincer"],
         colors: ["solid", "pairs"],
         laser: [[6, 4]], targets: ["tune", "steps", "zigzag"], dodges: 1 },
     { name: "Oscilloscope",
@@ -141,7 +143,7 @@ const LEVELS = [null,
         laser: [[7, 4]], targets: ["tune", "steps", "zigzag"], dodges: 1 },
     { name: "Static Bloom", lore: ["Noise blooms across the band. Find the tune inside it."],
         bpm: 117, bars: 18, warn: 1.5,
-        phrases: ["rain", "sweep+cage", "ripple", "radar", "cross", "crossfire", "mirror", "wall", "crossfire+melody", "cage+mirror", "stairs", "sweep"],
+        phrases: ["rain", "sweep+cage", "ripple", "radar", "cross", "crossfire", "mirror", "wall", "crossfire+melody", "cage", "stairs", "sweep"],
         colors: ["solid", "pairs"], laser: [[6, 4]], boss: { name: "STATIC BLOOM", kind: "radar" }, targets: ["tune", "steps", "zigzag", "jump"], dodges: 1 },
     // Act IV, Blueshift: colours on every beat, two laser sections, two beams at once
     { name: "Cherenkov", lore: ["Faster than light in water, you glow blue.", "The colours turn on every beat now,",
@@ -182,7 +184,7 @@ const LEVELS = [null,
         laser: [[5, 4], [12, 4]], targets: ["tune", "zigzag", "scatter"], dodges: 2 },
     { name: "Fluorescence", lore: ["What you take in, you give back brighter."],
         bpm: 129, bars: 20, warn: 1,
-        phrases: ["stairs", "chord", "melody", "mirror", "double", "pendulum+cage", "wall", "cross", "pendulum", "doubletap", "cage+mirror"],
+        phrases: ["stairs", "chord", "melody", "mirror", "double", "pendulum+cage", "wall", "cross", "pendulum", "doubletap", "cage"],
         colors: ["pairs", "alt"], laser: [[5, 4], [12, 4]], targets: ["tune", "zigzag", "scatter"], dodges: 2 },
     { name: "Edge of Sight", lore: ["One more band, and the eye gives up.", "Keep climbing."],
         bpm: 131, bars: 22, warn: 1, phrases: ["spin", "double", "offbeat+segment", "fill", "radar", "ring+diagonal", "cross", "segment", "offbeat", "wall", "stairs", "ring"],

@@ -537,8 +537,7 @@ function onTouchStart(e) {
             if (calTaking() && !buttonAt(p.x, p.y)) { // the timing test: a finger taps as it comes down, anywhere but
                 calTap(eventTime(e)); // on BACK
             }
-        } else if (deathAnimUp()) { // the death animation: a touch cuts it short
-            skipDeathAnim();
+        } else if (deathAnimUp()) { // the death animation plays out whatever is pressed: the touch does nothing
         } else if (wasTouch && pauseButtonAt(p.x, p.y)) { // a pause button, on the panel that was showing: not an
             info.role = "pbutton"; // action and not a resume, and it keeps the role until it lifts
             info.button = pauseButtonAt(p.x, p.y);
@@ -985,9 +984,7 @@ function padConfirm(screen) { // A: press the lit button, or the one that would 
         padPlayAgain();
     } else if (screen == "story") {
         storyPress();
-    } else if (screen == "death") {
-        skipDeathAnim();
-    }
+    } // and nothing on the death animation, which plays out
 }
 
 function padBack(screen) { // B: out of a menu, or back into the level from the pause
@@ -995,8 +992,6 @@ function padBack(screen) { // B: out of a menu, or back into the level from the 
         closeMenu();
     } else if (screen == "pause") {
         pausePress("resume");
-    } else if (screen == "death") {
-        skipDeathAnim();
     }
 }
 
@@ -1013,8 +1008,6 @@ function padStart(screen) { // START: the way on from wherever it is pressed
         padPlayAgain();
     } else if (screen == "story") {
         storyPress();
-    } else if (screen == "death") {
-        skipDeathAnim();
     }
 }
 
@@ -1083,8 +1076,7 @@ function bindInput() { // the touch, mouse, keyboard, controller and page listen
             setInputMode("mouse");
         }
         window.focus(); // preventDefault stops the page taking focus when embedded in an iframe
-        if (deathAnimUp()) { // the death animation: a press cuts it short
-            skipDeathAnim();
+        if (deathAnimUp()) { // the death animation plays out whatever is pressed: the press goes nowhere
             return;
         }
         if (e.button == 0 && runFinished && Date.now() - finishTime >= 1000) {
@@ -1158,11 +1150,8 @@ function bindInput() { // the touch, mouse, keyboard, controller and page listen
             closeMenu();
             return;
         }
-        if (deathAnimUp() && !e.ctrlKey && !e.metaKey) { // the death animation: any key cuts it short, and nothing
-            e.preventDefault(); // else hears the key
-            if (!e.repeat) {
-                skipDeathAnim();
-            }
+        if (deathAnimUp() && !e.ctrlKey && !e.metaKey) { // the death animation plays out whatever is pressed: nothing
+            e.preventDefault(); // hears the key
             return;
         }
         if (calTaking() && actionForKey(key) && !e.ctrlKey && !e.metaKey) { // the timing test: an action key taps

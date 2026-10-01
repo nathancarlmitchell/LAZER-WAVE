@@ -4,9 +4,9 @@
 // that fly apart along the laser; burn-through, the laser that took the shield whitening and bleeding its glow while
 // the picture dims and the core blinks red; and decoherence, the core flashing white as it splits, the waves losing
 // phase and fading, their trail scattering as particles. Then it fades to dark for the results. It runs by the frame,
-// as the story screens do (story.js); a press cuts it short (input.js); and with the effects reduced or off (fx.js)
-// it is skipped, and the results come straight up. index.html loads this with a plain <script src>, as globals rather
-// than modules, so the game still opens straight off disk.
+// as the story screens do (story.js), and plays out whatever is pressed: input.js swallows every press while it runs;
+// with the effects reduced or off (fx.js) it is skipped, and the results come straight up. index.html loads this with a
+// plain <script src>, as globals rather than modules, so the game still opens straight off disk.
 
 var DEATH_MS = 1300; // how long it runs
 var DEATH_BURN = 0.3; // of that, the burn-through, from the start
@@ -73,17 +73,11 @@ function deathFrame(now) {
     d.frame = requestAnimationFrame(deathFrame);
 }
 
-function endDeathAnim() { // over, or cut short: what comes after it comes on
+function endDeathAnim() { // over: what comes after it comes on
     var d = deathAnim;
     cancelAnimationFrame(d.frame);
     deathAnim = null;
     d.then();
-}
-
-function skipDeathAnim() { // a press: straight on to the results
-    if (deathAnim) {
-        endDeathAnim();
-    }
 }
 
 function deathPhase(t, from, to) { // 0..1 through a movement that runs from `from` to `to` of the whole
