@@ -18,32 +18,41 @@ const START_BUTTONS = {
     start: { dx: -410, dy: -32, w: 300, h: 60, label: "CLICK TO START", sub: "クリックして開始",
         touch: { dx: -450, dy: -60, w: 400, h: 150 }, touchLabel: "TAP TO START", touchSub: "タップして開始",
         padLabel: "PRESS A TO START", padSub: "Aボタンで開始" }, // a controller: the mouse layout, its own words
-    // the level select, beside START: the other way into a run
-    levels: { dx: -90, dy: -32, w: 300, h: 60, menu: "levels",
-        touch: { dx: 60, dy: -60, w: 400, h: 90 } },
-    // the run's difficulty, under START because it decides the run, and the two screens of their own
-    difficulty: { dx: -410, dy: 60, w: 300, h: 44, setting: "difficulty", // what it gives is said beside it, or
-        touch: { dx: -450, dy: 110, w: 400, h: 100 } }, // inside it by touch, where nothing is beside it
+    // the level select, under START: the other way into a run. START itself opens the difficulty screen
+    // (DIFFICULTY_BUTTONS), which starts the run
+    levels: { dx: -410, dy: 60, w: 300, h: 44, menu: "levels",
+        touch: { dx: -450, dy: 110, w: 400, h: 100 } },
     options: { dx: -410, dy: 124, w: 300, h: 44, menu: "options",
         touch: { dx: 60, dy: 50, w: 400, h: 90 } },
     help: { dx: -410, dy: 188, w: 300, h: 44, menu: "help",
         touch: { dx: 60, dy: 160, w: 400, h: 90 } },
 };
 
-var menuScreen = ""; // which menu screen is up: "" for none, "options" for the settings, "help" for the
-                     // instructions, "levels" for the level select, "calibrate" for the timing test (calibrate.js),
-                     // which opens from the settings. The instructions are the one that can also come up over a
-                     // paused level
+var menuScreen = ""; // which menu screen is up: "" for none, "difficulty" for the difficulty screen START opens,
+                     // "options" for the settings, "help" for the instructions, "levels" for the level select,
+                     // "calibrate" for the timing test (calibrate.js), which opens from the settings. The instructions
+                     // are the one that can also come up over a paused level
 
 function menuUp() {
     return menuScreen != "";
 }
 
+// the difficulty screen, which START opens: a run begins from the difficulty pressed (difficultyPress), each button
+// saying what its difficulty gives; BACK leaves
+const DIFFICULTY_BUTTONS = {
+    diff_easy: { dx: -320, dy: -150, w: 640, h: 86, pick: "easy" },
+    diff_normal: { dx: -320, dy: -54, w: 640, h: 86, pick: "normal" },
+    diff_hard: { dx: -320, dy: 42, w: 640, h: 86, pick: "hard" },
+    diff_true: { dx: -320, dy: 138, w: 640, h: 86, pick: "true" },
+    diff_back: { dx: -170, dy: 270, w: 340, h: 56, back: true, label: "BACK" },
+};
+
 // the settings screen's own buttons. One layout for both mouse and touch: it is a menu of its own, with room to be
-// read either way, so there is nothing for the start screen's two layouts to disagree about. The two volumes share a
-// row, and so do the two settings only touch play uses
+// read either way, so there is nothing for the start screen's two layouts to disagree about. The effects and the
+// overdrive share a row, as do the two volumes and the two settings only touch play uses
 const OPTION_BUTTONS = {
-    options_effects: { dx: -300, dy: -176, w: 600, h: 70, setting: "options" },
+    options_effects: { dx: -300, dy: -176, w: 292, h: 70, setting: "options" },
+    options_overdrive: { dx: 8, dy: -176, w: 292, h: 70, setting: "overdrive" },
     options_music: { dx: -300, dy: -96, w: 292, h: 70, setting: "music" },
     options_sfx: { dx: 8, dy: -96, w: 292, h: 70, setting: "sfx" },
     options_steering: { dx: -300, dy: -16, w: 292, h: 70, setting: "steering" },
@@ -55,7 +64,8 @@ const OPTION_BUTTONS = {
 
 function buttonTable() { // whichever screen's buttons are live
     return menuScreen == "options" ? OPTION_BUTTONS : menuScreen == "help" ? HELP_BUTTONS
-        : menuScreen == "levels" ? levelButtons() : menuScreen == "calibrate" ? calButtons() : START_BUTTONS;
+        : menuScreen == "difficulty" ? DIFFICULTY_BUTTONS : menuScreen == "levels" ? levelButtons()
+        : menuScreen == "calibrate" ? calButtons() : START_BUTTONS;
 }
 
 function buttonDef(name) { // a live button's definition, for the things that only need its flags
@@ -115,6 +125,14 @@ const SETTINGS = {
         },
         pick: pickVolume,
         apply: function (v) { sfxLevel = v; } },
+    overdrive: { store: "lazerwave.overdrive", // AUTO spends a full meter at once; MANUAL leaves it to SPACE (autoDrive, loop.js)
+        read: function () { return "OVERDRIVE: " + (autoDrive ? "AUTO" : "MANUAL"); },
+        next: function () {
+            autoDrive = !autoDrive;
+            return autoDrive ? "auto" : "manual";
+        },
+        pick: function (v) { return v == "auto" ? true : v == "manual" ? false : undefined; },
+        apply: function (v) { autoDrive = v; } },
     steering: { store: "lazerwave.steering",
         read: function () { return "STEERING: " + TOUCH_GAIN.toFixed(2) + "x"; },
         next: function () {
@@ -390,6 +408,10 @@ function drawScreenBanners() { // the stripes every menu screen wears, so they r
 }
 
 function drawStartScreen() { // draw the start screen, or whichever menu screen is standing in for it
+    if (menuScreen == "difficulty") {
+        drawDifficultyScreen();
+        return;
+    }
     if (menuScreen == "options") {
         drawOptionsScreen();
         return;
@@ -428,9 +450,7 @@ function drawStartScreen() { // draw the start screen, or whichever menu screen 
     drawStartButtonText();
 
     var small = (touch ? 34 : 22) + "px Arial";
-    drawMenuButton(geom("levels"), "LEVELS レベル", touch ? small : "26px Arial");
-    drawMenuButton(geom("difficulty"), mode().label, small, touch ? mode().blurb : null); // the mouse layout says
-    // what it gives beside it instead (drawStartText)
+    drawMenuButton(geom("levels"), "LEVELS レベル", small);
     drawMenuButton(geom("options"), "OPTIONS 設定", small);
     drawMenuButton(geom("help"), "HELP 説明", small);
 
@@ -444,24 +464,12 @@ function drawStartScreen() { // draw the start screen, or whichever menu screen 
 }
 
 function drawStartText(c) { // the start screen's lines round its title and buttons, in layout coordinates: the slogan
-    // over the title, the touch hint, the records and the sound note. On the game's canvas unless given another
-    // context, as the title is: the particles behind the start screen draw them too, to keep out from behind them
+    // over the title, and the sound note. On the game's canvas unless given another context, as the title is
     c = c || ctx;
     c.globalAlpha = 1.0;
     c.font = "40px Arial";
     c.fillStyle = COLORS.magenta;
     c.fillText(sloganText, sloganX, sloganY);
-    if (startLayout() == "touch") {
-        c.fillStyle = COLORS.dim;
-        c.font = "28px Arial";
-        c.fillText("Drag anywhere to steer", 190, 640);
-    } else { // what the difficulty gives, beside its button, where the row is empty: the touch layout's button says it
-        var g = geom("difficulty");
-        c.fillStyle = COLORS.dim;
-        c.font = "18px Arial";
-        c.fillText(mode().blurb.join(" · "), LAYOUT_W / 2 + g.dx + g.w + 24, LAYOUT_H / 2 + g.dy + g.h / 2 + 6);
-    }
-    drawRecords(c);
     drawSoundNote(c);
 }
 
@@ -475,15 +483,70 @@ function drawSoundNote(c) { // with a controller, until the page has had a click
     c.fillText("For sound, click or press a key once: the browser won't start it from a controller", 240, 718);
 }
 
-function drawRecords(c) { // low on the start screen, under the buttons; nothing at all before there is any
-    var line = recordsLine();
-    if (!line) {
+function drawDifficultyScreen() { // the difficulty screen, which START opens: a button a difficulty, each saying what it
+    // gives, the one chosen last washed in cyan; pressing one starts the run on it
+    var cx = LAYOUT_W / 2, cy = LAYOUT_H / 2;
+    useWindow();
+    ctx.globalAlpha = 1.0;
+    ctx.fillStyle = COLORS.bg;
+    ctx.fillRect(0, 0, x, y);
+
+    useScreenFrame();
+    ctx.textAlign = "center";
+    ctx.font = "70px Arial";
+    ctx.fillStyle = COLORS.cyan; // the title printed twice, as the other menus' are
+    ctx.fillText("DIFFICULTY", cx - 4, cy - 234);
+    ctx.fillStyle = COLORS.magenta;
+    ctx.fillText("DIFFICULTY", cx, cy - 230);
+    ctx.font = "28px Arial";
+    ctx.fillStyle = COLORS.text;
+    ctx.fillText("難易度", cx, cy - 196);
+    ctx.textAlign = "start";
+
+    for (var name in DIFFICULTY_BUTTONS) {
+        var b = DIFFICULTY_BUTTONS[name], d = b.pick ? difficultyNamed(b.pick) : null;
+        drawMenuButton(b, d ? d.label : b.label, (b.back ? "36px" : "32px") + " Arial", d ? d.blurb : null);
+        if (d && d.name == difficulty) { // the one chosen last: a wash of cyan inside its frame (a ground to the
+            ctx.globalAlpha = 0.12; // particles, titleparticles.js)
+            ctx.fillStyle = COLORS.cyan;
+            ctx.fillRect(cx + b.dx + 2, cy + b.dy + 2, b.w - 4, b.h - 4);
+            ctx.globalAlpha = 1.0;
+        }
+    }
+
+    ctx.textAlign = "center";
+    ctx.font = "20px Arial";
+    ctx.fillStyle = COLORS.dim;
+    ctx.fillText("Pick one to start the run on it: records and unlocks are kept for each", cx, cy + 252);
+    ctx.fillText(inputMode == "touch" ? "Tap BACK to return" : inputMode == "pad" ? "Press B to return"
+        : "Click BACK, or press Escape, to return", cx, cy + 356);
+    ctx.textAlign = "start";
+
+    drawScreenBanners();
+    titleParticles(); // the dust behind it, as behind the start screen (titleparticles.js)
+}
+
+function difficultyNamed(name) { // a difficulty's table entry, by its name
+    for (var i = 0; i < DIFFICULTIES.length; i++) {
+        if (DIFFICULTIES[i].name == name) {
+            return DIFFICULTIES[i];
+        }
+    }
+    return null;
+}
+
+function difficultyPress(name, p) { // a press on the difficulty screen: a difficulty starts the run on it (p: where the
+    // pointer was, for the mouse's piece); BACK leaves
+    var b = DIFFICULTY_BUTTONS[name];
+    if (!b) {
         return;
     }
-    var touch = startLayout() == "touch";
-    c.font = (touch ? "30px" : "24px") + " Arial";
-    c.fillStyle = COLORS.magenta;
-    c.fillText(line, touch ? 190 : 240, touch ? 690 : 680);
+    if (b.back) {
+        closeMenu();
+    } else {
+        setSetting("difficulty", b.pick);
+        startRunFrom(p);
+    }
 }
 
 function drawOptionsScreen() { // the settings, on a screen of their own
@@ -520,6 +583,7 @@ function drawOptionsScreen() { // the settings, on a screen of their own
     ctx.textAlign = "start";
 
     drawScreenBanners();
+    titleParticles(); // the dust behind it, as behind the start screen (titleparticles.js)
 }
 
 // The instructions, a page at a time so each can be read on a phone. Reachable from the start screen and from pause,
@@ -558,7 +622,7 @@ function helpPages() { // every page: a heading is a line of its own, and the li
                 + keyText("magenta") },
         { t: "HIT ON THE BEAT, IN ITS COLOUR", head: true },
         { t: "PERFECT 100, GREAT 75, GOOD 50, BAD 25, times your multiplier and the difficulty's" },
-        { t: "every " + COMBO_STEP + " in a row raises it, up to x" + MULT_MAX + ". A missed, BAD or WRONG beat resets it" },
+        { t: "every " + COMBO_STEP + " in a row raises it, with no ceiling, and a run keeps it from level to level. A missed, BAD or WRONG beat resets it" },
         { t: "SHIELDS", head: true },
         { t: shieldsMax() + " to start on " + modeName() + ", kept from level to level. A laser takes one and breaks your combo" },
         { t: "PERFORMANCE", head: true },
@@ -625,6 +689,7 @@ function drawHelpScreen() { // over the start screen, or over a level that is pa
     ctx.textAlign = "start";
 
     drawScreenBanners();
+    titleParticles(); // the dust behind it, as behind the start screen (titleparticles.js)
 }
 
 function helpPress(name) { // a press on the instructions: turn the page, or leave
@@ -642,10 +707,11 @@ function helpPress(name) { // a press on the instructions: turn the page, or lea
 }
 
 // The level select: every level, an act a row, each tile in its level's colour of the spectrum. A level opens when the
-// one before it has been beaten (levelUnlocked, run.js); an open one shows its name, and its best rank and best score
-// on the difficulty chosen, the next one to beat says NEXT, and a locked one is a padlock. Picking one starts a run
-// from it (startRunAt, levels.js), its act's story first if it opens one, as START's does. Its buttons are the open
-// levels and BACK, built as it opens, so the controller and the mouse only ever land on a level that can be played
+// one before it has been beaten on the difficulty chosen (levelUnlocked, run.js); an open one shows its name, and its
+// best rank and best score there, the next one to beat says NEXT, and a locked one is a padlock. Picking one starts a
+// run from it (startRunAt, levels.js), its act's story first if it opens one, as START's does. Its buttons are the open
+// levels, the difficulty (changed here too, since the unlocks and the bests shown are the difficulty's own) and BACK,
+// built as it opens, so the controller and the mouse only ever land on a level that can be played
 var TILE_W = 150, TILE_H = 76, TILE_GAP = 14, ROW_GAP = 12; // a level's tile, and the room between tiles and rows
 var TILE_X0 = -303, TILE_Y0 = -196; // the first tile's top left, from the layout's middle
 var ACT_X = -503; // where the acts' names start
@@ -667,7 +733,8 @@ function levelButtons() { // the open levels' tiles, "level_n", each knowing its
                 levelTable["level_" + n] = t;
             }
         }
-        levelTable.levels_back = { dx: -150, dy: 272, w: 300, h: 56, back: true, label: "BACK" };
+        levelTable.levels_difficulty = { dx: -320, dy: 272, w: 300, h: 56, setting: "difficulty" };
+        levelTable.levels_back = { dx: 20, dy: 272, w: 300, h: 56, back: true, label: "BACK" };
     }
     return levelTable;
 }
@@ -718,16 +785,13 @@ function drawLevelsScreen() {
     for (var n = 1; n <= RUN_LEVELS; n++) {
         drawLevelTile(n, n == next);
     }
-    ctx.textAlign = "center";
-    ctx.font = "20px Arial";
-    ctx.fillStyle = COLORS.dim;
-    var ranks = "bests on " + mode().name.toUpperCase(); // the difficulty's own, as the results keep them
-    ctx.fillText("Beat a level to open the next one   \u00b7   " + ranks, cx, cy + 256);
-    var back = levelButtons().levels_back;
-    drawMenuButton(back, back.label, "32px Arial");
+    var tb = levelButtons();
+    drawMenuButton(tb.levels_difficulty, SETTINGS.difficulty.read(), "32px Arial"); // the bests shown are its own
+    drawMenuButton(tb.levels_back, tb.levels_back.label, "32px Arial");
     ctx.textAlign = "start";
 
     drawScreenBanners();
+    titleParticles(); // the dust behind it, as behind the start screen (titleparticles.js)
 }
 
 function drawActName(a) { // an act's row starts with its number and its name, in the colour of its intro; dim while
@@ -816,6 +880,9 @@ function levelsPress(name, p) { // a press on the level select: an open level st
     }
     if (b.back) {
         closeMenu();
+    } else if (b.setting) { // the difficulty: its unlocks and the tiles' bests are its own, so the buttons are built again
+        levelTable = null; // and the screen drawn again (cycleSetting draws it)
+        cycleSetting(b.setting);
     } else {
         startRunAt(b.level, p);
     }
@@ -885,7 +952,9 @@ function optionsPress(name) { // a press on the settings screen: cycle a row, op
 
 function menuPress(name, p) { // a press while a menu screen is up, whichever one it is; p, where it was, if it was a
     // pointer's
-    if (menuScreen == "options") {
+    if (menuScreen == "difficulty") {
+        difficultyPress(name, p);
+    } else if (menuScreen == "options") {
         optionsPress(name);
     } else if (menuScreen == "help") {
         helpPress(name);

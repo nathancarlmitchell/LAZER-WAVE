@@ -15,7 +15,7 @@
 
 var TRAIL_STEPS = 120; // steps of position history the trail is drawn from (1.2s)
 var TRAIL_DRIFT = 3; // px a step the trail drifts left: the waves travel away behind the piece even when it holds still
-var WAVE_GAP = 12; // px from the centre line to each wave at the widest point of a beat, with no combo...
+var WAVE_GAP = 6; // px from the centre line to each wave at the widest point of a beat, with no combo...
 var WAVE_GAP_MAX = 24; // ...growing with every hit in a row up to this, at the combo that maxes the multiplier
 var WAVE_GROW = 0.08; // of the way to the size the combo calls for, a step: it swells and shrinks, never jumps
 var WAVE_DRIVE = 5; // px: the waves' size while the piece is a laser, pulled in round the beam
@@ -41,12 +41,14 @@ function isLaser() { // is the piece a laser: in overdrive, or in laser form
     return driveOn() || form == "laser";
 }
 
+var WAVE_FULL_STEPS = 3; // steps of multiplier (COMBO_STEP hits each, loop.js) over which the waves widen to their most
+
 function waveTarget() { // the size the combo calls for: a little more for every hit in a row, up to the max; while
     // the piece is a laser, tight round the beam
     if (isLaser()) {
         return WAVE_DRIVE;
     }
-    var full = COMBO_STEP * (MULT_MAX - 1); // the combo at which the multiplier stops climbing
+    var full = WAVE_FULL_STEPS * COMBO_STEP; // the combo at which the waves are at their widest (the multiplier climbs on)
     return WAVE_GAP + (WAVE_GAP_MAX - WAVE_GAP) * Math.min(combo, full) / full;
 }
 

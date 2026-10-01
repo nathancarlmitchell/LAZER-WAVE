@@ -1,19 +1,18 @@
 // Lazer Wave -- the run. The difficulties and what each gives, and the records: the best run and what it cost, the
-// most a run has banked, a best rank and a best score per level, the furthest level reached, and how far through each
-// unbeaten level an attempt has got, kept per difficulty
-// in localStorage and read defensively. A level runs the length of its song whoever plays it, so its time is no
-// record.
-// And the m:ss the finish and the start screen print. index.html loads this with a plain <script src>, as globals
-// rather than modules, so the game still opens straight off disk.
+// most a run has scored, a best rank per level and a best score for playing it on its own, the furthest level
+// reached, and how far through each unbeaten level an attempt has got, kept per difficulty in localStorage and read
+// defensively. A level runs the length of its song whoever plays it, so its time is no record. And the m:ss the
+// finish prints. index.html loads this with a plain <script src>, as globals rather than modules, so the game still
+// opens straight off disk.
 
-// The difficulties, picked on the start screen because they define a run rather than configure one. Each is a few
-// numbers. lives: the deaths a run survives, each buying the level again with its points kept, the death after the
-// last being the game over. shields: what an attempt starts with. warn: what a level's warning time is multiplied by
-// (its `warn`, waves.js: how many beats ahead a laser shows itself). points: what every point scored is multiplied
-// by. perfGain and perfDrain: what the performance meter's fill on a hit and drain on a miss are multiplied by
-// (loop.js), and perfFail: false means an empty meter never fails the track. The timing windows are the same on
-// every difficulty. blurb: what all that comes to, said under or beside the button in a line or two. Records are
-// kept per difficulty (rec).
+// The difficulties, picked on the screen START opens (or changed on the level select), because they define a run
+// rather than configure one. Each is a few numbers. lives: the deaths a run survives, each buying the level again
+// with its points kept, the death after the last being the game over. shields: what an attempt starts with. warn:
+// what a level's warning time is multiplied by (its `warn`, waves.js: how many beats ahead a laser shows itself).
+// points: what every point scored is multiplied by. perfGain and perfDrain: what the performance meter's fill on a
+// hit and drain on a miss are multiplied by (loop.js), and perfFail: false means an empty meter never fails the
+// track. The timing windows are the same on every difficulty. blurb: what all that comes to, said on its button in a
+// line or two. Records are kept per difficulty (rec), and so are the level select's unlocks (levelBeaten).
 const DIFFICULTIES = [
     { name: "easy", label: "EASY 簡単", lives: 5, shields: 4, warn: 1.25, points: 0.5, perfGain: 1.25, perfDrain: 0.75,
         perfFail: false, blurb: ["5 lives · 4 shields · half points", "long warnings · performance can't fail you"] },
@@ -71,21 +70,24 @@ function rec() { // the record set for the difficulty now selected
             run: null, // fastest completed run, in ms
             runDeaths: 0, // and what it cost
             rank: {}, // best rank each level has been cleared with, "F" to "S+"
-            score: {}, // most points each level has been cleared with
+            score: {}, // most points each level has been cleared with on its own, from the level select: a run carries its
+                       // multiplier from level to level, so its levels score on another scale, and a run is measured by
+                       // its total (runScore)
             reached: 0, // furthest level started, so a run that never finishes still leaves a mark
             reach: {}, // how far through each unbeaten level an attempt has got, 0 to 1; let go once it is beaten
-            runScore: 0, // the most a run has banked: its total after a CONTINUE, so a run that never finishes counts
+            runScore: 0, // the most a run has scored: its total at each level it clears, so a run that never finishes counts
         };
     }
     return records.modes[difficulty];
 }
 var levelGrade = ""; // the rank the level just cleared was given, and whether that is the best it has had
 var gradeRecord = false;
-var scoreRecord = false; // and whether its points are the most it has been cleared with
+var scoreRecord = false; // and whether its points are the most it has been cleared with, playing it on its own
+var runRecord = false; // and, on a run, whether its total at the level just cleared is the most a run has scored
 var reachRecord = false; // whether the death just had got further through its unbeaten level than any attempt before
 
 var RECORD_MAX_MS = 86400000; // a day: past this a stored time is not a run, and printing it would look broken
-var RECORD_MAX_SCORE = 10000000; // and past this a stored score is not one a level can give
+var RECORD_MAX_SCORE = 1e10; // and past this a stored score is not one the game can give, the multiplier having no ceiling
 
 function storedTime(v) { // a stored number we are willing to believe
     return typeof v == "number" && isFinite(v) && v > 0 && v <= RECORD_MAX_MS ? v : null;
@@ -148,14 +150,9 @@ function saveRecords() {
     }
 }
 
-function levelBeaten(n) { // level n has been cleared, on any difficulty: which is what opens the next one
-    for (var i = 0; i < DIFFICULTIES.length; i++) {
-        var m = records.modes[DIFFICULTIES[i].name];
-        if (m && (m.rank[n] || m.score[n] !== undefined)) { // a clear leaves a rank and a score, so either will do
-            return true;
-        }
-    }
-    return false;
+function levelBeaten(n) { // level n has been cleared on the difficulty chosen, in a run or on its own: which is what
+    // opens the next one there. Each difficulty has unlocks of its own; a clear leaves a rank, whichever way it came
+    return rec().rank[n] !== undefined;
 }
 
 function levelUnlocked(n) { // open on the level select: the first always, and after it any level whose one before
@@ -177,7 +174,8 @@ function recordLevel(n) { // a level was cleared: its rank and its score, and wh
         rec().rank[n] = levelGrade;
     }
     var most = rec().score[n];
-    scoreRecord = most === undefined || score > most; // a tie is not a new best
+    scoreRecord = selectRun && (most === undefined || score > most); // a tie is not a new best; and only a level played on
+    // its own sets its score: a run's levels, their multiplier carried in, are on another scale (recordRunScore)
     if (scoreRecord) {
         rec().score[n] = score;
     }
@@ -215,24 +213,18 @@ function recordRun(ms, cost) { // every level cleared, from the first: the run's
     return beat;
 }
 
-function recordRunScore(total) { // CONTINUE banked a level's points: the run's total, against the most a run has had
+function recordRunScore(total) { // a level cleared on a run: the run's total with its points, against the most a run has
+    // had; true when it is the most now
     if (total > (rec().runScore || 0)) {
         rec().runScore = total;
         saveRecords();
+        return true;
     }
+    return false;
 }
 
 function mistakes(n) {
     return n + (n == 1 ? " mistake" : " mistakes");
-}
-
-function recordsLine() { // what the start screen has to say about how this has gone before, or "" the first time:
-    // the most a run has scored, and once a run has been finished, its best time and what that cost
-    var line = rec().runScore ? "BEST RUN " + rec().runScore : "";
-    if (rec().run) {
-        line += (line ? "   " : "") + "BEST TIME " + millisToMinutesAndSeconds(rec().run) + "   " + mistakes(rec().runDeaths);
-    }
-    return line;
 }
 
 function millisToMinutesAndSeconds(millis) { // m:ss, to the nearest second. Rounded to whole seconds first and split

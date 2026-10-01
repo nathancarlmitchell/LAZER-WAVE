@@ -69,6 +69,7 @@ var gameArea = {
         this.lastTime = performance.now();
         this.pendingTime = 0;
         this.frameRequest = requestAnimationFrame(runSteps);
+        startAudioTimer(); // the beat track, scheduled on a steady timer as well as from the steps
     },
     clear: function () { // the ground every frame and screen is drawn on
         ctx.save();
@@ -81,6 +82,7 @@ var gameArea = {
     stop: function () {
         this.running = false;
         cancelAnimationFrame(this.frameRequest);
+        stopAudioTimer();
     }
 };
 
@@ -109,7 +111,10 @@ var ctx = gameArea.context = gameArea.canvas.getContext("2d"); // the one drawin
 // ---- the game: what Lazer Wave does with the engine ----
 
 // Time is in beats: beatPos is where the level is on its own grid, worked out from the step count, so a pause stops
-// it and a slow machine doesn't bend it. Every beam, every judgment and every sound is placed on it.
+// it and a slow machine doesn't bend it, less the time the audio takes to reach the ears and the player's own timing
+// offset (OPTIONS): it is the beat as it is heard, the clock a press is put on (pressBeat), so every beam, every
+// target, every gate and every judgment keeps to the sound. The sounds themselves are scheduled from the step count
+// (scheduleBeats), which is why they are heard that much later.
 var beatPos = 0;
 var wave = null; // this level's LEVELS entry (waves.js)
 function warnBeats() { // how many beats ahead of its beat a laser shows itself here: the level's warning time, at
@@ -128,8 +133,41 @@ var passes = 0; // how many rounds the loop has gone
 var lastBeat = -1; // the last whole beat the step has crossed
 var scheduledBeat = -1; // the last beat whose sound has been handed to the audio clock
 var HATS_16_FROM_ACT = 4; // from this act on, the hats play in sixteenths between the off-beats (scheduleBeats)
-var AUDIO_LOOKAHEAD_MS = 80; // how far ahead beats are scheduled: enough to ride out a late frame, short enough that a
-                             // pause doesn't leave much still to play
+var AUDIO_LOOKAHEAD_MS = 150; // how far ahead beats are scheduled: enough to ride out late frames, short enough that a
+                              // pause doesn't leave much still to play
+var AUDIO_TICK_MS = 25; // the beat track is scheduled from a steady timer this often as well as from the steps, so a frame
+                        // that comes late (a busy machine, a tab throttled) can't hold a beat back past its time
+var audioTimer = null;
+var levelLatencyMs = 0; // the audio's delay (audioLatencyMs) as latched for the level: read every step, a change in the
+                        // browser's estimate would shift the whole clock mid-level, so it is read as the level starts and
+                        // again on a resume (latchLatency), when the player is set for a shift
+var RESUME_GRACE_STEPS = 30; // steps the piece can't be hurt for after a resume that shifted the clock
+
+function startAudioTimer() {
+    if (audioTimer === null) {
+        audioTimer = setInterval(function () {
+            if (gameArea.running && !pause && alive) {
+                scheduleBeats();
+            }
+        }, AUDIO_TICK_MS);
+    }
+}
+
+function stopAudioTimer() {
+    if (audioTimer !== null) {
+        clearInterval(audioTimer);
+        audioTimer = null;
+    }
+}
+
+function latchLatency(resuming) { // read the audio's delay for the clock: as a level starts, and on a resume, when a change
+    // moves every laser by the difference, so the piece is left alone for a moment
+    var was = levelLatencyMs;
+    levelLatencyMs = audioLatencyMs();
+    if (resuming && Math.abs(levelLatencyMs - was) > 5) {
+        invuln = Math.max(invuln, RESUME_GRACE_STEPS);
+    }
+}
 
 // Hitting on the beat. A press is judged against the nearest beat: inside the PERFECT, GREAT, GOOD or BAD window it
 // scores, times the multiplier, though a BAD breaks the combo as a miss does; outside, or a second press on a beat
@@ -163,8 +201,7 @@ function badMs() {
     return BAD_MS;
 }
 var POINTS = { perfect: 100, great: 75, good: 50, bad: 25 };
-var COMBO_STEP = 8; // hits in a row per step of multiplier
-var MULT_MAX = 4;
+var COMBO_STEP = 8; // hits in a row per step of multiplier, which has no ceiling: a long streak is the run's stake
 var SURVIVE_POINTS = 10; // for every beat of the level lived through
 var combo = 0;
 var bestCombo = 0; // this level's longest
@@ -190,6 +227,7 @@ var hpAtStart = 3; // the shields this attempt began with: a run carries them fr
                    // counts only the ones lost in it
 var carryHp = null, carryMeter = null; // what the level just continued from left, its shields and its meter's charge,
                                        // for the next to start with; null for a fresh attempt
+var carryCombo = null; // and its combo, which a run keeps from level to level: the multiplier is what a run plays for
 var invuln = 0;
 var deathProgress = 0; // how far through the level the last attempt got, for the death screen
 
@@ -205,6 +243,8 @@ var OVERDRIVE_GREAT = 0.75, OVERDRIVE_GOOD = 0.5, OVERDRIVE_BAD = 0.25; // what 
 var OVERDRIVE_BEATS = 2 * BEATS_PER_BAR;
 var OVERDRIVE_GRACE = 1; // beats after it runs out that the lasers still can't hurt the piece
 var driveGraceUntil = 0; // the beat position that grace runs to, once it has run out
+var autoDrive = false; // the OVERDRIVE setting (OPTIONS): AUTO spends the meter the moment it fills, on the next beat;
+                       // MANUAL, the default, leaves it to SPACE
 var OVERDRIVE_SCORE = 2; // what it multiplies the points for hits and absorbs by
 var ABSORB_POINTS = 50; // a laser absorbed, before the multipliers: half a PERFECT, a bonus rather than the point
 var drive = emptyDrive();
@@ -283,16 +323,25 @@ function spendDrive(time) { // SPACE at real time `time`: a full meter starts on
     if (Math.abs(b - one) * msPerBeat() > badMs()) {
         one = Math.ceil(b);
     }
+    startDrive(one);
+}
+
+function startDrive(one) { // a full meter spent: overdrive runs from beat `one`, never before the level proper, which a
+    // meter carried in full could ask for from the count-in; with no beat left to run it from, the meter keeps
     one = Math.max(one, firstPlayBeat());
     if (one >= playEnd()) {
-        return; // no beat left to run it from: the meter keeps
+        return;
     }
     drive.start = one;
     drive.end = one + OVERDRIVE_BEATS;
     drive.lit = false;
 }
 
-function driveStep() { // each step: announce it when its beat comes, and put it out when its time is up
+function driveStep() { // each step: on AUTO, a full meter is spent at once, from the next beat; announce it when its beat
+    // comes, and put it out when its time is up
+    if (autoDrive && driveReady()) {
+        startDrive(Math.ceil(beatPos));
+    }
     if (drive.start === null) {
         return;
     }
@@ -315,22 +364,29 @@ function absorbHazards() { // in overdrive: every laser the piece is in is absor
     });
     if (n > 0) {
         bossHit(n); // absorbed lasers hurt a boss too
-        var points = modePoints(n * ABSORB_POINTS * pointsMult());
-        score += points;
-        popPoints(points, gamePiece.x + gamePiece.width / 2 + 44, gamePiece.y + gamePiece.height / 2 - 6);
+        if (earning(Math.floor(beatPos))) { // and pay, in a boss level's first round
+            var points = modePoints(n * ABSORB_POINTS * pointsMult());
+            score += points;
+            popPoints(points, gamePiece.x + gamePiece.width / 2 + 44, gamePiece.y + gamePiece.height / 2 - 6);
+        }
         playSound(aud_pickupCoin);
     }
 }
 
-// Points popping up where they were won (an absorbed laser's bonus): they swell for a moment, rise and fade, and stay
-// where they were won rather than following the piece
+// Words popping up where they were earned: an absorbed laser's points, a boss's bonus, the multiplier stepping up. They
+// swell for a moment, rise and fade, and stay where they were earned rather than following the piece
 var POP_SHOW = 70; // steps one stays up
 var POP_SWELL = 8; // steps it takes to settle to its size
-var pops = []; // { text, x, y, age }
+var pops = []; // { text, sub, color, size, x, y, age }
 
-function popPoints(points, x, y) { // kept far enough inside the screen to rise and still be read
+function popText(text, sub, color, x, y, size) { // a word popping up at (x, y), kept far enough inside the screen to rise
+    // and still be read, with `sub` under it, small; `size` scales it, 1 being a hit's points
     var W = gameArea.canvas.width, H = gameArea.canvas.height;
-    pops.push({ text: "+" + points, x: Math.max(50, Math.min(W - 50, x)), y: Math.max(80, Math.min(H - 30, y)), age: 0 });
+    pops.push({ text: text, sub: sub, color: color, size: size || 1, x: Math.max(50, Math.min(W - 50, x)), y: Math.max(80, Math.min(H - 30, y)), age: 0 });
+}
+
+function popPoints(points, x, y, sub) { // points won: an absorbed laser's, or, said so, a boss's bonus
+    popText("+" + points, sub || "ABSORBED", COLORS.laserCore, x, y, 1);
 }
 
 function agePops() {
@@ -348,16 +404,16 @@ function drawPops() {
         var swell = p.age < POP_SWELL ? 1.5 - 0.5 * p.age / POP_SWELL : 1;
         var y = p.y - 40 * t;
         ctx.globalAlpha = 1 - t * t;
-        ctx.font = "bold " + Math.round(26 * swell) + "px Arial";
+        ctx.font = "bold " + Math.round(26 * swell * p.size) + "px Arial";
         ctx.lineWidth = 5;
         ctx.strokeText(p.text, p.x, y);
-        ctx.fillStyle = COLORS.laserCore;
+        ctx.fillStyle = p.color;
         ctx.fillText(p.text, p.x, y);
         ctx.font = "bold 12px Arial";
         ctx.lineWidth = 3;
-        ctx.strokeText("ABSORBED", p.x, y + 16);
+        ctx.strokeText(p.sub, p.x, y + 16);
         ctx.fillStyle = COLORS.dim;
-        ctx.fillText("ABSORBED", p.x, y + 16);
+        ctx.fillText(p.sub, p.x, y + 16);
     });
     ctx.restore();
 }
@@ -467,8 +523,13 @@ function msPerBeat() {
     return 60000 / wave.bpm;
 }
 
-function multiplier() {
-    return Math.min(MULT_MAX, 1 + Math.floor(combo / COMBO_STEP));
+function multiplier() { // a step for every COMBO_STEP hits in a row, with no ceiling
+    return 1 + Math.floor(combo / COMBO_STEP);
+}
+
+function shownScore() { // the score the HUD shows: a run's total so far, its levels banked and this one's points, or
+    // a level's own points when it is played from the level select
+    return selectRun ? score : runScore + score;
 }
 
 function beatColor(n) { // the colour beat n wants, or null for either
@@ -594,6 +655,13 @@ function levelBar(bar) { // the bar of the level's definition that bar `bar` of 
     return from + (bar - from) % loopBars;
 }
 
+function earning(b) { // is beat b one that earns: any, but on a boss level only the first round's. Past the level's own
+    // bars, with the boss still up, nothing is earned: no points for a hit, a beat lived through or a laser absorbed, and
+    // the combo holds without climbing (a miss still breaks it), so a fight drawn out gains nothing, and the boss's
+    // bonus, which follows the multiplier, only shrinks with the rounds (bossBonus, boss.js)
+    return loopLen <= 0 || b < (COUNT_IN_BARS + wave.bars) * BEATS_PER_BAR;
+}
+
 function extendLevel() { // a boss level's end in view with its boss still up: the level goes on, its loop dealt again
     // after its last bar, everything in it a round later, so the fight runs until the boss falls
     if (loopLen <= 0 || !bossUp() || beatPos < totalBeats - LOOP_LEAD) {
@@ -640,6 +708,7 @@ function startLevel() { // a level is about to be played: from the start, or aga
     facing = 1;
     pops = [];
     totalBeats = (COUNT_IN_BARS + wave.bars) * BEATS_PER_BAR;
+    latchLatency(false); // the audio's delay, for the clock
     bossStart(wave, timeline); // its boss, if it has one (boss.js)
     var from = loopFrom(wave); // and its loop: the bars dealt again while the boss stands
     loopLen = from === null ? 0 : (wave.bars - from) * BEATS_PER_BAR;
@@ -648,7 +717,7 @@ function startLevel() { // a level is about to be played: from the start, or aga
     beatPos = 0;
     lastBeat = -1;
     scheduledBeat = -1;
-    combo = bestCombo = 0;
+    combo = bestCombo = carryCombo === null ? 0 : carryCombo; // a level continued into keeps the run's combo
     perfects = greats = goods = bads = strays = 0;
     perf = PERF_START;
     perfFailed = false;
@@ -667,7 +736,7 @@ function startLevel() { // a level is about to be played: from the start, or aga
     drive = emptyDrive();
     drive.meter = carryMeter === null ? 0 : carryMeter; // and the charge it had; a fresh attempt charges its own
     driveGraceUntil = 0;
-    carryHp = carryMeter = null;
+    carryHp = carryMeter = carryCombo = null;
     timingSum = timingCount = 0;
     timings = [];
     playerReset();
@@ -691,6 +760,11 @@ function scheduleBeats() { // hand the audio clock every beat due within the loo
     // from the level's clock as it stands in real time, not from the step count, which is up to a frame behind it
     var now = simNowMs();
     var mpb = msPerBeat();
+    var c = beatAudio(); // woken if the browser put it to sleep; until it runs again its clock stands still, and
+    if (!c || c.state != "running") { // beats handed it now would all sound at once when it wakes: the beats that
+        scheduledBeat = Math.max(scheduledBeat, Math.floor(now / mpb)); // go by while it sleeps are let go
+        return;
+    }
     while (scheduledBeat + 1 < totalBeats && (scheduledBeat + 1) * mpb - now < AUDIO_LOOKAHEAD_MS) {
         var b = ++scheduledBeat;
         if (b >= playEnd()) {
@@ -739,7 +813,7 @@ function spawnDue() { // put up everything whose time to show has come
 }
 
 function onBeat(b) { // a whole beat just went by
-    if (b >= firstPlayBeat() && b < playEnd()) {
+    if (b >= firstPlayBeat() && b < playEnd() && earning(b)) {
         score += modePoints(SURVIVE_POINTS);
     }
     bossBeat(b); // the mirror boss remembers where the piece is, and fires where it was (boss.js)
@@ -759,13 +833,12 @@ function breakCombo(show, off) { // show: say MISS even with no combo to lose (a
 
 function pressBeat(time) { // the beat position of a press at real time `time`, less the time the audio takes to
     // reach the ears (the player taps along to what they hear) and the player's own timing offset (OPTIONS)
-    return (simNowMs(time) - audioLatencyMs() - timingOffset) / msPerBeat();
+    return (simNowMs(time) - levelLatencyMs - timingOffset) / msPerBeat();
 }
 
-function judgePos() { // where the level stands on the judging clock, the one pressBeat puts presses on: beatPos less
-    // the same audio delay and timing offset. A beat is heard, and so hit, that much after beatPos crosses it, so its
-    // window closes that much later here than it does on beatPos
-    return beatPos - (audioLatencyMs() + timingOffset) / msPerBeat();
+function judgePos() { // where the level stands on the judging clock, the one pressBeat puts presses on: beatPos itself,
+    // which is the beat as it is heard (above). The name stays for what is judged by it
+    return beatPos;
 }
 
 function beatOpen(n) { // can beat n still be hit: its window hasn't closed on the judging clock. The miss check and a
@@ -830,13 +903,21 @@ function hitBeat(time, color) { // a hit in `color`: judge it against the neares
         bads++;
         chargeDrive(n, OVERDRIVE_BAD);
     }
+    var earns = earning(n); // past a boss level's first round, no points, and the combo holds without climbing
     if (grade == "bad") { // the beat is spent, but not cleanly: the combo goes, as on a miss
         combo = 0;
-    } else {
+    } else if (earns) {
+        var multWas = multiplier();
         combo++;
         bestCombo = Math.max(bestCombo, combo);
+        if (multiplier() > multWas) { // the multiplier stepped up: said at the orb, as a hit's points are
+            popText("x" + multiplier(), "MULTIPLIER", COLORS.good, gamePiece.x + gamePiece.width / 2 + 44, gamePiece.y + gamePiece.height / 2 + 26, 1.3); // under
+            // the judgement, which sits over the orb
+        }
     }
-    score += modePoints(POINTS[grade] * pointsMult());
+    if (earns) {
+        score += modePoints(POINTS[grade] * pointsMult());
+    }
     perfHit(grade);
     judge(grade, signed, color);
     playerHitFlash(grade, color); // the full burst for a clean hit, half for a BAD
@@ -1104,7 +1185,7 @@ function updateGameArea() {
     // numbers, fxHash): skipping a draw must never change what comes next, nor what the next picture looks like.
     showFrame = !fxOverdrawn();
     gameArea.frameNo += 1;
-    beatPos = gameArea.frameNo * STEP_MS / msPerBeat();
+    beatPos = (gameArea.frameNo * STEP_MS - levelLatencyMs - timingOffset) / msPerBeat(); // the beat as it is heard
     fxStep();
 
     extendLevel(); // a boss level's boss still up as its end comes into view: another round

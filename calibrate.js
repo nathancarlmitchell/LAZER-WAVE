@@ -261,6 +261,7 @@ function drawCalibrateScreen() { // what to do, where the taps are landing, and 
     ctx.textAlign = "start";
 
     drawScreenBanners();
+    titleParticles(); // the dust behind it, as behind the start screen (titleparticles.js)
 }
 
 function calDrawScale(cx, ay) { // a line from early to late, the beat in its middle, with a mark where each tap landed

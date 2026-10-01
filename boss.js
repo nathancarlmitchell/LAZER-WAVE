@@ -52,10 +52,12 @@ function bossStart(def, timeline) { // a level starts: its boss, if it has one, 
 
 function bossBonus(at) { // the points the boss pays brought down at beat `at`: the act's BOSS_BONUS within the level's own
     // bars, and less the longer the fight runs past them, by rounds (loopLen, loop.js): a round more halves it, two more
-    // thirds it; at the difficulty's rate (modePoints, run.js)
+    // thirds it; times the combo's multiplier as it stands, so a boss beaten on a long streak pays as the streak does
+    // (overdrive's doubling does not apply), and as the combo cannot climb past the first round (earning, loop.js) a
+    // fight drawn out only loses; at the difficulty's rate (modePoints, run.js)
     var own = (COUNT_IN_BARS + wave.bars) * BEATS_PER_BAR;
     var over = loopLen > 0 ? Math.max(0, at - own) / loopLen : 0;
-    return modePoints(BOSS_BONUS * levelAct(level) / (1 + over));
+    return modePoints(BOSS_BONUS * levelAct(level) * multiplier() / (1 + over));
 }
 
 function bossSlow() { // what the radar's arm is slowed by: 1 unless Static Bloom is up and hurt
@@ -104,7 +106,7 @@ function bossDown() { // the boss breaks up, the bar plays out, and the level en
     synthCharged(0, actSong(level).key);
     musicFinish((boss.playEnd * msPerBeat() - simNowMs()) / 1000); // the song's last chord, on the pause's first beat
     var W = gameArea.canvas.width, H = gameArea.canvas.height, from = bossSparkFrom();
-    popPoints(bossBonusWon, from.x, from.y); // said where it breaks up, as a hit's points are
+    popPoints(bossBonusWon, from.x, from.y, "BOSS"); // said where it breaks up, as a hit's points are
     for (var i = 0; i < BOSS_PARTICLES; i++) { // its sparks, flying off
         boss.parts.push({ x: from.x + (fxHash(i, 21) - 0.5) * from.w, y: from.y + (fxHash(i, 22) - 0.5) * from.h,
             vx: from.vx * (0.3 + fxHash(i, 23)), vy: (fxHash(i, 24) - 0.5) * 160, s: 2 + 3 * fxHash(i, 25),
@@ -292,7 +294,8 @@ function drawBossBar() { // the top stripe's slot: the boss's name and its healt
     ctx.font = "bold 14px Arial";
     ctx.fillStyle = COLORS.laserCore;
     var note = boss.downAt !== null ? "DOWN   +" + bossBonusWon : boss.health + " / " + boss.max
-        + (passes > 0 ? "   ROUND " + (passes + 1) : "") // the loop's round, once it has gone round (loop.js)
+        + (passes > 0 ? "   ROUND " + (passes + 1) + " (SCORE HELD)" : "") // the loop's round, once it has gone round: nothing
+        // is earned in it (earning, loop.js)
         + "   BONUS " + bossBonus(beatPos) // what it pays brought down now: less as the fight runs on
         + (boss.kind == "chaser" && !driveOn() ? "   ports shut: overdrive opens them" : "");
     ctx.fillText(boss.name + "   " + note, 12, BAR_TOP + BAR_H - 5);

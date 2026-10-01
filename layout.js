@@ -74,13 +74,14 @@ function useBand(band) { // layout coordinates again, with that band fitted in p
 // the bands each of them fills, measured rather than guessed: the settings screen and the instructions. (The pause
 // panel is a message, measured as it is drawn: levels.js)
 const OPTIONS_BAND = { w: 760, h: 620, dy: 20 };
+const DIFFICULTY_BAND = { w: 760, h: 670, dy: 26 }; // the difficulty screen: its title's top to its last line
 const HELP_BAND = { w: 670, h: 500, dy: 34 }; // the larger of its two pages, measured; re-measure if they change
 const LEVELS_BAND = { w: 1040, h: 640, dy: 19 }; // the level select: its title's top to BACK's foot, the acts' names to
                                                   // the last column's edge
 const CALIBRATE_BAND = { w: 760, h: 620, dy: 20 }; // the timing test, laid out as the settings are
 
 function screenFrame() { // the frame the screen that is up was drawn in, so a click lands where its buttons are
-    return menuScreen == "options" ? bandFrame(OPTIONS_BAND)
+    return menuScreen == "options" ? bandFrame(OPTIONS_BAND) : menuScreen == "difficulty" ? bandFrame(DIFFICULTY_BAND)
         : menuScreen == "help" ? bandFrame(HELP_BAND) : menuScreen == "levels" ? bandFrame(LEVELS_BAND)
         : menuScreen == "calibrate" ? bandFrame(CALIBRATE_BAND) : layoutFrame();
 }

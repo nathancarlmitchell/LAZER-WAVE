@@ -18,14 +18,15 @@ function meterX() { // where it starts: after the shields the difficulty gives, 
     return 50 + shieldsMax() * 26 + 8;
 }
 
-function drawStats(color, scoreColor) { // score, combo, shields, and the level in the top-left corner
+function drawStats(color, scoreColor) { // the score (a run's total, or the level's own from the level select: shownScore,
+    // loop.js), combo, shields, and the level in the top-left corner
     var touch = inputMode == "touch";
     ctx.save();
     ctx.shadowColor = COLORS.bg; // a dark halo, so it stays readable with a beam burning behind it
     ctx.shadowBlur = 6;
     ctx.font = "40px Arial"; // the score is drawn at full size in both layouts
     ctx.fillStyle = scoreColor || color;
-    ctx.fillText(score, 50, 100);
+    ctx.fillText(shownScore(), 50, 100);
     if (combo > 0) { // what a point is worth now, which overdrive doubles
         ctx.font = "24px Arial";
         ctx.fillStyle = driveOn() ? COLORS.laserCore : COLORS.magenta;

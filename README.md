@@ -41,8 +41,11 @@ For WordPress, `node wordpress-plugin/build.js` copies the game into the plugin 
    magenta. The wave of the coming beat's colour stays lit (cyan on top, magenta below) and the other dims. A beat with
    no laser takes either key, and the first act has no colours at all. PERFECT 100, GREAT 75, GOOD 50, BAD 25, times
    your multiplier and the difficulty's.
-   Every 8 in a row raises the multiplier, up to x4. A missed or BAD beat, a press off the beat, or the wrong colour
-   (WRONG) resets it.
+   Every 8 in a row raises the multiplier by one, with no ceiling, and on a run the combo carries from each level into
+   the next, so a long streak of perfect play is what a run plays for; x5, x6 and on pop up at the orb as it climbs.
+   A missed or BAD beat, a press off the beat, the wrong colour (WRONG), a gate not passed or a laser that gets you
+   resets it. The score in the corner is the run's total so far, or the level's own when it is played from the
+   level select.
  - Shields to start, three on NORMAL. A laser takes one and breaks your combo; the last one ends the attempt. On a run
    your shields and your overdrive charge carry over into the next level; a new attempt at a level starts on the
    difficulty's count and empty.
@@ -50,7 +53,9 @@ For WordPress, `node wordpress-plugin/build.js` copies the game into the plugin 
    GOOD half, a BAD a quarter), and a chime in the song's key says when it is full, with a ring round your orb
    throbbing on the beat until it is spent, then shrinking as the overdrive runs out. Full, press SPACE: it starts on the
    next beat (the one you press it on, if the press is inside its window, or else the one after) and lasts eight
-   beats, and for one beat more the lasers still can't hurt you, room to come back out of it. You become a laser:
+   beats, and for one beat more the lasers still can't hurt you, room to come back out of it. OPTIONS → **OVERDRIVE**
+   set to AUTO spends it the moment it fills, from the next beat, with no press; MANUAL, the default, leaves it to
+   SPACE. You become a laser:
    lasers can't hurt you, hits score double, and flying through a laser as it fires absorbs it for a bonus. The
    colours still count.
  - **Wave / laser:** from level 3 on, every level switches to laser form for a few bars. A **gate** (a white line)
@@ -82,9 +87,12 @@ For WordPress, `node wordpress-plugin/build.js` copies the game into the plugin 
    section, as many times as it takes, the health bar counting the rounds, and every beat of every round counts in
    the rank; a death's results count how far the boss was worn down as how far the attempt got, so a boss at full
    health reads 0%. Brought down, the boss pays a bonus, 1,000 points an act
-   (Red Giant 1,000, Lazer Wave 5,000, at the difficulty's rate): the whole of it for a fight finished within the
-   level's own bars, and less the longer it runs on, a round more halving it; the health bar says what it pays now,
-   and the results list what it paid. Each fight has a signature:
+   (Red Giant 1,000, Lazer Wave 5,000, at the difficulty's rate) times your multiplier as it stands: the whole of it
+   for a fight finished within the level's own bars, and less the longer it runs on, a round more halving it; the
+   health bar says what it pays now,
+   and the results list what it paid. Past the first round nothing is earned: hits, beats lived through and lasers
+   absorbed score nothing, and the streak holds without climbing, though a miss still breaks it, so a fight drawn out
+   gains nothing and its bonus only shrinks. Each fight has a signature:
    Interference has a node at each edge, and its second laser section faces left, the piece locked on the right and
    the targets coming from the left; Static Bloom's node is the radar's pivot in the middle of the screen, and its
    arm runs slower the more it is hurt; Overdrive's node follows your height, and its ports open only while overdrive
@@ -95,10 +103,11 @@ For WordPress, `node wordpress-plugin/build.js` copies the game into the plugin 
    itself. A retry comes straight back to the level, and a death after its results. After the last level, an epilogue,
    then the finish.
    The time the story is up is left off the run's time.
- - **Level select:** LEVELS on the start screen shows every level, an act a row, each in its colour. Level 1 is
-   always open, and a level opens once the one before it has been beaten, on any difficulty; a locked one is a
+ - **Level select:** LEVELS, under START, shows every level, an act a row, each in its colour. Level 1 is
+   always open, and a level opens once the one before it has been beaten on the difficulty chosen, in a run or on its
+   own; each difficulty has unlocks of its own. A locked one is a
    padlock. An open one shows its name, and its best rank and best score on the difficulty chosen, and the next one
-   to beat says NEXT.
+   to beat says NEXT. A DIFFICULTY button beside BACK changes the difficulty there, and the bests shown with it.
    Pick one and it plays, with its act's story if it opens one, and its results end there: LEVELS on them, or QUIT,
    goes back to the select with its best rank and score recorded, rather than on to the next level. Only a run from
    START can set the best run.
@@ -112,11 +121,13 @@ For WordPress, `node wordpress-plugin/build.js` copies the game into the plugin 
    lost, and SS all of that with every beat PERFECT. Beside the rank, the level's
    beats are broken down: how many were PERFECT, GREAT, GOOD, BAD and MISS (gone by
    unhit, WRONG or OFF TARGET), each one's share of them, and the longest
-   combo; and so is its score: its points (on a boss level, with what the boss paid of them on a line of its own), the
-   most it has been cleared with (NEW BEST when that is these), and the
-   run's TOTAL with them. Over the columns, a scale from early to late shows where every press landed, in the colour
+   combo; and so is its score: its points (on a boss level, with what the boss paid of them on a line of its own), then
+   on a run the run's TOTAL with them and the most a run has scored (NEW BEST when that is this one), or, from the
+   level select, the most the level has been cleared with on its own (NEW BEST when that is these). Over the columns, a scale from early to late shows where every press landed, in the colour
    of what it earned and brighter where more did, with the average marked over them.
- - Every level keeps its bests, on each difficulty: its best rank and its best score. Not its time, as a level lasts
+ - Every level keeps its bests, on each difficulty: its best rank, and its best score from being played on its own,
+   from the level select, since a run's levels, with the multiplier carried in, are on another scale and a run is
+   measured by its total. Not its time, as a level lasts
    as long as its song whoever plays it; the run's time is still kept, since mistakes and retries lengthen it. The
    results set each against its best, and the level select's tiles and each level's card show them.
  - The results wait for you, the level's backdrop moving on behind them: **CONTINUE** adds the level's points to the total and goes on, **RETRY** plays the level
@@ -133,7 +144,8 @@ For WordPress, `node wordpress-plugin/build.js` copies the game into the plugin 
  - **Performance:** a meter under your shields starts each attempt at 75%. Every beat hit fills it, a PERFECT by 3%, a
    GREAT by 2%, a GOOD by 1% and a BAD not at all, twice that in overdrive; every beat missed, gone by unhit, WRONG,
    OFF TARGET or a gate not passed, drains it by 4%. Empty, the track is failed, which costs what a death costs.
- - **Difficulty**, the button under START, decides what a run is, and the button says what it gives. The numbers are
+ - **Difficulty** decides what a run is. START opens the difficulty screen, a button a difficulty, each saying what it
+   gives, and pressing one starts the run on it; the level select has a difficulty button of its own. The numbers are
    `DIFFICULTIES` in run.js:
    - EASY: 5 lives, 4 shields, warnings 25% longer, half points; performance fills 25% faster and drains 25% slower,
      and can never fail you.
@@ -141,7 +153,7 @@ For WordPress, `node wordpress-plugin/build.js` copies the game into the plugin 
    - HARD: 2 lives, 2 shields, warnings 15% shorter, points x1.5; performance fills 20% slower and drains 25% faster.
    - TRUE: no lives, one shield, warnings 30% shorter, points x2; performance fills 35% slower and drains 50% faster.
    The timing windows (PERFECT 50 ms, GREAT 80 ms, GOOD 110 ms, BAD 160 ms) are the same on every difficulty.
-   Records are kept per difficulty, and a level beaten on any of them opens the next on all.
+   Records are kept per difficulty, and so are the level select's unlocks: a level beaten on one opens the next there only.
  - **The song:** each act has one, and a level plays it through: a kick on every beat with a snare on the second and
    fourth, a hat on the off-beats, opened on the bar's last, and a fill through every fourth bar's end; a bass, a pad,
    an arpeggio from the act's second level, reversing every other bar, and the act's melody in two four-bar phrases
@@ -168,8 +180,9 @@ For WordPress, `node wordpress-plugin/build.js` copies the game into the plugin 
    browser doesn't report of your speakers' or headphones' delay (a wireless headset's), your input's, and your own
    habit of tapping ahead or behind. Taps too scattered to trust, or too few, get no suggestion. The TIMING OFFSET
    button still steps by hand, from -100 to +100 ms; a calibrated offset can be anything within 300 ms either way.
-   The waves meet, and the stripes, the sky and the count-in pulse, on the beat as it is judged, so the offset moves
-   what you see as it moves what you are judged on: playing by eye and playing by ear agree.
+   The whole level runs on the beat as it is heard: the lasers fire, the targets and gates arrive, the waves meet and
+   the stripes pulse where your presses are judged, so the offset (and the audio's own delay) moves what you see as it
+   moves what you are judged on: playing by eye and playing by ear agree.
 
 ### Controls:
 
@@ -204,7 +217,7 @@ For WordPress, `node wordpress-plugin/build.js` copies the game into the plugin 
 | `waves.js` | `LEVELS` (the 25 levels: name and lore, bpm, bars, warning lead, phrases, colours, laser sections, and the curve they climb), the `PHRASES` that fill a bar, placing their beams on the tune's notes, the `COLOR_PATTERNS` that paint one, laser form's `TARGET_PHRASES` (`tune` traces the chorus), the seeded timeline, and what goes on screen: `Beam`, `Target`, `Gate` |
 | `story.js` | The acts (`ACTS`: name, their band of the spectrum, backdrop and lore; five levels each) and the epilogue, and the story screens between levels: an act's intro, typed over its backdrop to its theme, a level's card, the epilogue before the finish |
 | `music.js` | Each act's song as MIDI notes (`SONGS`: a key, the `CHORDS` of its bars, its melody, the laser sections' lead, bass and arpeggio lines, and its lead's voice), and the Web Audio synths that play it on the beat track's clock: bass, pad, arpeggio and lead, an echo, and a dip under every kick. It builds through its act, the laser sections play the chorus, overdrive opens the filters, a pause or a death cuts it, a clear rings out on the key's chord, and an act's intro plays its theme. The MUSIC setting (`musicLevel`) scales all of it, or at OFF plays none, and a change plays a moment of Act I's theme to be heard. `songTune` tells the timeline where the tune's notes are, and `zapNote` which one a laser sounds |
-| `run.js` | Difficulties (lives, shields, timing windows, warning times, points, and the blurb the start screen says them in), records per difficulty in localStorage (v3, for the 25 levels): best run and the most a run has banked, each level's best rank and best score, furthest level, how far through each unbeaten level an attempt has got; which levels are beaten, and so open on the level select |
+| `run.js` | Difficulties (lives, shields, warning times, points, the performance meter's rates, and the blurb the difficulty screen says them in), records per difficulty in localStorage (v3, for the 25 levels): best run and the most a run has scored, each level's best rank and the best score it has been cleared with on its own, furthest level, how far through each unbeaten level an attempt has got; which levels are beaten, and so open on the level select |
 | `world.js` | `component`, the player piece's stepped movement, the `hazards` list and hit testing |
 | `player.js` | The player's look: two sine waves drawn off its position history, drifting into a glowing trail, meeting on each beat, the coming beat's colour lit |
 | `death.js` | The death animation: the picture of the hit, taken as the level stops, worked over for 1.3 s before the results in three overlapping movements (the prism split, burn-through, decoherence); a press cuts it short, and reduced effects skip it |
@@ -212,13 +225,13 @@ For WordPress, `node wordpress-plugin/build.js` copies the game into the plugin 
 | `hud.js` | Score / deaths / act and level readout, the overdrive meter and the progress stripe |
 | `fx.js` | The effects setting (auto / full / reduced / off, honouring reduced motion), `fxHash`, the CRT overlay |
 | `sky.js` | Each level's colour, from its act's band of the spectrum, and each act's backdrop in it (`SKY_STYLES`: rising embers, a sun over a grid, an oscilloscope, a warp, an aurora), pulsing on the beat under the level and the story screens, still under the screens between levels. Moving at full effects, still when reduced, only the colour when off |
-| `menu.js` | Start, options, help and level select screens (the select: an act a row, a tile a level, locked until the one before is beaten), settings persistence, hover flash, slogans, start-screen glitches |
+| `menu.js` | Start, difficulty, options, help and level select screens (the select: an act a row, a tile a level, locked until the one before is beaten on the difficulty chosen), settings persistence, hover flash, slogans, start-screen glitches |
 | `titlelight.js` | The start screen's laser: a WebGL fragment shader on a screen-blended canvas over the game's, sweeping behind the title, with light-scattering rays the letters cut shadows through and their outlines burning where it passes. Only at full effects, and nothing at all without WebGL |
-| `titleparticles.js` | The start screen's particles, on a screen-blended canvas of their own: neon dust drifting up, big soft lights far behind it, a shooting star now and then, and sparks struck off the title's letters where the laser crosses behind them, the dust near the laser catching its light. They cut out everything the start screen draws in front of its ground (the title, the buttons, the text, the stripes), so they pass behind all of it. Moving at full effects, still when reduced, gone when off; the dust and stars without WebGL, the sparks only with the laser |
+| `titleparticles.js` | The start screen's particles, which go on rising behind its menu screens (the difficulty screen, the level select, the options, the help and the timing test, behind whatever they draw), on a screen-blended canvas of their own: neon dust drifting up, big soft lights far behind it, a shooting star now and then, and sparks struck off the title's letters where the laser crosses behind them, the dust near the laser catching its light. They cut out everything the screen draws in front of its ground, read off the canvas (the title, the text, the buttons' frames and labels, the stripes), so they pass behind all of it and show through the buttons' insides. Moving at full effects, still when reduced, gone when off; the dust and stars without WebGL, the sparks only with the laser |
 | `calibrate.js` | The timing test (OPTIONS → CALIBRATE): a 100 BPM beat handed to the audio clock as a level's beats are, taps from every input timed by the input's own moment, each measured against its nearest beat less the audio delay the browser reports, and the offset they ask for (their mean once slips are left out, in 5 ms steps, within 300 ms), offered only when they are steady enough. Nothing on its screen moves on the beat |
 | `levels.js` | Level start / end flow (a run from START or from the level select, a new level through its act's story and its card, a death or a retry straight back), the death message, a cleared level's results (the beat breakdown, the rank, the score against its best, and the run's total) and their CONTINUE and RETRY, the pause's RETRY and QUIT, the epilogue and the finish screen |
 | `input.js` | `ACTIONS` (key / mouse / touch / controller bindings), mouse & multi-touch steering, touch buttons, the controller (Gamepad API polling, stick steering, moving between a screen's buttons), the pause panel and the touch resume countdown |
-| `loop.js` | Game state, the fixed 10ms step loop, the beat clock (`beatPos`) and audio scheduling, the judging clock behind it (`judgePos`, `beatOpen`: a press less the audio's delay and the timing offset, which the misses, the lit wave and a target's or gate's stay all go by), hit judging, combo, shields, overdrive, and wave / laser form |
+| `loop.js` | Game state, the fixed 10ms step loop, the beat clock (`beatPos`): the step count less the audio's delay and the timing offset, the beat as it is heard, which every laser, target, gate, pulse and judgment keeps to (`judgePos` is the same clock; `beatOpen` says whether a beat can still be hit), the delay latched as a level starts and read again on a resume, and the beat track scheduled 150 ms ahead from a steady timer as well as from the steps, held while the browser has the audio asleep, hit judging, combo, shields, overdrive, and wave / laser form |
 
 ### Adding gameplay
 

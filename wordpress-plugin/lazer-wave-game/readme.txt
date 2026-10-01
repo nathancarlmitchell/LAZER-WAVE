@@ -4,7 +4,7 @@ Tags: game, rhythm, arcade, html5, embed
 Requires at least: 6.1
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 1.7.0
+Stable tag: 1.8.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -13,17 +13,19 @@ Play Lazer Wave, a neon rhythm arcade game, on your WordPress site.
 == Description ==
 
 Lasers flicker as a warning, then fire on the beat. Steer out of them. You are two sine waves trailing neon: hit on
-the beat, when they meet, in its colour: Z for cyan, X for magenta. Charge the overdrive meter and spend it with Space
-to become a laser, untouchable, for eight beats. At a gate, Space switches you to laser form: lock on, and hit the
-targets in their colours while you dodge the lasers crossing your path.
+the beat, when they meet, in its colour: Z for cyan, X for magenta. Every eight in a row raise your multiplier, with
+no ceiling, and a run carries it from level to level. Charge the overdrive meter and spend it with Space to become a
+laser, untouchable, for eight beats. At a gate, Space switches you to laser form: lock on, and hit the targets in
+their colours while you dodge the lasers crossing your path.
 
 Twenty-five levels in five acts climb the visible spectrum from Infrared to Ultraviolet, at 96 to 132 BPM, with lore
 between them and a boss at the end of every act, a fight that goes round again until the boss falls. Every act has a
-synth song of its own, and the lasers fire on its
-notes. A performance meter fills on every hit and drains on every miss, and at empty the level is failed. Each cleared
-level is ranked from F to SS, and keeps its best rank and best score; a level select opens each level once the one
-before is beaten. Four difficulties, EASY to TRUE, set a run's lives, shields, warnings, points and how fast the meter
-fills and drains.
+synth song of its own, and the lasers fire on its notes. A performance meter fills on every hit and drains on every
+miss, and at empty the level is failed. Each cleared level is ranked from F to SS and keeps its best rank; a level
+played on its own from the level select keeps its best score too, and a run keeps its best total. The level select
+opens each level once the one before is beaten. Four difficulties, EASY to TRUE, picked as a run starts, set its
+lives, shields, warnings, points and how fast the meter fills and drains, and each keeps records and unlocks of its
+own.
 
 The game runs in its own frame, so your theme can't restyle it and it can't clash with the rest of the page.
 
@@ -41,7 +43,8 @@ Shortcode options:
 Example: `[lazer_wave align="wide"]`
 
 Records and settings are saved in the player's browser, not on your site. Its OPTIONS have music and sound effect
-volumes, and CALIBRATE, which finds a player's timing offset as they tap along to a beat.
+volumes, OVERDRIVE, which can spend a full meter by itself, and CALIBRATE, which finds a player's timing offset as
+they tap along to a beat.
 
 == Installation ==
 
@@ -68,6 +71,22 @@ In the game's OPTIONS, CALIBRATE plays a beat to tap along to and suggests the t
 Click the game first so it has the keyboard.
 
 == Changelog ==
+
+= 1.8.0 =
+* The multiplier has no ceiling: every eight in a row raise it by one, it pops up at your orb as it climbs, and on a
+  run the combo carries from each level into the next. The score in the corner is the run's total, or the level's own
+  when it is played from the level select.
+* Records to match: a run keeps its best total, set against it as BEST RUN on every clear, and a level keeps its best
+  score from being played on its own, from the level select.
+* A boss's bonus is multiplied by your multiplier. Past a boss level's first round nothing is earned and the combo
+  holds without climbing, so drawing a fight out never pays.
+* START opens a difficulty screen, each difficulty saying what it gives, and picking one starts the run. LEVELS sits
+  under START, and the level select has a difficulty button of its own. Each difficulty has its own unlocks.
+* OPTIONS > OVERDRIVE: AUTO spends a full meter the moment it fills; MANUAL, the default, leaves it to Space.
+* The start screen's particles rise behind every menu screen and show through the buttons.
+* The whole level keeps to the beat as it is heard: the lasers, targets and gates arrive with the sound, the timing
+  offset and the audio's delay moving all of them; and the beat keeps time through long sessions and long pauses.
+* The waves start closer together and open out as a streak builds. How far a game over reached is printed in white.
 
 = 1.7.0 =
 * A boss level runs until its boss falls: with the boss still up at the level's end it goes round again from the bar
@@ -154,6 +173,10 @@ Click the game first so it has the keyboard.
 * First release.
 
 == Upgrade Notice ==
+
+= 1.8.0 =
+Unlocks are now kept per difficulty: a level cleared on one difficulty opens the next on that difficulty only. A
+run's total, with its multiplier carried from level to level, is now a record of its own.
 
 = 1.2.0 =
 Twenty-five new levels in five acts, with music, a level select and new options. Records from 1.1.0 are not carried

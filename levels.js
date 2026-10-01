@@ -16,14 +16,29 @@ function startGame(e) { // START, or a level picked on the level select: the run
     playSound(aud_click);
     startupStop(); // the startup sequence, if it is still going: the run has its own sounds
     startTime = Date.now();
-    startRunLives(); // the difficulty is locked in from here: its button only lives on the start screen
-    carryHp = carryMeter = null; // a run begins on full shields and an empty meter
+    startRunLives(); // the difficulty is locked in from here: its buttons are only on the difficulty screen and the
+    // level select
+    carryHp = carryMeter = carryCombo = null; // a run begins on full shields, an empty meter and no combo
     gamePiece = new component(PIECE_SIZE, PIECE_SIZE, COLORS.piece, e.pageX - PIECE_SIZE / 2, e.pageY - PIECE_SIZE / 2); // centered on the cursor
     gamePiece.update = function () { drawPlayer(this); };
     gameStart = true;
     runFrom = level;
     selectRun = false; // START's run goes on from level to level; the level select says otherwise after this
     enterLevel();
+}
+
+function startRunFrom(p) { // the difficulty screen: a full run from the first level, on the difficulty just chosen, started
+    // as START used to start one for the input in use (p: where the pointer was, for the mouse's piece)
+    menuScreen = ""; // it goes without being drawn again: the story comes up over it
+    hoveredButton = "";
+    level = 1;
+    if (inputMode == "touch") {
+        startTouchGame();
+    } else if (inputMode == "pad") {
+        startPadGame();
+    } else {
+        startGame({ pageX: p ? p.x : gameArea.canvas.width / 4, pageY: p ? p.y : gameArea.canvas.height / 2 });
+    }
 }
 
 function startRunAt(n, p) { // the level select: a run from level n, started as START starts one for the input in use
@@ -109,7 +124,7 @@ function restartRun() { // after the finish screen, start a fresh run from where
     score = 0;
     runScore = 0;
     startRunLives();
-    carryHp = carryMeter = null;
+    carryHp = carryMeter = carryCombo = null;
     startTime = Date.now();
     enterLevel();
 }
@@ -360,16 +375,21 @@ function showRank(dy) { // the cleared level's rank, large: an S is printed as t
     centerText(gradeRecord ? "NEW BEST" : "best " + best, dy + RESULTS_BOTTOM, 1, RESULTS_RANK_X);
 }
 
-function showScore(dy, dead) { // what the level scored, the breakdown's mirror: its points, the most it has been
-    // cleared with (NEW BEST when that is these, as the rank's best says under it; after a death, just the best, or
-    // none yet), and the run's total with its points in, which is what CONTINUE banks and a life keeps
-    var best = rec().score[level];
+function showScore(dy, dead) { // what the level scored, the breakdown's mirror: its points (on a boss level, what the
+    // boss paid of them on a line of its own), then on a run the run's TOTAL with them and the most a run has had (NEW
+    // BEST when that is this one, as the rank's best says under it), or, from the level select, the most the level has
+    // been cleared with on its own (NEW BEST when that is these). After a death the bests are just shown
     var rows = [["LEVEL " + level, score, ""]];
     if (!dead && bossBonusWon > 0) { // of the level's points, what the boss paid (bossBonus, boss.js)
         rows.push(["BOSS", "+" + bossBonusWon, "boss"]);
     }
-    rows.push([!dead && scoreRecord ? "NEW BEST" : "BEST", best === undefined ? "-" : best, !dead && scoreRecord ? "top" : ""]);
-    rows.push(["TOTAL", runScore + score, "total"]);
+    if (selectRun) {
+        var best = rec().score[level];
+        rows.push([!dead && scoreRecord ? "NEW BEST" : "BEST", best === undefined ? "-" : best, !dead && scoreRecord ? "top" : ""]);
+    } else {
+        rows.push(["TOTAL", runScore + score, "total"]);
+        rows.push([!dead && runRecord ? "NEW BEST" : "BEST RUN", rec().runScore || "-", !dead && runRecord ? "top" : ""]);
+    }
     var pitch = (RESULTS_BOTTOM - RESULTS_TOP) / rows.length;
     ctx.font = "30px Arial";
     ctx.fillStyle = COLORS.dim;
@@ -610,11 +630,11 @@ function chooseResult(name) { // a button on the results: a clear's CONTINUE ("n
             endRun(); // bests recorded
             return;
         }
-        if (name == "next") { // on to the next level, with the shields and the charge this one left
+        if (name == "next") { // on to the next level, with the shields, the charge and the combo this one left
             carryHp = hp;
             carryMeter = drive.start === null ? drive.meter : 0;
-            runScore += score;
-            recordRunScore(runScore); // the run's total, against the most a run has had
+            carryCombo = combo;
+            runScore += score; // the run's total (recorded at the clear, recordRunScore)
             level++;
         }
         score = 0; // the next level, or this one again, starts from nothing
@@ -712,7 +732,7 @@ function endRun() { // the run ends, unrecorded, from the pause's QUIT or the re
     deaths = 0;
     score = 0;
     runScore = 0;
-    carryHp = carryMeter = null;
+    carryHp = carryMeter = carryCombo = null;
     restFrame = null;
     hoveredButton = "";
     startMenuTimers();
@@ -727,7 +747,8 @@ function gameOver() { // the level was cleared or the player died
     var picture = levelCleared ? null : deathPicture(); // the hit as it stands, before the level is cleared away
     stopLevel();
     if (levelCleared) {
-        recordLevel(level); // its rank and its score
+        recordLevel(level); // its rank, and from the level select its score
+        runRecord = !selectRun && recordRunScore(runScore + score); // on a run, its total so far against the most a run has had
         raiseResults("clear"); // which keep its score up until CONTINUE banks it or RETRY lets it go
         return;
     }
@@ -780,7 +801,7 @@ function showReached(dy, over) { // in the rank's place: how far through the lev
     ctx.fillStyle = COLORS.dim;
     centerText("REACHED 到達", dy + RESULTS_TOP, 1, RESULTS_RANK_X);
     ctx.font = "100px Arial";
-    ctx.fillStyle = over ? COLORS.warn : COLORS.text;
+    ctx.fillStyle = COLORS.text; // white on a game over too: the lives line under it carries the red
     centerText(Math.round(deathProgress * 100) + "%", dy, 3, RESULTS_RANK_X);
     var far = rec().reach[level]; // the furthest an attempt has got while the level is unbeaten (recordReach has this one)
     if (reachRecord) { // this one got further than any before: under it, as the rank's new best is

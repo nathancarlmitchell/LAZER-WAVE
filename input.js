@@ -166,6 +166,8 @@ function setPause(paused) { // pause or resume play; only while alive
         drawPauseScreen();
     } else { // exclude paused time from the run's clock
         startTime += Date.now() - pauseStart;
+        beatAudio(); // woken, if the browser put it to sleep over the pause
+        latchLatency(true); // and its delay read again: a device slept or changed over a long pause
         resumeMusic();
     }
 }
@@ -667,7 +669,7 @@ function onTouchEnd(e) { // touchend and touchcancel
             } else if (button && START_BUTTONS[button].setting) {
                 cycleSetting(START_BUTTONS[button].setting);
             } else {
-                startTouchGame(); // a tap anywhere else starts (it has to be on touchend for sound to be allowed)
+                openMenu("difficulty"); // a tap anywhere else is START: the difficulty screen, whose buttons start the run
             }
         } else if (runFinished && restartArmed) {
             restartRun();
@@ -915,6 +917,9 @@ function padDefault(screen) { // the button lit when a controller comes to a scr
     if (screen == "start") {
         return "start";
     }
+    if (screen == "menu" && menuScreen == "difficulty") { // the difficulty chosen last
+        return "diff_" + difficulty;
+    }
     if (screen == "menu" && menuScreen == "levels") { // the level a player carrying on would play
         return "level_" + (levelNextUp() || RUN_LEVELS);
     }
@@ -964,7 +969,7 @@ function padConfirm(screen) { // A: press the lit button, or the one that would 
     if (screen == "start") {
         var b = START_BUTTONS[name];
         if (name == "start") {
-            startPadGame();
+            openMenu("difficulty"); // START: the difficulty screen, whose buttons start the run
         } else if (b && b.menu) {
             openMenu(b.menu);
         } else if (b && b.setting) {
@@ -997,7 +1002,7 @@ function padBack(screen) { // B: out of a menu, or back into the level from the 
 
 function padStart(screen) { // START: the way on from wherever it is pressed
     if (screen == "start") {
-        startPadGame();
+        openMenu("difficulty"); // START: the difficulty screen, whose buttons start the run
     } else if (screen == "menu") {
         closeMenu();
     } else if (screen == "pause") {
@@ -1034,6 +1039,8 @@ function bindInput() { // the touch, mouse, keyboard, controller and page listen
     document.addEventListener("visibilitychange", function () {
         if (document.hidden) {
             releaseAll();
+        } else if (audioCtx) {
+            beatAudio(); // back: the audio woken, if the browser put it to sleep meanwhile
         }
     });
     window.addEventListener("pagehide", releaseAll);
@@ -1050,7 +1057,7 @@ function bindInput() { // the touch, mouse, keyboard, controller and page listen
         if (menuUp()) {
             menuPress(button, p); // a press on nothing here does nothing: it must not reach the game
         } else if (button == "start") {
-            startGame({ pageX: p.x, pageY: p.y });
+            openMenu("difficulty"); // the difficulty screen, whose buttons start the run
         } else if (button && START_BUTTONS[button].menu) {
             openMenu(START_BUTTONS[button].menu);
         } else if (button && START_BUTTONS[button].setting) {
