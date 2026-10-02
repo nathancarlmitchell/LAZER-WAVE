@@ -4,7 +4,7 @@ Tags: game, rhythm, arcade, html5, embed
 Requires at least: 6.1
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 1.10.0
+Stable tag: 1.11.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -25,7 +25,20 @@ miss, and at empty the level is failed. Each cleared level is ranked from F to S
 played on its own from the level select keeps its best score too, and a run keeps its best total. The level select
 opens each level once the one before is beaten. Four difficulties, EASY to TRUE, picked as a run starts, set its
 lives, shields, warnings, points and how fast the meter fills and drains, and each keeps records and unlocks of its
-own. A level played from the level select has no lives: a death offers it again, as often as it takes.
+own. A level played from the level select has no lives: a death offers it again, as often as it takes. BOSS RUSH
+plays the five bosses back to back, with records of its own.
+
+Online leaderboards: players post their own scores to your site, under a name they type, on boards kept per
+difficulty for a run's total, a boss rush's total and each of the 25 levels played on its own. The game's HIGH SCORES
+screen shows them, and so can any page:
+
+* the **Lazer Wave Leaderboard** block (in the Widgets category), or
+* the shortcode `[lazer_wave_scores]`, with `board` (`run`, the default, `rush`, or `level-1` to `level-25`),
+  `difficulty` (`easy`, `normal`, the default, `hard` or `true`), `limit` (how many, 10 by default) and `title`
+
+Example: `[lazer_wave_scores board="level-15" difficulty="hard"]`
+
+A score shows at once. Tools > Lazer Wave Scores lists the newest, to hide one from the boards or delete it.
 
 The game runs in its own frame, so your theme can't restyle it and it can't clash with the rest of the page.
 
@@ -42,7 +55,8 @@ Shortcode options:
 
 Example: `[lazer_wave align="wide"]`
 
-Records and settings are saved in the player's browser, not on your site. Its OPTIONS have music and sound effect
+Records and settings are saved in the player's browser; only the scores players choose to post are kept on your
+site. Its OPTIONS have music and sound effect
 volumes, OVERDRIVE, which can spend a full meter by itself, and CALIBRATE, which finds a player's timing offset as
 they tap along to a beat.
 
@@ -70,8 +84,41 @@ In the game's OPTIONS, CALIBRATE plays a beat to tap along to and suggests the t
 
 Click the game first so it has the keyboard.
 
+= Can a score be faked? =
+
+A browser game's score can always be forged by someone determined, so the site makes it hard to do grossly. A play
+asks your site for a signed ticket as it starts, and its score must come back with that ticket, once, no higher than
+the levels it claims could have given and no sooner than their songs could have played. Posting is rate-limited by
+address, and names are held to the Disallowed Comment Keys in Settings > Discussion. Anything that gets through can be
+hidden or deleted under Tools > Lazer Wave Scores.
+
+= HIGH SCORES says it couldn't reach the site's scores =
+
+The game talks to your site through the WordPress REST API, at /wp-json/lazer-wave/v1/. A security plugin or a
+setting that turns the REST API off for visitors who aren't logged in blocks it, and so does a firewall rule against
+/wp-json/. Allow that path for visitors.
+
+= What does the leaderboard store? =
+
+For each score posted: the board, the difficulty, the name typed, the score, how far the play got, how long it took,
+when it was posted, and a salted hash of the address it came from (for the rate limits, and to tell the scores from
+one place apart; the address itself is not kept). Deleting the plugin leaves the scores table in place, so a
+reinstall keeps the boards.
+
 == Changelog ==
 
+= 1.11.0 =
+* Online leaderboards. Players post their own scores to your site: a run's total, a boss rush's total and each level
+  played from the level select, on boards kept per difficulty. A score that would make its board's top ten asks for a
+  name. HIGH SCORES on the start screen shows the boards, and the Lazer Wave Leaderboard block and the
+  `[lazer_wave_scores]` shortcode show one on any page. Tools > Lazer Wave Scores hides or deletes a score.
+* BOSS RUSH: the five bosses back to back, with lives, the charge and the combo carried from one to the next, and
+  records of its own per difficulty: its best total, its fastest finish and each boss's best rank in it.
+* Practice: START AT plays a level from the first bar of any laser it deals, or of a laser form section, and the top
+  right names what the bar playing deals.
+* A failed level says FAIL, under the level's number and name.
+* Fixed: the sound and the lasers could drift apart after switching tabs or moving on to the next level, as the
+  browser's estimate of its audio delay settled. The game now follows it as it changes.
 = 1.10.0 =
 * PRACTICE on the start screen. LEVELS plays any of the game's 25 levels whole, its preview naming the lasers in each
   bar. CUSTOM puts a pattern together from the levels' makings: any laser or two, in wave form, laser form or both by
@@ -201,6 +248,9 @@ Click the game first so it has the keyboard.
 * First release.
 
 == Upgrade Notice ==
+
+= 1.11.0 =
+Adds online leaderboards. The plugin makes a table for the scores on the first page load after the update.
 
 = 1.8.0 =
 Unlocks are now kept per difficulty: a level cleared on one difficulty opens the next on that difficulty only. A

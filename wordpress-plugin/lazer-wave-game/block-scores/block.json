@@ -1,0 +1,23 @@
+{
+    "$schema": "https://schemas.wp.org/trunk/block.json",
+    "apiVersion": 3,
+    "name": "lazer-wave/scores",
+    "title": "Lazer Wave Leaderboard",
+    "category": "widgets",
+    "icon": "awards",
+    "description": "A Lazer Wave leaderboard: the best scores players have posted from the game on this site.",
+    "keywords": [ "game", "scores", "leaderboard", "high scores", "lazer" ],
+    "textdomain": "lazer-wave-game",
+    "attributes": {
+        "board": { "type": "string", "default": "run" },
+        "level": { "type": "number", "default": 1 },
+        "difficulty": { "type": "string", "default": "normal" },
+        "limit": { "type": "number", "default": 10 }
+    },
+    "supports": {
+        "html": false,
+        "align": [ "wide", "full" ]
+    },
+    "editorScript": "file:./editor.js",
+    "render": "file:./render.php"
+}

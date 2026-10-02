@@ -36,6 +36,71 @@ fs.writeFileSync(path.join(game, "index.html"),
 fs.cpSync(path.join(root, "music"), path.join(game, "music"), { recursive: true });
 console.log("game " + version + ": index.html, " + scripts.length + " scripts, music/ -> " + path.relative(root, game));
 
+// 1b. the leaderboards' limits (scores.php): each level's bars, tempo, act, name and boss, each difficulty's points and
+// lives, and the scoring's own numbers, read from the game's scripts, so the site can refuse a score no play of the
+// levels claimed could have made, or one back sooner than their songs could have played
+function source(file) {
+    return fs.readFileSync(path.join(root, file), "utf8");
+}
+function literal(file, name) { // the array or object literal a game script assigns to `name`, evaluated on its own
+    const src = source(file), at = src.search(new RegExp("(?:const|var)\\s+" + name + "\\s*="));
+    if (at < 0) {
+        throw new Error(name + " not found in " + file);
+    }
+    const open = src.slice(at).search(/[[{]/) + at;
+    let depth = 0, quote = null, end = open;
+    for (; end < src.length; end++) { // to its closing bracket, skipping strings and comments
+        const ch = src[end];
+        if (quote) {
+            if (ch == "\\") {
+                end++;
+            } else if (ch == quote) {
+                quote = null;
+            }
+        } else if (ch == "/" && src[end + 1] == "/") {
+            end = src.indexOf("\n", end);
+        } else if (ch == "/" && src[end + 1] == "*") {
+            end = src.indexOf("*/", end) + 1;
+        } else if (ch == "\"" || ch == "'" || ch == "`") {
+            quote = ch;
+        } else if (ch == "[" || ch == "{") {
+            depth++;
+        } else if (ch == "]" || ch == "}") {
+            depth--;
+            if (depth == 0) {
+                break;
+            }
+        }
+    }
+    return require("vm").runInNewContext("(" + src.slice(open, end + 1) + ")");
+}
+function number(file, name) { // a number a game script gives `name`
+    const m = source(file).match(new RegExp("(?:const|var)\\s+" + name + "\\s*=\\s*([0-9.]+)"));
+    if (!m) {
+        throw new Error(name + " not found in " + file);
+    }
+    return Number(m[1]);
+}
+const levelList = literal("waves.js", "LEVELS"), difficulties = literal("run.js", "DIFFICULTIES");
+const perAct = number("story.js", "LEVELS_PER_ACT");
+const limits = {
+    version: number("online.js", "SCORE_VERSION"),
+    count_in_bars: number("waves.js", "COUNT_IN_BARS"), beats_per_bar: number("waves.js", "BEATS_PER_BAR"),
+    perfect: literal("loop.js", "POINTS").perfect, combo_step: number("loop.js", "COMBO_STEP"),
+    survive: number("loop.js", "SURVIVE_POINTS"), absorb: number("loop.js", "ABSORB_POINTS"),
+    absorbs_per_beat: 8, // more lasers absorbed on a beat than any phrase deals
+    overdrive: number("loop.js", "OVERDRIVE_SCORE"), boss_bonus: number("boss.js", "BOSS_BONUS"),
+    points: {}, lives: {}, levels: {},
+};
+difficulties.forEach(d => { limits.points[d.name] = d.points; limits.lives[d.name] = d.lives; });
+levelList.forEach((def, n) => {
+    if (def) {
+        limits.levels[n] = { name: def.name, bars: def.bars, bpm: def.bpm, act: Math.ceil(n / perAct), boss: !!def.boss };
+    }
+});
+fs.writeFileSync(path.join(game, "scores-limits.json"), JSON.stringify(limits, null, 1));
+console.log("scores: limits for " + Object.keys(limits.levels).length + " levels, scoring version " + limits.version);
+
 // 2 and 3. the zips, each with its folder at the top, as WordPress expects
 fs.rmSync(dist, { recursive: true, force: true });
 fs.mkdirSync(dist, { recursive: true });

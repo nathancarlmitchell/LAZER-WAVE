@@ -20,18 +20,23 @@ const START_BUTTONS = {
         padLabel: "PRESS A TO START", padSub: "Aボタンで開始" }, // a controller: the mouse layout, its own words
     // the level select, under START: the other way into a run. START itself opens the difficulty screen
     // (DIFFICULTY_BUTTONS), which starts the run
-    levels: { dx: -410, dy: 60, w: 300, h: 44, menu: "levels",
-        touch: { dx: -450, dy: 110, w: 400, h: 100 } },
+    levels: { dx: -410, dy: 52, w: 300, h: 40, menu: "levels",
+        touch: { dx: -450, dy: 105, w: 400, h: 80 } },
+    // the boss rush (run.js): the difficulty screen again, its buttons starting the rush
+    rush: { dx: -410, dy: 104, w: 300, h: 40, menu: "rush",
+        touch: { dx: -450, dy: 200, w: 400, h: 80 } },
     // practice (practice.js): any of the levels' makings put together and played, unrecorded
-    practice: { dx: -410, dy: 124, w: 300, h: 44, menu: "practice",
+    practice: { dx: -410, dy: 156, w: 300, h: 40, menu: "practice",
         touch: { dx: 60, dy: -60, w: 400, h: 90 } },
-    options: { dx: -410, dy: 188, w: 300, h: 44, menu: "options",
+    options: { dx: -410, dy: 208, w: 300, h: 40, menu: "options",
         touch: { dx: 60, dy: 50, w: 400, h: 90 } },
-    help: { dx: -410, dy: 252, w: 300, h: 44, menu: "help",
+    help: { dx: -410, dy: 260, w: 300, h: 40, menu: "help",
         touch: { dx: 60, dy: 160, w: 400, h: 90 } },
 };
 
-var menuScreen = ""; // which menu screen is up: "" for none, "difficulty" for the difficulty screen START opens,
+var menuScreen = ""; // which menu screen is up: "" for none, "scores" for the online HIGH SCORES (online.js), "difficulty"
+                     // for the difficulty screen START opens ("rush"
+                     // for the same screen BOSS RUSH opens, which starts the boss rush),
                      // "options" for the settings, "help" for the instructions, "levels" for the level select,
                      // "practice" for the practice screen (practice.js), "calibrate" for the timing test
                      // (calibrate.js), which opens from the settings. The instructions are the one that can also come
@@ -39,6 +44,10 @@ var menuScreen = ""; // which menu screen is up: "" for none, "difficulty" for t
 
 function menuUp() {
     return menuScreen != "";
+}
+
+function difficultyScreen() { // the difficulty screen is up: START's, or BOSS RUSH's
+    return menuScreen == "difficulty" || menuScreen == "rush";
 }
 
 // the difficulty screen, which START opens: a run begins from the difficulty pressed (difficultyPress), each button
@@ -68,8 +77,9 @@ const OPTION_BUTTONS = {
 
 function buttonTable() { // whichever screen's buttons are live
     return menuScreen == "options" ? OPTION_BUTTONS : menuScreen == "help" ? HELP_BUTTONS
-        : menuScreen == "difficulty" ? DIFFICULTY_BUTTONS : menuScreen == "levels" ? levelButtons()
-        : menuScreen == "practice" ? practiceButtons() : menuScreen == "calibrate" ? calButtons() : START_BUTTONS;
+        : difficultyScreen() ? DIFFICULTY_BUTTONS : menuScreen == "levels" ? levelButtons()
+        : menuScreen == "practice" ? practiceButtons() : menuScreen == "calibrate" ? calButtons()
+        : menuScreen == "scores" ? scoresButtons() : START_BUTTONS;
 }
 
 function buttonDef(name) { // a live button's definition, for the things that only need its flags
@@ -413,7 +423,11 @@ function drawScreenBanners() { // the stripes every menu screen wears, so they r
 }
 
 function drawStartScreen() { // draw the start screen, or whichever menu screen is standing in for it
-    if (menuScreen == "difficulty") {
+    if (menuScreen == "scores") {
+        drawScoresScreen();
+        return;
+    }
+    if (difficultyScreen()) {
         drawDifficultyScreen();
         return;
     }
@@ -460,6 +474,10 @@ function drawStartScreen() { // draw the start screen, or whichever menu screen 
 
     var small = (touch ? 34 : 22) + "px Arial";
     drawMenuButton(geom("levels"), "LEVELS レベル", small);
+    drawMenuButton(geom("rush"), "BOSS RUSH ボスラッシュ", small);
+    if (START_BUTTONS.scores) { // where there is a site to fetch them from (online.js)
+        drawMenuButton(geom("scores"), "HIGH SCORES ハイスコア", small);
+    }
     drawMenuButton(geom("practice"), "PRACTICE 練習", small);
     drawMenuButton(geom("options"), "OPTIONS 設定", small);
     drawMenuButton(geom("help"), "HELP 説明", small);
@@ -503,14 +521,15 @@ function drawDifficultyScreen() { // the difficulty screen, which START opens: a
 
     useScreenFrame();
     ctx.textAlign = "center";
+    var rush = menuScreen == "rush", title = rush ? "BOSS RUSH" : "DIFFICULTY"; // BOSS RUSH's, which starts the rush
     ctx.font = "70px Arial";
     ctx.fillStyle = COLORS.cyan; // the title printed twice, as the other menus' are
-    ctx.fillText("DIFFICULTY", cx - 4, cy - 234);
+    ctx.fillText(title, cx - 4, cy - 234);
     ctx.fillStyle = COLORS.magenta;
-    ctx.fillText("DIFFICULTY", cx, cy - 230);
+    ctx.fillText(title, cx, cy - 230);
     ctx.font = "28px Arial";
     ctx.fillStyle = COLORS.text;
-    ctx.fillText("難易度", cx, cy - 196);
+    ctx.fillText(rush ? "ボスラッシュ · 難易度" : "難易度", cx, cy - 196);
     ctx.textAlign = "start";
 
     for (var name in DIFFICULTY_BUTTONS) {
@@ -522,12 +541,24 @@ function drawDifficultyScreen() { // the difficulty screen, which START opens: a
             ctx.fillRect(cx + b.dx + 2, cy + b.dy + 2, b.w - 4, b.h - 4);
             ctx.globalAlpha = 1.0;
         }
+        var r = d ? recFor(d.name) : null, best = r ? (rush ? r.rushScore : r.runScore) : 0;
+        if (best) { // and at its right, the most a run, or a rush, has scored on it: each its own
+            ctx.textAlign = "right";
+            ctx.font = "14px Arial";
+            ctx.fillStyle = COLORS.dim;
+            ctx.fillText(rush ? "BEST RUSH" : "BEST RUN", cx + b.dx + b.w - 14, cy + b.dy + b.h / 2 - 6);
+            ctx.font = "bold 18px Arial";
+            ctx.fillStyle = COLORS.text;
+            ctx.fillText(String(best), cx + b.dx + b.w - 14, cy + b.dy + b.h / 2 + 16);
+            ctx.textAlign = "start";
+        }
     }
 
     ctx.textAlign = "center";
     ctx.font = "20px Arial";
     ctx.fillStyle = COLORS.dim;
-    ctx.fillText("Pick one to start the run on it: records and unlocks are kept for each", cx, cy + 252);
+    ctx.fillText(rush ? "Pick one to start the boss rush on it: its records are kept for each, apart from a run's"
+        : "Pick one to start the run on it: records and unlocks are kept for each", cx, cy + 252);
     ctx.fillText(inputMode == "touch" ? "Tap BACK to return" : inputMode == "pad" ? "Press B to return"
         : "Click BACK, or press Escape, to return", cx, cy + 356);
     ctx.textAlign = "start";
@@ -913,6 +944,9 @@ function openMenu(name) { // put a menu screen up, over the start screen or over
     if (name == "practice") {
         practiceOpened(); // its preview from the top (practice.js)
     }
+    if (name == "scores") {
+        scoresOpened(); // the board, fetched (online.js)
+    }
     themeSync(); // the menu theme plays on, but for the timing test (theme.js)
     drawStartScreen();
     if (gameStart && !menuFlash) {
@@ -967,7 +1001,9 @@ function optionsPress(name) { // a press on the settings screen: cycle a row, op
 
 function menuPress(name, p) { // a press while a menu screen is up, whichever one it is; p, where it was, if it was a
     // pointer's
-    if (menuScreen == "difficulty") {
+    if (menuScreen == "scores") {
+        scoresPress(name);
+    } else if (difficultyScreen()) {
         difficultyPress(name, p);
     } else if (menuScreen == "options") {
         optionsPress(name);

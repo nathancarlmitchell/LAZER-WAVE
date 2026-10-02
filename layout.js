@@ -79,13 +79,14 @@ const HELP_BAND = { w: 670, h: 500, dy: 34 }; // the larger of its two pages, me
 const LEVELS_BAND = { w: 1040, h: 640, dy: 19 }; // the level select: its title's top to BACK's foot, the acts' names to
                                                   // the last column's edge
 const CALIBRATE_BAND = { w: 760, h: 620, dy: 20 }; // the timing test, laid out as the settings are
-const PRACTICE_BAND = { w: 1150, h: 690, dy: 15 }; // the practice screen: its title's top to its last line, the tiles'
+const PRACTICE_BAND = { w: 1150, h: 652, dy: -4 };
+const SCORES_BAND = { w: 640, h: 624, dy: 1 }; // the HIGH SCORES screen (online.js): its title's top to BACK's foot // the practice screen: its title's top to its last line, the tiles'
                                                   // left edge to the preview's right
 
 function screenFrame() { // the frame the screen that is up was drawn in, so a click lands where its buttons are
-    return menuScreen == "options" ? bandFrame(OPTIONS_BAND) : menuScreen == "difficulty" ? bandFrame(DIFFICULTY_BAND)
+    return menuScreen == "options" ? bandFrame(OPTIONS_BAND) : difficultyScreen() ? bandFrame(DIFFICULTY_BAND)
         : menuScreen == "help" ? bandFrame(HELP_BAND) : menuScreen == "levels" ? bandFrame(LEVELS_BAND)
-        : menuScreen == "practice" ? bandFrame(PRACTICE_BAND)
+        : menuScreen == "practice" ? bandFrame(PRACTICE_BAND) : menuScreen == "scores" ? bandFrame(SCORES_BAND)
         : menuScreen == "calibrate" ? bandFrame(CALIBRATE_BAND) : layoutFrame();
 }
 

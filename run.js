@@ -63,6 +63,24 @@ var RECORDS_STORE = "lazerwave.records.v3"; // v3: the five acts of five levels.
                                             // levels, so those records are left where they are, unread
 var RUN_LEVELS = LEVELS.length - 1; // levels in a full run (waves.js); the one after the last is the finish screen
 
+// The boss rush: every boss, one after another, as a run of its own -- its lives, and the shields, the charge and the
+// combo carried from each boss to the next -- with records of its own on each difficulty, kept apart from a run's and
+// the level select's: its best total, its fastest finish and what that cost, and each boss's best rank in it
+var RUSH_LEVELS = LEVELS.map(function (def, n) { return def && def.boss ? n : 0; }).filter(Boolean); // 5, 10, 15, 20, 25
+
+function rushNext(n) { // the boss after level n in the rush, or past the last level: the finish
+    for (var i = 0; i < RUSH_LEVELS.length; i++) {
+        if (RUSH_LEVELS[i] > n) {
+            return RUSH_LEVELS[i];
+        }
+    }
+    return RUN_LEVELS + 1;
+}
+
+function rushIndex(n) { // which of the rush's bosses level n is, from 1
+    return RUSH_LEVELS.indexOf(n) + 1;
+}
+
 var records = { modes: {} }; // a set per difficulty: a best on EASY is not a best on TRUE, and mixing them
                              // would let the easiest mode set a time the hardest could never beat
 
@@ -78,6 +96,10 @@ function rec() { // the record set for the difficulty now selected
             reached: 0, // furthest level started, so a run that never finishes still leaves a mark
             reach: {}, // how far through each unbeaten level an attempt has got, 0 to 1; let go once it is beaten
             runScore: 0, // the most a run has scored: its total at each level it clears, so a run that never finishes counts
+            rush: null, // and the boss rush's, apart from them: its fastest finish, in ms,
+            rushDeaths: 0, // what that cost,
+            rushScore: 0, // the most it has scored, counted as a run's is,
+            rushRank: {}, // and each boss's best rank in it
         };
     }
     return records.modes[difficulty];
@@ -114,7 +136,8 @@ function loadRecords() { // whatever previous runs left, if the browser will tel
             }
             var to = { run: storedTime(from.run), runDeaths: storedTime(from.runDeaths) || 0,
                 reached: Math.min(RUN_LEVELS, storedTime(from.reached) || 0), runScore: storedScore(from.runScore) || 0,
-                rank: {}, score: {}, reach: {} };
+                rank: {}, score: {}, reach: {}, rush: storedTime(from.rush), rushDeaths: storedTime(from.rushDeaths) || 0,
+                rushScore: storedScore(from.rushScore) || 0, rushRank: {} };
             // older records kept each level's time too: nothing reads it now, so the next save lets it go
             if (from.rank && typeof from.rank == "object") {
                 for (var r = 1; r <= RUN_LEVELS; r++) {
@@ -122,6 +145,13 @@ function loadRecords() { // whatever previous runs left, if the browser will tel
                         to.rank[r] = from.rank[r];
                     }
                 }
+            }
+            if (from.rushRank && typeof from.rushRank == "object") { // the boss rush's, for its bosses only
+                RUSH_LEVELS.forEach(function (n) {
+                    if (rankValue(from.rushRank[n]) >= 0) {
+                        to.rushRank[n] = from.rushRank[n];
+                    }
+                });
             }
             if (from.score && typeof from.score == "object") { // records kept before scores were have none: fine
                 for (var k = 1; k <= RUN_LEVELS; k++) {
@@ -203,6 +233,41 @@ function recordReach(n, progress) { // an attempt at level n died `progress` of 
     rec().reach[n] = progress;
     saveRecords();
     return was !== undefined;
+}
+
+function recFor(name) { // the record set for a difficulty named, or null if it has none yet
+    return records.modes[name] || null;
+}
+
+function recordRushLevel(n) { // a boss cleared in the boss rush: its rank, against the best it has had there (a run's and
+    // the level select's are left alone)
+    levelGrade = levelRank().grade;
+    gradeRecord = rankValue(levelGrade) > rankValue(rec().rushRank[n]);
+    scoreRecord = false;
+    if (gradeRecord) {
+        rec().rushRank[n] = levelGrade;
+        saveRecords();
+    }
+}
+
+function recordRushScore(total) { // a boss cleared in the rush: its total with these points, against the most a rush has
+    // had; true when it is the most now
+    if (total > (rec().rushScore || 0)) {
+        rec().rushScore = total;
+        saveRecords();
+        return true;
+    }
+    return false;
+}
+
+function recordRush(ms, cost) { // every boss cleared: the rush's time, against the best there has been
+    var beat = !rec().rush || ms < rec().rush;
+    if (beat) {
+        rec().rush = ms;
+        rec().rushDeaths = cost;
+        saveRecords();
+    }
+    return beat;
 }
 
 function recordRun(ms, cost) { // every level cleared, from the first: the run's time, against the best there has been

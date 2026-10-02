@@ -105,8 +105,10 @@ function showActIntro(a, then) { // an act begins: its name and its lore, over i
 function showLevelCard(n, then) { // a level is next: its name, its tempo and the best it has been cleared with here,
     // and its lore, over its own backdrop
     var def = levelDef(n);
-    var best = [rec().rank[n], rec().score[n]].filter(function (v) { return v !== undefined; }).join("  ");
-    showStory({ kind: "card", n: n, head: "ACT " + roman(levelAct(n)) + "   LEVEL " + n, title: def.name.toUpperCase(),
+    var best = (bossRush ? [rec().rushRank[n]] : [rec().rank[n], rec().score[n]]) // the boss rush's own, in the rush
+        .filter(function (v) { return v !== undefined; }).join("  ");
+    showStory({ kind: "card", n: n, title: def.name.toUpperCase(),
+        head: bossRush ? "BOSS RUSH   " + rushIndex(n) + " / " + RUSH_LEVELS.length : "ACT " + roman(levelAct(n)) + "   LEVEL " + n,
         sub: def.bpm + " BPM   \u00b7   " + modeName() + (best ? "   \u00b7   BEST " + best : ""), lines: def.lore || [],
         then: then });
 }

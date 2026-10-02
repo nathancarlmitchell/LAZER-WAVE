@@ -102,13 +102,17 @@ var PRACTICE_TIPS = {
         + "The HUD counts the rounds. In LEVELS, the whole level is the round.",
     levels: "The game's own levels, any of them, whole: their songs, their lasers, their laser form and their bosses, "
         + "as a run plays them, without lives and unrecorded. The preview plays the level picked, bar by bar.",
+    bar: "Where the level starts. BAR 1 is the whole of it; the arrows step to the first bar of each laser it deals "
+        + "that it hasn't dealt before, and of each laser form section, which starts there after the count-in, its song "
+        + "as the level has it from that bar. The preview plays from it too. A boss has the health the targets still to "
+        + "come can take, and LOOP goes round from it.",
     custom: "A pattern of your own, put together from the levels' makings: any laser or two, in the form, colours, song, "
         + "tempo, warning and length you choose.",
 };
 
 var PRACTICE_STORE = "lazerwave.practice";
 var PRACTICE_SECTIONS = ["levels", "custom"]; // the tabs, in order
-var practiceOpts = { section: "levels", level: 1, phrases: ["rain"], form: "wave", targets: "tune", dodges: 1,
+var practiceOpts = { section: "levels", level: 1, bar: 1, phrases: ["rain"], form: "wave", targets: "tune", dodges: 1,
     colors: "solid", act: 1, bpm: 108, warn: 2, bars: 8, drive: "off", auto: false, restart: false, loop: false };
 
 function practicePhrase(key) { // a phrase's entry, by its key, or null
@@ -142,6 +146,9 @@ function loadPractice() { // what was put together last time, field by field, ea
         }
         if (got.level === Math.floor(got.level) && got.level >= 1 && got.level <= RUN_LEVELS) {
             practiceOpts.level = got.level;
+        }
+        if (got.bar === Math.floor(got.bar) && got.bar >= 1) { // held to the level's own bars where it is read
+            practiceOpts.bar = got.bar;
         }
     } catch (e) { // a private window, or a value written by hand: the defaults stand
     }
@@ -191,6 +198,64 @@ function practiceLevelNo() { // the level whose song, colour, backdrop and seeds
     return practiceLevels() ? practiceOpts.level : practiceHost();
 }
 
+function practiceBarStops(n) { // the bars START AT offers on level n: its first after its rest, and the first bar of every
+    // laser it deals that it hasn't dealt before, and of every laser form section -- not every bar, most of which deal
+    // again what one before them did (level 1 is melody throughout)
+    var dealt = practiceDealt(n), seen = {}, stops = [];
+    for (var b = 1; b < dealt.length; b++) {
+        var k = dealt[b];
+        if (k == "rest" || (k == "laser" ? dealt[b - 1] == "laser" : seen[k])) {
+            continue;
+        }
+        seen[k] = true;
+        stops.push(b);
+    }
+    return stops;
+}
+
+function practiceBar() { // START AT as the screen shows it: the stop at the bar kept, or the last before it
+    var stops = practiceBarStops(practiceOpts.level), bar = stops[0];
+    stops.forEach(function (s) {
+        if (s <= practiceOpts.bar) {
+            bar = s;
+        }
+    });
+    return bar;
+}
+
+function practiceBarsOff() { // a level dealing one laser throughout has nowhere else to start
+    return practiceBarStops(practiceOpts.level).length < 2;
+}
+
+function drawPracticeCaption() { // in a practice level, what the bar playing deals, at the top right, level with the
+    // score: "BAR 9   CROSSFIRE + MELODY", as the preview and START AT name them; from the first bar played
+    if (!practice || !timeline.dealt || beatPos < firstPlayBeat()) {
+        return;
+    }
+    var bar = levelBar(Math.floor(beatPos / BEATS_PER_BAR) - COUNT_IN_BARS), k = timeline.dealt[bar];
+    if (k === undefined) {
+        return;
+    }
+    var s = hudScale(), x = gameArea.canvas.width - 50 * s, y = 70 * (1 - s) + 100 * s; // as the HUD is placed
+    var name = k == "laser" ? "LASER FORM" : k == "rest" ? "REST" : practicePhraseName(k);
+    var num = bar > 0 ? "BAR " + bar + "   " : "";
+    ctx.save();
+    ctx.shadowColor = COLORS.bg; // the HUD's dark halo, for a beam burning behind it
+    ctx.shadowBlur = 6;
+    ctx.textAlign = "right";
+    ctx.font = Math.round(26 * s) + "px Arial";
+    ctx.fillStyle = COLORS.text;
+    ctx.fillText(name, x, y);
+    ctx.fillStyle = COLORS.dim;
+    ctx.fillText(num, x - ctx.measureText(name).width, y);
+    ctx.restore();
+}
+
+function practiceFromBar() { // the bar a practice level starts at (fromBar, loop.js): 0, from the top, rest and all, for
+    // BAR 1 and in CUSTOM; a later bar, straight after the count-in
+    return practiceLevels() && practiceBar() > 1 ? practiceBar() : 0;
+}
+
 function practiceLoopOff() { // LOOP has no say on a boss level, which goes round by itself until its boss falls
     return practiceLevels() && !!levelDef(practiceOpts.level).boss;
 }
@@ -199,15 +264,21 @@ function practiceLoopOn() { // LOOP, where it has its say (practiceLoop, loop.js
     return practiceOpts.loop && !practiceLoopOff();
 }
 
-function practiceLabel() { // what is being practised, as the HUD says it: "RAIN + CAGE", or "LEVEL 15"
+function practiceLabel() { // what is being practised, as the HUD says it: "RAIN + CAGE", or "LEVEL 15 FROM BAR 5"
     if (practiceLevels()) {
-        return "LEVEL " + practiceOpts.level;
+        return "LEVEL " + practiceOpts.level + (practiceFromBar() ? " FROM BAR " + practiceFromBar() : "");
     }
     return practiceOpts.phrases.map(function (k) { return practicePhrase(k).name; }).join(" + ");
 }
 
-function practiceTitle() { // and as the results say it, with a level's name: "LEVEL 15  STATIC BLOOM"
-    return practiceLevels() ? practiceLabel() + "  " + levelDef(practiceOpts.level).name.toUpperCase() : practiceLabel();
+function practiceTitle() { // and as the results say it, with a level's name: "LEVEL 15  STATIC BLOOM  FROM BAR 5"
+    return practiceLevels() ? "LEVEL " + practiceOpts.level + "  " + levelDef(practiceOpts.level).name.toUpperCase()
+        + (practiceFromBar() ? "  FROM BAR " + practiceFromBar() : "") : practiceLabel();
+}
+
+function practiceBarText(n, bar) { // what bar `bar` of level n deals, as START AT names it
+    var k = practiceDealt(n)[bar];
+    return k == "laser" ? "LASER FORM" : k == "rest" || !k ? "REST" : practicePhraseName(k);
 }
 
 function practicePhraseName(key) { // a bar's lasers, as the tiles name them: "SWEEPER + CAGE"
@@ -280,8 +351,8 @@ var practiceRun = { key: "", from: 0 }; // the attempt being played: its setup's
 function practiceKey() { // the setup a best is kept for: the pattern as dealt (what the form makes no use of left out), the
     // difficulty, and the aids that change the points. RESTART ON HIT only ends attempts early, so it shares them
     var p = practiceOpts;
-    if (practiceLevels()) { // a level is its own pattern
-        return ["level", p.level, modeName(), p.drive, p.auto, practiceLoopOn()].join("|");
+    if (practiceLevels()) { // a level is its own pattern, from the bar it starts at
+        return ["level", p.level, practiceFromBar(), modeName(), p.drive, p.auto, practiceLoopOn()].join("|");
     }
     return [p.form == "laser" ? "" : p.phrases.join("+"), p.form, p.form == "wave" ? "" : p.targets + " " + p.dodges,
         p.colors, p.act, p.bpm, p.warn, p.bars, modeName(), p.drive, p.auto, p.loop].join("|");
@@ -316,6 +387,7 @@ var PR_TAB_W = 120, PR_TAB_H = 32, PR_TAB_GX = 10, PR_TAB_TOP = -248; // the tab
 var PR_HEAD_Y = -226; // the columns' headings' baseline: the hint beside the tabs, PREVIEW and the session best
 var PR_LV_W = 102, PR_LV_H = 54, PR_LV_GX = 10; // LEVELS: a level's tile, five to an act's row
 var PR_LV_ACT = 90, PR_LV_NAME = 15, PR_LV_TILES = 21; // an act's row: from its top, its name's baseline and its tiles'
+var PR_BAR_ARROW = 50, PR_BAR_GAP = 6; // START AT, beside the difficulty: its arrows either side of its box
 var PR_TILE_W = 130, PR_TILE_H = 36, PR_TILE_GX = 10, PR_TILE_GY = 8, PR_TILE_COLS = 4;
 var PR_OPT_TOP = 126, PR_OPT_W = 176, PR_OPT_H = 58, PR_OPT_GX = 11, PR_OPT_GY = 9, PR_OPT_COLS = 3;
 var PR_BOX = { dx: PR_RIGHT, dy: PR_TOP, w: PR_COL_W, h: 344 }; // the preview, as the game is laid out, 16:10
@@ -338,6 +410,7 @@ var PRACTICE_OFF_NOTES = { // a greyed-out tile's or box's tooltip says why it i
     tile: "Off in LASER form, which deals only targets: set FORM to WAVE or SWITCH to deal it.",
     laser: "Off in WAVE form, which has no targets: set FORM to LASER or SWITCH to use it.",
     loop: "Off on a boss level, which goes round by itself until its boss falls.",
+    bar: "Off on a level that deals one laser throughout: it starts at BAR 1.",
 };
 
 function practiceButtons() { // the section's buttons: the tabs, "pr_tab_levels"; in LEVELS a tile a level, "pr_lv_15",
@@ -358,6 +431,13 @@ function practiceButtons() { // the section's buttons: the tabs, "pr_tab_levels"
             }
             t.pr_lv_difficulty = { dx: PR_LEFT, dy: PR_PLAY_TOP, w: PR_OPT_W, h: PR_OPT_H,
                 option: PRACTICE_OPTIONS[PRACTICE_OPTIONS.length - 1] }; // DIFFICULTY, the custom boxes' last
+            var left = PR_LEFT + PR_OPT_W + PR_OPT_GX, right = PR_LEFT + PR_COL_W; // and START AT, the rest of the row:
+            var off = { inactive: practiceBarsOff, offNote: PRACTICE_OFF_NOTES.bar }; // greyed out with one bar to offer
+            t.pr_lv_bar_back = Object.assign({ dx: left, dy: PR_PLAY_TOP, w: PR_BAR_ARROW, h: PR_OPT_H, barStep: -1 }, off);
+            t.pr_lv_bar = Object.assign({ dx: left + PR_BAR_ARROW + PR_BAR_GAP, dy: PR_PLAY_TOP, // the stop back, the bar
+                w: right - left - 2 * (PR_BAR_ARROW + PR_BAR_GAP), h: PR_OPT_H, barStep: 1, barBox: true }, off); // (a press
+            t.pr_lv_bar_on = Object.assign({ dx: right - PR_BAR_ARROW, dy: PR_PLAY_TOP, w: PR_BAR_ARROW, h: PR_OPT_H, // steps it
+                barStep: 1 }, off); // on, as a box's does) and the stop on
         } else {
             PRACTICE_PHRASES.forEach(function (ph, i) {
                 t["pr_ph_" + ph.key] = { dx: PR_LEFT + (i % PR_TILE_COLS) * (PR_TILE_W + PR_TILE_GX),
@@ -451,6 +531,21 @@ function drawPracticeTab(b) { // a section's tab: lit, as a picked tile is, whil
     ctx.textAlign = "start";
 }
 
+function drawPracticeArrow(b) { // START AT's arrow, a bar back or on: a box with a triangle pointing the way
+    var x0 = LAYOUT_W / 2 + b.dx, y0 = LAYOUT_H / 2 + b.dy, mx = x0 + b.w / 2, my = y0 + b.h / 2, s = 10;
+    ctx.fillStyle = COLORS.cyan;
+    ctx.fillRect(x0, y0, b.w, b.h);
+    ctx.fillStyle = COLORS.bg;
+    ctx.fillRect(x0 + 2, y0 + 2, b.w - 4, b.h - 4);
+    ctx.fillStyle = COLORS.magenta;
+    ctx.beginPath();
+    ctx.moveTo(mx + b.barStep * s * 0.8, my);
+    ctx.lineTo(mx - b.barStep * s * 0.6, my - s);
+    ctx.lineTo(mx - b.barStep * s * 0.6, my + s);
+    ctx.closePath();
+    ctx.fill();
+}
+
 function drawPracticeAct(a) { // LEVELS: an act's row, its number and name over its tiles, in the colour of its intro
     ctx.textAlign = "start";
     ctx.font = "bold 15px Arial";
@@ -509,7 +604,7 @@ function drawPracticeScreen() { // the screen: the tiles, the boxes, the preview
     ctx.textAlign = "start";
     ctx.font = "16px Arial";
     ctx.fillStyle = COLORS.dim; // beside the tabs, what to do in the section up
-    ctx.fillText(practiceLevels() ? "pick a level: played whole, unrecorded" : practiceTilesOff()
+    ctx.fillText(practiceLevels() ? "pick a level, and the bar to start at" : practiceTilesOff()
         ? "lasers: off in LASER form" : "pick a laser, or two together",
         cx + PR_LEFT + 2 * (PR_TAB_W + PR_TAB_GX) + 6, cy + PR_HEAD_Y, PR_COL_W - 2 * (PR_TAB_W + PR_TAB_GX) - 6);
     ctx.font = "18px Arial";
@@ -535,6 +630,13 @@ function drawPracticeScreen() { // the screen: the tiles, the boxes, the preview
             drawPracticeTab(b);
         } else if (b.lv) {
             drawPracticeLevel(b);
+        } else if (b.barBox) {
+            drawMenuButton(b, "BAR " + practiceBar(), "22px Arial",
+                ["START AT · " + practiceBarText(practiceOpts.level, practiceBar())]);
+            dimPracticeBox(b);
+        } else if (b.barStep) {
+            drawPracticeArrow(b);
+            dimPracticeBox(b);
         } else if (b.phrase) {
             drawPracticeTile(b);
         } else if (b.aid) {
@@ -574,16 +676,6 @@ function drawPracticeScreen() { // the screen: the tiles, the boxes, the preview
         ctx.fillText(line[0], cx + PR_RIGHT, cy + PR_LINES_TOP + i * PR_LINES_PITCH, PR_COL_W);
     });
 
-    ctx.textAlign = "center";
-    ctx.font = "18px Arial";
-    ctx.fillStyle = COLORS.dim;
-    var tile = practiceLevels() ? "level" : "laser";
-    ctx.fillText(inputMode == "touch" ? "Tap a " + tile + " to pick it, a box to change it: what it does shows by it. "
-        + "Nothing here is recorded" : inputMode == "pad" ? "A picks a " + tile + " or changes a box; what the lit one "
-        + "does shows by it. B returns" : "Click a " + tile + " to pick it, a box to change it; point at one for what it "
-        + "does. Escape returns", cx, cy + PR_PLAY_TOP + PR_PLAY_H + 36);
-    ctx.textAlign = "start";
-
     drawScreenBanners();
     drawPracticePreview(performance.now()); // the preview as it stands, and its loop to keep it moving
     drawPracticeTip();
@@ -602,6 +694,9 @@ function practiceTip(name) { // the tooltip for a button: { head, text, b }, or 
     }
     if (b && b.lv) {
         return { head: "LEVEL " + b.lv + "  " + levelDef(b.lv).name.toUpperCase(), text: practiceLevelTip(b.lv), b: b };
+    }
+    if (b && b.barStep) {
+        return { head: "START AT", text: PRACTICE_TIPS.bar, b: b };
     }
     if (b && b.phrase) {
         return { head: b.phrase.name, text: b.phrase.info.charAt(0).toUpperCase() + b.phrase.info.slice(1) + ".", b: b };
@@ -721,8 +816,14 @@ function practicePress(name, p) { // a press on the screen: a tile picks or drop
     }
     if (b.tab) { // the other section, as it was left
         practiceOpts.section = b.tab;
-    } else if (b.lv) {
-        practiceOpts.level = b.lv;
+    } else if (b.lv) { // another level starts from its top
+        if (practiceOpts.level != b.lv) {
+            practiceOpts.level = b.lv;
+            practiceOpts.bar = 1;
+        }
+    } else if (b.barStep) { // START AT: the stop back or on, round from the last to the first
+        var stops = practiceBarStops(practiceOpts.level), at = stops.indexOf(practiceBar());
+        practiceOpts.bar = stops[(at + b.barStep + stops.length) % stops.length];
     } else if (b.phrase) {
         var list = practiceOpts.phrases, at = list.indexOf(b.phrase.key);
         if (at >= 0) {
@@ -765,6 +866,7 @@ function startPracticeRun(p) { // PLAY: the pattern as a level, started as START
     menuScreen = ""; // it goes without being drawn again: the level comes straight up
     hoveredButton = "";
     practice = true;
+    bossRush = false;
     level = practiceLevelNo();
     if (inputMode == "touch") {
         startTouchGame();
@@ -791,7 +893,8 @@ function previewReset() { // build the pattern the screen describes, and play it
     pv.def = practiceWave();
     pv.level = practiceLevelNo();
     pv.timeline = buildTimeline(pv.level, pv.def);
-    var first = (COUNT_IN_BARS + 1) * BEATS_PER_BAR; // the pattern's first bar, after the opening rest
+    var first = (COUNT_IN_BARS + Math.max(1, practiceFromBar())) * BEATS_PER_BAR; // the pattern's first bar, after the
+    pv.first = first; // opening rest, or the bar START AT starts at
     pv.end = practiceLevels() ? (COUNT_IN_BARS + pv.def.bars) * BEATS_PER_BAR
         : first + (practiceOpts.form == "switch" ? 3 : 2) * BEATS_PER_BAR;
     var warn = pv.def.warn * mode().warn, lead = 0;
@@ -898,7 +1001,7 @@ function drawPracticePreview(now) { // step the preview to now and draw it into 
     ctx.strokeStyle = COLORS.cyan;
     ctx.lineWidth = 2;
     ctx.strokeRect(bx - 1, by - 1, PR_BOX.w + 2, PR_BOX.h + 2);
-    var first = (COUNT_IN_BARS + 1) * BEATS_PER_BAR; // what is playing, and where it is in the pattern, as a bar and a beat
+    var first = pv.first; // what is playing, and where it is in the pattern, as a bar and a beat
     var bar = Math.floor(beat / BEATS_PER_BAR) - COUNT_IN_BARS, dealt = pv.timeline.dealt[bar];
     ctx.font = "bold 15px Arial";
     ctx.fillStyle = COLORS.text;
@@ -908,7 +1011,7 @@ function drawPracticePreview(now) { // step the preview to now and draw it into 
         + practiceOpts.targets.toUpperCase() : practiceLabel(), bx + 10, by + PR_BOX.h - 12, PR_BOX.w - 170);
     if (beat >= first && beat < pv.end) {
         ctx.textAlign = "right";
-        ctx.fillText("BAR " + (Math.floor((beat - first) / BEATS_PER_BAR) + 1) + "   BEAT "
+        ctx.fillText("BAR " + bar + "   BEAT "
             + (Math.floor(beat) % BEATS_PER_BAR + 1), bx + PR_BOX.w - 10, by + PR_BOX.h - 12);
     }
     ctx.restore();

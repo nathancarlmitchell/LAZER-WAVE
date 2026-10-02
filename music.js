@@ -221,7 +221,7 @@ function musicBeat(n, delay, beatSec, over) { // beat n of the level proper (0 i
         arp: levelInAct(level) >= ARP_FROM, arpLevel: levelInAct(level), arpHigh: levelInAct(level) >= ARP_HIGH_FROM, lift: songLift(wave, bar, level),
         breakdown: !sec.laser && next !== null && musicSection(wave, next).laser }); // the bar before a laser
         // section is a breakdown: the bass and the drums alone under the melody, so the chorus lands
-    if (n == totalBeats - firstPlayBeat() - 1) { // the last beat (a boss brought down has musicFinish instead): the next one is
+    if (n == totalBeats - levelZeroBeat() - 1) { // the last beat (a boss brought down has musicFinish instead): the next one is
         // the level cleared
         musicEnd(c, m, song, when + beatSec, songLift(wave, wave.bars - 1, level));
     }
@@ -345,9 +345,9 @@ function songTune(def, n, bar) { // what the tune does over bar `bar` of level n
 
 function zapNote(b) { // the note a laser firing on beat b sounds (b counted from the count-in's first beat): the
     // tune's, sounding on that beat, which is the note the laser was placed on, or else the tune's lowest
-    var bar = levelBar(Math.floor((b - firstPlayBeat()) / BEATS_PER_BAR)); // as the level's definition has it
+    var bar = levelBar(Math.floor((b - levelZeroBeat()) / BEATS_PER_BAR)); // as the level's definition has it
     var tune = songTune(wave, level, bar);
-    var note = tune.sound[(b - firstPlayBeat()) % BEATS_PER_BAR];
+    var note = tune.sound[(b - levelZeroBeat()) % BEATS_PER_BAR];
     return note === null ? tune.lo : note;
 }
 
@@ -394,7 +394,7 @@ function musicFinish(delay) { // the level's beats over before its bars are (a b
     if (!c || !music || c.state != "running") {
         return;
     }
-    var bar = levelBar(Math.floor((beatPos - firstPlayBeat()) / BEATS_PER_BAR));
+    var bar = levelBar(Math.floor((beatPos - levelZeroBeat()) / BEATS_PER_BAR));
     musicEnd(c, music, actSong(level), c.currentTime + Math.max(0, delay), songLift(wave, bar, level));
 }
 

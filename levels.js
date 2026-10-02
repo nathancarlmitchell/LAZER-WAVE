@@ -29,10 +29,13 @@ function startGame(e) { // START, or a level picked on the level select: the run
 }
 
 function startRunFrom(p) { // the difficulty screen: a full run from the first level, on the difficulty just chosen, started
-    // as START used to start one for the input in use (p: where the pointer was, for the mouse's piece)
+    // as START used to start one for the input in use (p: where the pointer was, for the mouse's piece); or, opened from
+    // BOSS RUSH, the boss rush, from its first boss
+    var rush = menuScreen == "rush";
     menuScreen = ""; // it goes without being drawn again: the story comes up over it
     hoveredButton = "";
-    level = 1;
+    level = rush ? RUSH_LEVELS[0] : 1;
+    bossRush = rush;
     if (inputMode == "touch") {
         startTouchGame();
     } else if (inputMode == "pad") {
@@ -47,6 +50,7 @@ function startRunAt(n, p) { // the level select: a run from level n, started as 
     menuScreen = ""; // it goes without being drawn again: the story comes up over it
     hoveredButton = "";
     level = n;
+    bossRush = false;
     if (inputMode == "touch") {
         startTouchGame();
     } else if (inputMode == "pad") {
@@ -75,7 +79,7 @@ function enterLevel() { // the run comes to a level it hasn't played: the story 
 function playLevel() { // an attempt at the level begins: after its card, after a death, or on a retry
     gameArea.start();
     alive = true;
-    if (!practice) { // practice is never recorded
+    if (!practice && !bossRush) { // practice is never recorded, and the boss rush keeps records of its own
         reachedLevel(level);
     }
     restFrame = null; // the next transition screen gets a fresh copy
@@ -91,6 +95,7 @@ function playLevel() { // an attempt at the level begins: after its card, after 
         gamePiece.y = gameArea.y - gamePiece.height / 2;
     }
     startLevel(); // the game's own setup for the level about to be played
+    onlinePlayStarts(); // and the play's ticket from the site, if there is one to ask (online.js)
     // No pause here for a window without focus: a press brought the player here (the card's, or a results button),
     // and the card waits for a player who has gone away before going on by itself (storyFrame, story.js). Phones and
     // embedded frames report no focus even as they are tapped, and were starting every level paused
@@ -480,7 +485,7 @@ function showBreakdown(dy, judged) { // how the level's beats went, which is wha
 function showRank(dy) { // the cleared level's rank, large: an S is printed as the title is, the rest in their own
     // colour. Under it, the best this level has had (recordLevel has taken this one)
     var rank = levelRank();
-    var best = rec().rank[level];
+    var best = bossRush ? rec().rushRank[level] : rec().rank[level]; // the boss rush's own, in the rush
     ctx.font = "30px Arial";
     ctx.fillStyle = COLORS.dim;
     centerText("RANK ランク", dy + RESULTS_TOP, 1, RESULTS_RANK_X);
@@ -491,10 +496,15 @@ function showRank(dy) { // the cleared level's rank, large: an S is printed as t
         ctx.fillStyle = rank.color;
         centerText(rank.grade, dy, 3, RESULTS_RANK_X);
     }
-    if (practice) { // nothing kept: what was practised, in its place
-        ctx.font = "22px Arial";
+    if (practice) { // nothing kept: what was practised, in its place, made smaller to keep clear of the columns
+        var said = practiceTitle(), room = RESULTS_SCORE_X - RESULTS_SHARE_X - 40; // either side ("LEVEL 14  GREEN
+        ctx.font = "22px Arial"; // FLASH  FROM BAR 8" is too long for them at full size)
+        var wide = ctx.measureText(said).width;
+        if (wide > room) {
+            ctx.font = Math.floor(22 * room / wide) + "px Arial";
+        }
         ctx.fillStyle = COLORS.dim;
-        centerText(practiceTitle(), dy + RESULTS_BOTTOM, 1, RESULTS_RANK_X);
+        centerText(said, dy + RESULTS_BOTTOM, 1, RESULTS_RANK_X);
         return;
     }
     ctx.font = "30px Arial";
@@ -519,7 +529,8 @@ function showScore(dy, dead) { // what the level scored, the breakdown's mirror:
         rows.push([!dead && scoreRecord ? "NEW BEST" : "BEST", best === undefined ? "-" : best, !dead && scoreRecord ? "top" : ""]);
     } else {
         rows.push(["TOTAL", runScore + score, "total"]);
-        rows.push([!dead && runRecord ? "NEW BEST" : "BEST RUN", rec().runScore || "-", !dead && runRecord ? "top" : ""]);
+        rows.push([!dead && runRecord ? "NEW BEST" : bossRush ? "BEST RUSH" : "BEST RUN", // a rush's against a rush's
+            (bossRush ? rec().rushScore : rec().runScore) || "-", !dead && runRecord ? "top" : ""]);
     }
     var pitch = (RESULTS_BOTTOM - RESULTS_TOP) / rows.length;
     ctx.font = "30px Arial";
@@ -682,6 +693,9 @@ function raiseResults(kind) { // the level ended: its results come up, of the ki
     } else if (kind == "over") { // and the game over, as the tube goes off
         playSfx(sfxGameOver, 0, SFX_LEVELS.gameOver);
     }
+    if (kind == "over" || kind == "clear" && selectRun) { // a run or a rush over, or a level from the select cleared: its
+        onlineOffer(kind == "over" ? "over" : "level"); // name asked for, if the score makes its board (online.js)
+    }
     drawResultsScreen();
     cancelAnimationFrame(resultsFrame);
     if (fxLook() == "full") { // the backdrop moves, so they are drawn again every frame; with less motion it is still
@@ -790,13 +804,17 @@ function chooseResult(name) { // a button on the results: a clear's CONTINUE ("n
             carryMeter = drive.start === null ? drive.meter : 0;
             carryCombo = combo;
             runScore += score; // the run's total (recorded at the clear, recordRunScore)
-            level++;
+            level = bossRush ? rushNext(level) : level + 1; // in the boss rush, the next boss
         }
         score = 0; // the next level, or this one again, starts from nothing
         if (name == "retry") {
             startNextLevel();
-        } else if (level > RUN_LEVELS) {
-            showEpilogue(showFinish);
+        } else if (level > RUN_LEVELS) { // the last one past: the epilogue and the finish, or the rush's finish
+            if (bossRush) {
+                showFinish();
+            } else {
+                showEpilogue(showFinish);
+            }
         } else {
             enterLevel();
         }
@@ -805,16 +823,17 @@ function chooseResult(name) { // a button on the results: a clear's CONTINUE ("n
 
 function showFinish() { // the last level continued past: the run's time and its total, until a click or R
     var runMs = Date.now() - startTime;
-    var full = runFrom == 1; // only a run from the first level can set the best run
-    var runBest = full && recordRun(runMs, deaths);
+    var full = runFrom == 1 || bossRush; // only a run from the first level can set the best run; a rush is always whole
+    var runBest = full && (bossRush ? recordRush(runMs, deaths) : recordRun(runMs, deaths));
     restFrame = null; // a resize copies this screen, not the results under it
     gameArea.clear();
     playSfx(sfxFinale, 0, SFX_LEVELS.finale); // the finale (sfx.js)
+    onlineOffer("finish"); // and the name asked for, if the total makes its board (online.js)
     ctx.font = "80px Arial";
     if (deaths == 0) {
-        printText("Flawless Victory", -175);
+        printText(bossRush ? "Flawless Boss Rush" : "Flawless Victory", -175);
     } else {
-        printText("You continued.", -175);
+        printText(bossRush ? "Boss Rush Clear" : "You continued.", -175);
         ctx.font = "60px Arial";
         printText("It cost you " + mistakes(deaths) + ".", -87);
     }
@@ -823,8 +842,8 @@ function showFinish() { // the last level continued past: the run's time and its
     ctx.font = "30px Arial";
     if (full) {
         ctx.fillStyle = runBest ? COLORS.good : COLORS.text;
-        centerText(runBest ? "NEW BEST" : "best " + millisToMinutesAndSeconds(rec().run)
-            + "   " + mistakes(rec().runDeaths), 45);
+        centerText(runBest ? "NEW BEST" : "best " + millisToMinutesAndSeconds(bossRush ? rec().rush : rec().run)
+            + "   " + mistakes(bossRush ? rec().rushDeaths : rec().runDeaths), 45);
     } else {
         ctx.fillStyle = COLORS.dim;
         centerText("from Level " + runFrom + ": the best run is one from Level 1", 45);
@@ -832,16 +851,17 @@ function showFinish() { // the last level continued past: the run's time and its
     ctx.font = "60px Arial";
     printText("Total score: " + runScore, msgBottom() + 100);
     ctx.fillStyle = COLORS.text;
-    var again = runFrom == 1 ? "" : " from Level " + runFrom; // play again is this run again, from where it began
+    var again = bossRush ? "play the boss rush again" : "play again" + (runFrom == 1 ? "" : " from Level " + runFrom); //
+    // this run again, from where it began
     if (inputMode == "touch") {
         ctx.font = "40px Arial";
-        centerText("Tap to play again" + again, msgBottom() + 70);
+        centerText("Tap to " + again, msgBottom() + 70);
     } else if (inputMode == "pad") {
         ctx.font = "30px Arial";
-        centerText("Press A to play again" + again, msgBottom() + 60);
+        centerText("Press A to " + again, msgBottom() + 60);
     } else {
         ctx.font = "30px Arial";
-        centerText("Click or press R to play again" + again, msgBottom() + 60);
+        centerText("Click or press R to " + again, msgBottom() + 60);
     }
     showMessage();
     runFinished = true;
@@ -889,6 +909,7 @@ function endRun() { // the run ends, unrecorded, from the pause's QUIT or the re
     deaths = 0;
     score = 0;
     runScore = 0;
+    bossRush = false;
     carryHp = carryMeter = carryCombo = null;
     restFrame = null;
     hoveredButton = "";
@@ -910,6 +931,9 @@ function gameOver() { // the level was cleared or the player died
     if (levelCleared) {
         if (practice) { // nothing to record
             gradeRecord = scoreRecord = runRecord = false;
+        } else if (bossRush) { // the rush's own records: the boss's rank in it, and the rush's total
+            recordRushLevel(level);
+            runRecord = recordRushScore(runScore + score);
         } else {
             recordLevel(level); // its rank, and from the level select its score
             runRecord = !selectRun && recordRunScore(runScore + score); // on a run, its total so far against the most a run has had
@@ -918,7 +942,8 @@ function gameOver() { // the level was cleared or the player died
         return;
     }
     deaths += 1;
-    reachRecord = !practice && recordReach(level, deathProgress); // the furthest an attempt has got, while the level is unbeaten
+    reachRecord = !practice && !bossRush && recordReach(level, deathProgress); // the furthest an attempt has got, while the
+    // level is unbeaten (on a run, or from the level select: the rush's deaths leave the level's records alone)
     playSound(aud_death);
     var kind = "over"; // none left: the run is over
     if (selectRun || practice) { // a level from the level select has no lives (runLivesMax, run.js): a death offers it
@@ -940,10 +965,11 @@ function drawDeathResults() { // a death's results, over the level's backdrop, s
     // or, with none left, the game over, and PLAY AGAIN or QUIT
     var over = resultsKind == "over";
     drawSky(level, resultsSkyTime(), null, SKY_RESULTS);
-    ctx.font = "80px Arial";
-    printText(over ? "Game Over" : deathProgress >= 0.9 ? "So Close" : "Try Again", -175);
-    ctx.font = "60px Arial";
-    printText(over ? "ゲームオーバー" : "再試行する", -75);
+    ctx.font = "64px Arial"; // the level, by number and name, and under it FAIL with its Japanese, or So Close for an
+    printText("Level " + level + "  " + levelDef(level).name, -175); // attempt that nearly made it
+    var close = !over && deathProgress >= 0.9;
+    ctx.font = "72px Arial";
+    printText(close ? "So Close  再試行する" : "FAIL  失敗", -80);
     if (timingText()) {
         ctx.font = "30px Arial";
         ctx.fillStyle = timingColor();

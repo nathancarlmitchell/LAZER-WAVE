@@ -121,6 +121,10 @@ function resumeMusic() {
 // scheduleBeats in loop.js), so a beat sounds at the moment the game judges it rather than whenever the step that
 // crossed it happened to run.
 var audioCtx = null;
+var audioRunningAt = 0; // performance.now() when the audio last started running, for its delay's estimate to settle
+var LATENCY_SETTLE_MS = 400; // how long that takes: Chrome reports no delay at all the moment the audio starts or
+                             // resumes, and the true one a tenth of a second or so later -- not always the one it had
+                             // before a pause or a hidden tab
 var BEAT_VOLUME = 0.6;
 var noiseBuffer = null; // a quarter second of white noise, made once, for the hats
 
@@ -150,6 +154,12 @@ function beatAudio() { // the audio context, made on first use and woken if the 
         } catch (e) {
             return null;
         }
+        audioRunningAt = performance.now();
+        audioCtx.onstatechange = function () { // started, or resumed: its delay's estimate starts over
+            if (audioCtx.state == "running") {
+                audioRunningAt = performance.now();
+            }
+        };
     }
     if (audioCtx.state == "suspended") {
         audioCtx.resume().catch(function () {});
@@ -159,6 +169,10 @@ function beatAudio() { // the audio context, made on first use and woken if the 
 
 function audioLatencyMs() { // how long after it is scheduled a sound actually leaves the speakers
     return audioCtx ? 1000 * ((audioCtx.baseLatency || 0) + (audioCtx.outputLatency || 0)) : 0;
+}
+
+function audioLatencySettled() { // can that be trusted now: the audio running, and for long enough to have settled
+    return !!audioCtx && audioCtx.state == "running" && performance.now() - audioRunningAt >= LATENCY_SETTLE_MS;
 }
 
 function envelope(c, when, peak, decay, out) { // a gain node that hits peak at `when` and dies away over `decay` seconds,

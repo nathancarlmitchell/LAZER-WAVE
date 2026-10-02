@@ -206,6 +206,7 @@ function startResumeCountdown() { // the resume's 3, 2, 1 (400ms each): by touch
     if (resumeTimer || !pause || !alive || menuUp()) {
         return;
     }
+    beatAudio(); // the audio woken now, so its delay has settled by the time play does (latchLatency, loop.js)
     var n = 3;
     var beat = function () {
         resumeTimer = null;
@@ -831,6 +832,14 @@ function padSteer(push, dt) { // the sticks move where the piece is heading, as 
 }
 
 function padButton(button, down, time, source) { // a controller button went down or came up
+    if (onlineEntryUp()) { // a name being asked for (online.js): A posts it, B passes, and nothing else is heard
+        if (down && button == PAD.a) {
+            onlineSubmit();
+        } else if (down && button == PAD.b) {
+            onlineSkip();
+        }
+        return;
+    }
     var action = actionForPad(button);
     if (!down) {
         if (action) {
@@ -916,7 +925,10 @@ function padDefault(screen) { // the button lit when a controller comes to a scr
     if (screen == "start") {
         return "start";
     }
-    if (screen == "menu" && menuScreen == "difficulty") { // the difficulty chosen last
+    if (screen == "menu" && menuScreen == "scores") { // the board shown
+        return "sc_kind_" + scoresView.kind;
+    }
+    if (screen == "menu" && difficultyScreen()) { // the difficulty chosen last
         return "diff_" + difficulty;
     }
     if (screen == "menu" && menuScreen == "practice") { // PLAY, the way on
@@ -1148,6 +1160,9 @@ function bindInput() { // the touch, mouse, keyboard, controller and page listen
     });
     window.addEventListener('blur', releaseAll); // releases aren't seen while the window is unfocused; don't keep playing
     window.addEventListener('keydown', function (e) {
+        if (onlineEntryUp()) { // a name being typed (online.js): its panel has the keys
+            return;
+        }
         var key = keyName(e);
         if (key == "Escape" && menuUp()) { // a menu screen's other way out, for anyone who expects it
             e.preventDefault();

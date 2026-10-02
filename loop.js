@@ -27,6 +27,7 @@ var level = 1;
 var runFrom = 1; // the level the run began at: the first, from START, or any the level select opened (menu.js)
 var selectRun = false; // the run was started from the level select: it ends on its level's results, back at the
                        // select, rather than going on to the next level as a run from START does
+var bossRush = false; // the run is the boss rush (RUSH_LEVELS, run.js): each boss in turn, records of its own
 var practice = false; // the level is a practice one (practice.js): put together on the practice screen, played on its own
                       // and back there after, never lost (a hit is counted, not a shield), never recorded
 var practiceHits = 0; // the lasers, and the gates let by, that got the piece in a practice level: what shields would
@@ -47,7 +48,7 @@ function driveOff() { // practice's OVERDRIVE, OFF: the meter never charges, and
 }
 
 function practiceRound() { // practice on LOOP: the round being played, from 1, the opening rest in the first
-    var first = (COUNT_IN_BARS + 1) * BEATS_PER_BAR;
+    var first = loopStartBeat();
     return loopLen > 0 && beatPos >= first ? 1 + Math.floor((beatPos - first) / loopLen) : 1;
 }
 var showFrame = true; // is this step's picture going to be seen, or is another step already due to replace it
@@ -162,10 +163,15 @@ var AUDIO_LOOKAHEAD_MS = 150; // how far ahead beats are scheduled: enough to ri
 var AUDIO_TICK_MS = 25; // the beat track is scheduled from a steady timer this often as well as from the steps, so a frame
                         // that comes late (a busy machine, a tab throttled) can't hold a beat back past its time
 var audioTimer = null;
-var levelLatencyMs = 0; // the audio's delay (audioLatencyMs) as latched for the level: read every step, a change in the
-                        // browser's estimate would shift the whole clock mid-level, so it is read as the level starts and
-                        // again on a resume (latchLatency), when the player is set for a shift
+var levelLatencyMs = 0; // the audio's delay (audioLatencyMs) as the clock takes it. The browser's estimate is nothing the
+                        // moment the audio starts or resumes and settles a moment later, and the delay itself can change
+                        // over a pause or a hidden tab: taken once a level, a bad reading put the lasers and the beat
+                        // apart for the whole of it. So it is followed (trackLatency), once it has settled
 var RESUME_GRACE_STEPS = 30; // steps the piece can't be hurt for after a resume that shifted the clock
+var LATENCY_SLEW = 0.4; // ms a step the clock moves toward a changed delay in mid-play: a twenty-fifth of its pace, caught
+                        // up over a second or two instead of jumped
+var LATENCY_JUMP_MS = 2000; // ms after a resume in which it is jumped to instead, the piece left alone a moment
+var resumedAt = -Infinity; // performance.now() at the last resume
 
 function startAudioTimer() {
     if (audioTimer === null) {
@@ -185,11 +191,38 @@ function stopAudioTimer() {
 }
 
 function latchLatency(resuming) { // read the audio's delay for the clock: as a level starts, and on a resume, when a change
-    // moves every laser by the difference, so the piece is left alone for a moment
+    // moves every laser by the difference, so the piece is left alone for a moment. An estimate still settling is left
+    // for trackLatency to take up once it has
+    if (resuming) {
+        resumedAt = performance.now();
+    }
+    if (!audioLatencySettled()) {
+        return;
+    }
     var was = levelLatencyMs;
     levelLatencyMs = audioLatencyMs();
     if (resuming && Math.abs(levelLatencyMs - was) > 5) {
         invuln = Math.max(invuln, RESUME_GRACE_STEPS);
+    }
+}
+
+function trackLatency() { // each step: the clock follows the audio's delay as the browser comes to report it, once its
+    // estimate has settled: at once over the count-in, where nothing can hurt, and for a moment after a resume, the piece
+    // left alone as the lasers shift; in mid-play a little each step, so a change is caught up without a jump
+    if (!audioLatencySettled()) {
+        return;
+    }
+    var gap = audioLatencyMs() - levelLatencyMs;
+    if (Math.abs(gap) < 1) {
+        return;
+    }
+    if (beatPos < firstPlayBeat() || performance.now() - resumedAt < LATENCY_JUMP_MS) {
+        levelLatencyMs += gap;
+        if (Math.abs(gap) > 5 && beatPos >= firstPlayBeat()) {
+            invuln = Math.max(invuln, RESUME_GRACE_STEPS);
+        }
+    } else {
+        levelLatencyMs += Math.max(-LATENCY_SLEW, Math.min(LATENCY_SLEW, gap));
     }
 }
 
@@ -547,8 +580,16 @@ function gateAhead() { // is a gate in the coming bar, or still inside its windo
     return false;
 }
 
-function firstPlayBeat() { // the first beat after the count-in: the first one that is judged and scored
+var fromBar = 0; // the bar the attempt started at: 0, the level from the top, but for practice's START AT (practice.js)
+
+function levelZeroBeat() { // the level's bar 0, after the count-in: where its bars, its song and its lasers' notes are
+    // counted from, wherever the attempt started
     return COUNT_IN_BARS * BEATS_PER_BAR;
+}
+
+function firstPlayBeat() { // the first beat after the count-in: the first one that is judged and scored. An attempt
+    // started at a later bar (fromBar) has its count-in in the bars before that one, and is judged from it
+    return levelZeroBeat() + fromBar * BEATS_PER_BAR;
 }
 
 function playEnd() { // the beat the player's beats stop at: the level's end, or, its boss down, the beat after the last
@@ -702,10 +743,14 @@ function levelProgress() { // 0..1 through the level, count-in included; on a bo
         return 1 - boss.health / boss.max;
     }
     if (practiceLoop() && loopLen > 0) { // practice going round: how far through the round, from the pattern's first bar
-        var first = (COUNT_IN_BARS + 1) * BEATS_PER_BAR;
+        var first = loopStartBeat();
         return beatPos < first ? 0 : ((beatPos - first) % loopLen) / loopLen;
     }
     return Math.max(0, Math.min(1, beatPos / totalBeats));
+}
+
+function loopStartBeat() { // the beat the level's loop starts at, in its first round: its own bars' end, less a round
+    return (COUNT_IN_BARS + wave.bars) * BEATS_PER_BAR - loopLen;
 }
 
 function levelBar(bar) { // the bar of the level's definition that bar `bar` of the level as played is: its own, or past
@@ -755,12 +800,15 @@ function extendLevel() { // a boss level's end in view with its boss still up: t
 function startLevel() { // a level is about to be played: from the start, or again after a death
     wave = practice ? practiceWave() : levelDef(level); // a practice level is the practice screen's (practice.js)
     timeline = buildTimeline(level, wave);
+    fromBar = practice ? practiceFromBar() : 0; // practice's START AT: from that bar, after a count-in of its own
+    var first = firstPlayBeat(), startBeat = first - levelZeroBeat(); // the bar's first beat, and the count-in's
+    var ahead = timeline.filter(function (ev) { return ev.fire >= first; }); // what the bars before it held is gone
     practiceHits = 0;
     practiceRestartDue = false;
     if (practice) {
         practiceAttempt(); // the session's best for what is practised, to beat (practice.js)
     }
-    spawnQueue = timeline.slice().sort(function (a, b) {
+    spawnQueue = ahead.slice().sort(function (a, b) {
         return (a.fire - eventLead(a, warnBeats())) - (b.fire - eventLead(b, warnBeats()));
     });
     nextSpawn = 0;
@@ -775,18 +823,25 @@ function startLevel() { // a level is about to be played: from the start, or aga
     form = "wave";
     formAt = -Infinity;
     facing = 1;
+    timeline.forEach(function (ev) { // started inside a laser section, in laser form at once, as its gate left it
+        if (ev.axis == "gate" && ev.fire < first) {
+            form = ev.to;
+            facing = ev.to == "laser" ? ev.facing || 1 : 1;
+        }
+    });
     pops = [];
     totalBeats = (COUNT_IN_BARS + wave.bars) * BEATS_PER_BAR;
     latchLatency(false); // the audio's delay, for the clock
-    bossStart(wave, timeline); // its boss, if it has one (boss.js)
-    var from = practiceLoop() ? 1 : loopFrom(wave); // and its loop: the bars dealt again while the boss stands, or in
-    // practice on LOOP, the whole pattern after its opening rest
+    bossStart(wave, ahead); // its boss, if it has one (boss.js), with a point of health for every target still to come
+    var from = practiceLoop() ? Math.max(1, fromBar) : loopFrom(wave); // and its loop: the bars dealt again while the
+    // boss stands, or in practice on LOOP, the whole pattern after its opening rest, or from the bar it started at
     loopLen = from === null ? 0 : (wave.bars - from) * BEATS_PER_BAR;
     loopEvents = timeline.filter(function (ev) { return loopLen > 0 && ev.fire >= (COUNT_IN_BARS + from) * BEATS_PER_BAR; });
     passes = 0;
-    beatPos = 0;
-    lastBeat = -1;
-    scheduledBeat = -1;
+    gameArea.frameNo = Math.round(startBeat * msPerBeat() / STEP_MS); // the clock, from the count-in (gameArea.start
+    beatPos = startBeat; // has just set it going from 0)
+    lastBeat = startBeat - 1;
+    scheduledBeat = startBeat - 1;
     combo = carryCombo === null ? 0 : carryCombo; // a level continued into keeps the run's combo
     streak = bestCombo = 0; // and starts a streak of its own
     perfects = greats = goods = bads = strays = 0;
@@ -847,7 +902,7 @@ function scheduleBeats() { // hand the audio clock every beat due within the loo
             continue;
         }
         synthKick(delay, b % BEATS_PER_BAR == 0);
-        var inBar = b % BEATS_PER_BAR, played = b - firstPlayBeat(); // the beat's place in its bar, and in the level
+        var inBar = b % BEATS_PER_BAR, played = b - levelZeroBeat(); // the beat's place in its bar, and in the level
         if (played >= 0 && (inBar == 1 || inBar == 3)) {
             synthSnare(delay, false); // the backbeat
         }
@@ -862,7 +917,7 @@ function scheduleBeats() { // hand the audio clock every beat due within the loo
                 synthSnare(delay + q * mpb / 4000, true);
             }
         }
-        musicBeat(b - firstPlayBeat(), delay, mpb / 1000, driveOver(b)); // and the song over them (music.js)
+        musicBeat(b - levelZeroBeat(), delay, mpb / 1000, driveOver(b)); // and the song over them (music.js)
         var fires = {}; // the moments within this beat a beam fires at, on it or off it, each sounding once
         timeline.forEach(function (ev) {
             if (ev.fire >= b && ev.fire < b + 1 && ev.axis != "target" && ev.axis != "gate") {
@@ -1247,6 +1302,7 @@ function drawLevel(forDeath) { // draw the level as it stands, without moving an
     useHud();
     drawStats(COLORS.text, COLORS.cyan);
     useWindow();
+    drawPracticeCaption(); // in practice, what the bar playing deals (practice.js)
     drawTouchControls(); // over the HUD, under the piece
     if (!forDeath) {
         gamePiece.update(); // the two waves: where they meet is the beat
@@ -1288,6 +1344,7 @@ function updateGameArea() {
     // numbers, fxHash): skipping a draw must never change what comes next, nor what the next picture looks like.
     showFrame = !fxOverdrawn();
     gameArea.frameNo += 1;
+    trackLatency(); // the audio's delay as it now stands
     beatPos = (gameArea.frameNo * STEP_MS - levelLatencyMs - timingOffset) / msPerBeat(); // the beat as it is heard
     fxStep();
 

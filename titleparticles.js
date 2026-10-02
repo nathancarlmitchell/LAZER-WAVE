@@ -279,7 +279,7 @@ function particleWashes(bg, r) { // the buttons whose insides are a wash of colo
     };
     if (!menuUp()) {
         box(geom("start"), particleRGB(COLORS.cyan), 0.2);
-    } else if (menuScreen == "difficulty") { // the difficulty chosen last, washed in cyan (drawDifficultyScreen)
+    } else if (difficultyScreen()) { // the difficulty chosen last, washed in cyan (drawDifficultyScreen)
         box(DIFFICULTY_BUTTONS["diff_" + difficulty], particleRGB(COLORS.cyan), 0.12);
     } else if (menuScreen == "levels") {
         for (var n = 1; n <= RUN_LEVELS; n++) {

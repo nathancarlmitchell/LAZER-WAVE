@@ -47,7 +47,8 @@ function drawStats(color, scoreColor) { // the score (a run's total, or the leve
     ctx.globalAlpha = 1;
     ctx.font = (touch ? TOUCH_STAT_FONT : 30) + "px Arial";
     ctx.fillStyle = color;
-    ctx.fillText((practice ? "PRACTICE   " + practiceLabel() : "Act " + roman(levelAct(level)) + "  Level " + level)
+    ctx.fillText((practice ? "PRACTICE   " + practiceLabel() : bossRush ? "Boss Rush  " + rushIndex(level) + " / "
+        + RUSH_LEVELS.length : "Act " + roman(levelAct(level)) + "  Level " + level)
         + "   " + wave.bpm + " BPM", 50, touch ? TOUCH_STAT_LEVEL : 220);
     for (var j = 0; j < runLivesMax(); j++) { // the lives, when the run has any (none from the level select): lit while
         drawLife(50 + j * (LIFE_W + LIFE_GAP), touch ? TOUCH_LIVES_Y : LIVES_Y, j < runLives); // they last, as the

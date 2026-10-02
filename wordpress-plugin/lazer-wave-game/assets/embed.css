@@ -61,3 +61,60 @@
 @media (hover: none) and (pointer: coarse) {
     .lazer-wave-game__hint { display: none; }
 }
+
+/* A leaderboard ([lazer_wave_scores] and the Lazer Wave Leaderboard block): the game's colours, as the embed's. */
+.lazer-wave-scores {
+    margin: 1.5em 0;
+    padding: 1em 1.2em;
+    background: #0a0014;
+    border: 2px solid #00ffff;
+    box-shadow: 0 0 24px -8px #00ffff;
+    color: #f2e9ff;
+    font-family: Arial, sans-serif;
+}
+.lazer-wave-scores__title {
+    margin: 0 0 0.6em;
+    color: #ff00ff;
+    font-size: 1.3em;
+    letter-spacing: 0.04em;
+    text-shadow: -2px -2px 0 #00ffff;
+}
+.lazer-wave-scores__empty {
+    margin: 0;
+    color: #8a7a9e;
+}
+.lazer-wave-scores__table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 0;
+    color: #f2e9ff;
+    font-variant-numeric: tabular-nums;
+}
+.lazer-wave-scores__table th,
+.lazer-wave-scores__table td {
+    padding: 0.3em 0.5em;
+    border: 0;
+    border-bottom: 1px solid rgba(0, 255, 255, 0.2);
+    background: transparent;
+    text-align: left;
+}
+.lazer-wave-scores__table th {
+    color: #8a7a9e;
+    font-weight: normal;
+    font-size: 0.85em;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+.lazer-wave-scores__table th:nth-child(3),
+.lazer-wave-scores__table td:nth-child(3),
+.lazer-wave-scores__table th:nth-child(4),
+.lazer-wave-scores__table td:nth-child(4) {
+    text-align: right;
+}
+.lazer-wave-scores__table tbody tr:first-child td {
+    color: #00ffff;
+    font-weight: bold;
+}
+.lazer-wave-scores__table td:nth-child(4) {
+    color: #8a7a9e;
+}
