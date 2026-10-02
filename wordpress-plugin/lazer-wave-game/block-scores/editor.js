@@ -22,7 +22,7 @@
                             label: __("Board", "lazer-wave-game"),
                             value: a.board,
                             options: [
-                                { label: __("Run total (from START)", "lazer-wave-game"), value: "run" },
+                                { label: __("Full run total", "lazer-wave-game"), value: "run" },
                                 { label: __("Boss rush total", "lazer-wave-game"), value: "rush" },
                                 { label: __("A level, played on its own", "lazer-wave-game"), value: "level" },
                             ],

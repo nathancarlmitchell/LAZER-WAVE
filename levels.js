@@ -17,6 +17,7 @@ function startGame(e) { // START, or a level picked on the level select: the run
     startupStop(); // the startup sequence, if it is still going: the run has its own sounds
     themeStop(false, THEME_GO); // and the menu theme, which the menus start again from the top (theme.js)
     startTime = Date.now();
+    onlineRunBegins(); // the best a run or a rush has had, for its total to beat to be offered (online.js)
     startRunLives(); // the difficulty is locked in from here: its buttons are only on the difficulty screen and the
     // level select
     carryHp = carryMeter = carryCombo = null; // a run begins on full shields, an empty meter and no combo
@@ -29,9 +30,9 @@ function startGame(e) { // START, or a level picked on the level select: the run
 }
 
 function startRunFrom(p) { // the difficulty screen: a full run from the first level, on the difficulty just chosen, started
-    // as START used to start one for the input in use (p: where the pointer was, for the mouse's piece); or, opened from
-    // BOSS RUSH, the boss rush, from its first boss
-    var rush = menuScreen == "rush";
+    // as START used to start one for the input in use (p: where the pointer was, for the mouse's piece); or, for the
+    // BOSS RUSH mode (playMode, menu.js), the boss rush, from its first boss
+    var rush = playMode == "rush";
     menuScreen = ""; // it goes without being drawn again: the story comes up over it
     hoveredButton = "";
     level = rush ? RUSH_LEVELS[0] : 1;
@@ -136,6 +137,7 @@ function restartRun() { // after the finish screen, start a fresh run from where
     deaths = 0;
     score = 0;
     runScore = 0;
+    onlineRunBegins();
     startRunLives();
     carryHp = carryMeter = carryCombo = null;
     startTime = Date.now();
@@ -514,8 +516,9 @@ function showRank(dy) { // the cleared level's rank, large: an S is printed as t
 
 function showScore(dy, dead) { // what the level scored, the breakdown's mirror: its points (on a boss level, what the
     // boss paid of them on a line of its own), then on a run the run's TOTAL with them and the most a run has had (NEW
-    // BEST when that is this one, as the rank's best says under it), or, from the level select, the most the level has
-    // been cleared with on its own (NEW BEST when that is these). After a death the bests are just shown
+    // BEST when that is this one, as the rank's best says under it, after a death too, the run's points being kept), or,
+    // from the level select, the most the level has been cleared with on its own (NEW BEST when that is these; after a
+    // death it is just shown)
     var rows = [[practice ? "POINTS" : "LEVEL " + level, score, ""]];
     if (!dead && bossBonusWon > 0) { // of the level's points, what the boss paid (bossBonus, boss.js)
         rows.push(["BOSS", "+" + bossBonusWon, "boss"]);
@@ -529,8 +532,8 @@ function showScore(dy, dead) { // what the level scored, the breakdown's mirror:
         rows.push([!dead && scoreRecord ? "NEW BEST" : "BEST", best === undefined ? "-" : best, !dead && scoreRecord ? "top" : ""]);
     } else {
         rows.push(["TOTAL", runScore + score, "total"]);
-        rows.push([!dead && runRecord ? "NEW BEST" : bossRush ? "BEST RUSH" : "BEST RUN", // a rush's against a rush's
-            (bossRush ? rec().rushScore : rec().runScore) || "-", !dead && runRecord ? "top" : ""]);
+        rows.push([runRecord ? "NEW BEST" : bossRush ? "BEST RUSH" : "BEST RUN", // a rush's against a rush's
+            (bossRush ? rec().rushScore : rec().runScore) || "-", runRecord ? "top" : ""]);
     }
     var pitch = (RESULTS_BOTTOM - RESULTS_TOP) / rows.length;
     ctx.font = "30px Arial";
@@ -926,6 +929,10 @@ function endRun() { // the run ends, unrecorded, from the pause's QUIT or the re
 
 function gameOver() { // the level was cleared or the player died
     var levelCleared = levelComplete();
+    onlineLevelEnds(); // its MAX COMBO, toward the run's for the leaderboards (online.js)
+    if (!practice && !selectRun) {
+        recordRunCombo(bestCombo); // and toward the longest a full run or a rush has had (run.js)
+    }
     var picture = levelCleared ? null : deathPicture(); // the hit as it stands, before the level is cleared away
     stopLevel();
     if (levelCleared) {
@@ -942,6 +949,8 @@ function gameOver() { // the level was cleared or the player died
         return;
     }
     deaths += 1;
+    runRecord = !practice && !selectRun // a run's total, or a rush's, stands at a death too, its points kept: against the
+        && (bossRush ? recordRushScore(runScore + score) : recordRunScore(runScore + score)); // most one has scored
     reachRecord = !practice && !bossRush && recordReach(level, deathProgress); // the furthest an attempt has got, while the
     // level is unbeaten (on a run, or from the level select: the rush's deaths leave the level's records alone)
     playSound(aud_death);

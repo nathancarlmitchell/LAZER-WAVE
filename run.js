@@ -94,12 +94,16 @@ function rec() { // the record set for the difficulty now selected
                        // multiplier from level to level, so its levels score on another scale, and a run is measured by
                        // its total (runScore)
             reached: 0, // furthest level started, so a run that never finishes still leaves a mark
+            runFurthest: 0, // the furthest level a full run has started (the level select's plays aside)
+            runCombo: 0, // the longest combo in any level of a full run: its MAX COMBO, as the level's results show it
             reach: {}, // how far through each unbeaten level an attempt has got, 0 to 1; let go once it is beaten
-            runScore: 0, // the most a run has scored: its total at each level it clears, so a run that never finishes counts
+            runScore: 0, // the most a run has scored: its total as each level ends, cleared or not, so a run that never
+                         // finishes counts, and one that never clears a level
             rush: null, // and the boss rush's, apart from them: its fastest finish, in ms,
             rushDeaths: 0, // what that cost,
             rushScore: 0, // the most it has scored, counted as a run's is,
-            rushRank: {}, // and each boss's best rank in it
+            rushRank: {}, // and each boss's best rank in it,
+            rushCombo: 0, // and its longest combo
         };
     }
     return records.modes[difficulty];
@@ -107,7 +111,7 @@ function rec() { // the record set for the difficulty now selected
 var levelGrade = ""; // the rank the level just cleared was given, and whether that is the best it has had
 var gradeRecord = false;
 var scoreRecord = false; // and whether its points are the most it has been cleared with, playing it on its own
-var runRecord = false; // and, on a run, whether its total at the level just cleared is the most a run has scored
+var runRecord = false; // and, on a run or a rush, whether its total as the level just ended is the most one has scored
 var reachRecord = false; // whether the death just had got further through its unbeaten level than any attempt before
 
 var RECORD_MAX_MS = 86400000; // a day: past this a stored time is not a run, and printing it would look broken
@@ -136,8 +140,10 @@ function loadRecords() { // whatever previous runs left, if the browser will tel
             }
             var to = { run: storedTime(from.run), runDeaths: storedTime(from.runDeaths) || 0,
                 reached: Math.min(RUN_LEVELS, storedTime(from.reached) || 0), runScore: storedScore(from.runScore) || 0,
-                rank: {}, score: {}, reach: {}, rush: storedTime(from.rush), rushDeaths: storedTime(from.rushDeaths) || 0,
-                rushScore: storedScore(from.rushScore) || 0, rushRank: {} };
+                runFurthest: Math.min(RUN_LEVELS, storedTime(from.runFurthest) || 0),
+                runCombo: storedScore(from.runCombo) || 0, rank: {}, score: {}, reach: {}, rush: storedTime(from.rush),
+                rushDeaths: storedTime(from.rushDeaths) || 0, rushScore: storedScore(from.rushScore) || 0, rushRank: {},
+                rushCombo: storedScore(from.rushCombo) || 0 };
             // older records kept each level's time too: nothing reads it now, so the next save lets it go
             if (from.rank && typeof from.rank == "object") {
                 for (var r = 1; r <= RUN_LEVELS; r++) {
@@ -192,9 +198,27 @@ function levelUnlocked(n) { // open on the level select: the first always, and a
     return n == 1 || levelBeaten(n) || levelBeaten(n - 1);
 }
 
-function reachedLevel(n) { // a level began: the furthest one reached is a record of its own for a run that never ends
+function reachedLevel(n) { // a level began: the furthest one reached is a record of its own for a run that never ends,
+    // and on a full run, the furthest one of those has got (the difficulty screen's FURTHEST)
+    var changed = false;
     if (n > rec().reached && n <= RUN_LEVELS) {
         rec().reached = n;
+        changed = true;
+    }
+    if (!selectRun && n > (rec().runFurthest || 0) && n <= RUN_LEVELS) {
+        rec().runFurthest = n;
+        changed = true;
+    }
+    if (changed) {
+        saveRecords();
+    }
+}
+
+function recordRunCombo(n) { // a level of a full run or a boss rush ended, cleared or not: its MAX COMBO against the
+    // longest either has had on this difficulty, each its own
+    var key = bossRush ? "rushCombo" : "runCombo";
+    if (n > (rec()[key] || 0)) {
+        rec()[key] = n;
         saveRecords();
     }
 }
@@ -250,8 +274,8 @@ function recordRushLevel(n) { // a boss cleared in the boss rush: its rank, agai
     }
 }
 
-function recordRushScore(total) { // a boss cleared in the rush: its total with these points, against the most a rush has
-    // had; true when it is the most now
+function recordRushScore(total) { // a boss of the rush cleared, or a death at one: its total with these points, against
+    // the most a rush has had; true when it is the most now
     if (total > (rec().rushScore || 0)) {
         rec().rushScore = total;
         saveRecords();
@@ -280,8 +304,8 @@ function recordRun(ms, cost) { // every level cleared, from the first: the run's
     return beat;
 }
 
-function recordRunScore(total) { // a level cleared on a run: the run's total with its points, against the most a run has
-    // had; true when it is the most now
+function recordRunScore(total) { // a level of a run cleared, or a death on one: the run's total with its points,
+    // against the most a run has had; true when it is the most now
     if (total > (rec().runScore || 0)) {
         rec().runScore = total;
         saveRecords();

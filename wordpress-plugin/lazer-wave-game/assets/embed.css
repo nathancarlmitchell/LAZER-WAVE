@@ -108,13 +108,15 @@
 .lazer-wave-scores__table th:nth-child(3),
 .lazer-wave-scores__table td:nth-child(3),
 .lazer-wave-scores__table th:nth-child(4),
-.lazer-wave-scores__table td:nth-child(4) {
+.lazer-wave-scores__table td:nth-child(4),
+.lazer-wave-scores__table th:nth-child(5),
+.lazer-wave-scores__table td:nth-child(5) {
     text-align: right;
 }
 .lazer-wave-scores__table tbody tr:first-child td {
     color: #00ffff;
     font-weight: bold;
 }
-.lazer-wave-scores__table td:nth-child(4) {
+.lazer-wave-scores__table td:nth-child(5) {
     color: #8a7a9e;
 }

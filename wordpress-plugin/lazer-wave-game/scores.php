@@ -1,9 +1,9 @@
 <?php
 /**
  * Lazer Wave Game: the online leaderboards. Players post their own scores from the game, on boards kept per difficulty:
- * a run's total from START ("run"), a boss rush's total ("rush"), and each level played on its own from the level
- * select ("level-1" to "level-25"). Anyone can post, under a name they type, and a score shows at once; the Tools menu
- * has a screen to hide or delete one.
+ * a full run's total ("run"), a boss rush's total ("rush"), and each level played on its own from the level select
+ * ("level-1" to "level-25"), each score with its play's MAX COMBO. Anyone can post, under a name they type, and a score
+ * shows at once; the Tools menu has a screen to hide or delete one.
  *
  * A browser game's score can always be forged, so the site makes it hard to do grossly: the game asks for a signed,
  * timed ticket as a run or a level starts, and a score must come back with it, once, no sooner than the songs of the
@@ -12,7 +12,7 @@
  * rate-limited by address (kept only as a salted hash), and a name is held to the site's Disallowed Comment Keys.
  *
  * Routes, under /wp-json/lazer-wave/v1/: GET scores?board=&difficulty=&limit= (a board), POST tickets {board,
- * difficulty, version} (a ticket), POST scores {ticket, name, score, reached, grade} (a score, with its place).
+ * difficulty, version} (a ticket), POST scores {ticket, name, score, reached, combo, grade} (a score, with its place).
  *
  * @package Lazer_Wave_Game
  */
@@ -21,7 +21,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'LAZER_WAVE_SCORES_DB', 1 ); // the scores table's layout: a change to it is made on the next page load
+define( 'LAZER_WAVE_SCORES_DB', 2 ); // the scores table's layout: a change to it is made on the next page load (2: combo)
 define( 'LAZER_WAVE_SCORES_TOP', 10 ); // how long a board is shown, by default
 define( 'LAZER_WAVE_SCORES_NAME_MAX', 20 ); // characters in a name, at most
 
@@ -50,6 +50,7 @@ function lazer_wave_scores_install() {
 			name varchar(32) NOT NULL,
 			score bigint(20) unsigned NOT NULL,
 			reached smallint(5) unsigned NOT NULL DEFAULT 0,
+			combo smallint(5) unsigned DEFAULT NULL,
 			grade varchar(4) NOT NULL DEFAULT '',
 			seconds int(10) unsigned NOT NULL DEFAULT 0,
 			version smallint(5) unsigned NOT NULL DEFAULT 1,
@@ -213,6 +214,27 @@ function lazer_wave_scores_min_seconds( $board, $reached ) {
 }
 
 /**
+ * The longest combo a board's play could have had: twice the beats of the longest level it played, as a boss level's
+ * streak can run on into a round after the first. The combo isn't ranked, so one over it is held to it, not refused.
+ *
+ * @param string $board   The board.
+ * @param int    $reached Levels cleared.
+ * @return int
+ */
+function lazer_wave_scores_combo_cap( $board, $reached ) {
+	$limits = lazer_wave_scores_limits();
+	$levels = lazer_wave_scores_levels( $board );
+	if ( 0 !== strpos( $board, 'level-' ) ) {
+		$levels = array_slice( $levels, 0, min( count( $levels ), max( 0, (int) $reached ) + 1 ) );
+	}
+	$most = 0;
+	foreach ( $levels as $n ) {
+		$most = max( $most, (int) $limits['levels'][ $n ]['bars'] * (int) $limits['beats_per_bar'] );
+	}
+	return 2 * $most;
+}
+
+/**
  * The address a request came from, kept only as a salted hash: for the rate limits, and to tell the admin which
  * scores came from the same place.
  */
@@ -317,14 +339,15 @@ function lazer_wave_scores_clean_name( $name ) {
  * @param string $board      The board.
  * @param string $difficulty The difficulty.
  * @param int    $limit      How many.
- * @return array[] place, name, score, reached, grade, date (RFC 3339, UTC)
+ * @return array[] place, name, score, reached, combo (null if not recorded: posted before 1.12.0), grade, date
+ *                 (RFC 3339, UTC)
  */
 function lazer_wave_scores_top( $board, $difficulty, $limit ) {
 	global $wpdb;
 	$table = lazer_wave_scores_table();
 	$rows  = $wpdb->get_results( // phpcs:ignore WordPress.DB.DirectDatabaseQuery -- a table of the plugin's own, read fresh
 		$wpdb->prepare(
-			"SELECT name, score, reached, grade, created FROM {$table} WHERE board = %s AND difficulty = %s AND version = %d AND hidden = 0 ORDER BY score DESC, id ASC LIMIT %d", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- the table's own name
+			"SELECT name, score, reached, combo, grade, created FROM {$table} WHERE board = %s AND difficulty = %s AND version = %d AND hidden = 0 ORDER BY score DESC, id ASC LIMIT %d", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- the table's own name
 			$board,
 			$difficulty,
 			lazer_wave_scores_version(),
@@ -339,6 +362,7 @@ function lazer_wave_scores_top( $board, $difficulty, $limit ) {
 			'name'    => $row['name'],
 			'score'   => (int) $row['score'],
 			'reached' => (int) $row['reached'],
+			'combo'   => null === $row['combo'] ? null : (int) $row['combo'],
 			'grade'   => $row['grade'],
 			'date'    => mysql_to_rfc3339( $row['created'] ),
 		);
@@ -397,6 +421,11 @@ function lazer_wave_scores_routes() {
 						'minimum'  => 1,
 					),
 					'reached' => array(
+						'type'    => 'integer',
+						'default' => 0,
+						'minimum' => 0,
+					),
+					'combo'   => array(
 						'type'    => 'integer',
 						'default' => 0,
 						'minimum' => 0,
@@ -501,6 +530,7 @@ function lazer_wave_scores_rest_post( $request ) {
 	$most       = count( lazer_wave_scores_levels( $board ) );
 	$reached    = 0 === strpos( $board, 'level-' ) ? 1 : min( $most, max( 0, (int) $request['reached'] ) );
 	$grade      = preg_match( '/^(S\+|SS|S|A|B|C|D|F)$/', (string) $request['grade'] ) ? (string) $request['grade'] : '';
+	$combo      = min( lazer_wave_scores_combo_cap( $board, $reached ), max( 0, (int) $request['combo'] ) );
 	if ( $score > lazer_wave_scores_cap( $board, $difficulty, $reached ) ) {
 		return new WP_Error( 'lazer_wave_score', __( 'That is more than those levels could give.', 'lazer-wave-game' ), array( 'status' => 400 ) );
 	}
@@ -517,6 +547,7 @@ function lazer_wave_scores_rest_post( $request ) {
 			'name'       => $name,
 			'score'      => $score,
 			'reached'    => $reached,
+			'combo'      => $combo,
 			'grade'      => $grade,
 			'seconds'    => $seconds,
 			'version'    => lazer_wave_scores_version(),
@@ -524,7 +555,7 @@ function lazer_wave_scores_rest_post( $request ) {
 			'hidden'     => 0,
 			'created'    => current_time( 'mysql', true ),
 		),
-		array( '%s', '%s', '%s', '%d', '%d', '%s', '%d', '%d', '%s', '%d', '%s' )
+		array( '%s', '%s', '%s', '%d', '%d', '%d', '%s', '%d', '%d', '%s', '%d', '%s' )
 	);
 	$above = (int) $wpdb->get_var( // phpcs:ignore WordPress.DB.DirectDatabaseQuery -- a table of the plugin's own, read fresh
 		$wpdb->prepare(
@@ -545,7 +576,7 @@ function lazer_wave_scores_rest_post( $request ) {
 }
 
 /**
- * A board's title: "RUN · NORMAL", "BOSS RUSH · HARD", "LEVEL 15 STATIC BLOOM · EASY".
+ * A board's title: "Full Run · NORMAL", "Boss Rush · HARD", "Level 15: Static Bloom · EASY".
  *
  * @param string $board      The board.
  * @param string $difficulty The difficulty.
@@ -554,7 +585,7 @@ function lazer_wave_scores_title( $board, $difficulty ) {
 	$limits = lazer_wave_scores_limits();
 	$levels = lazer_wave_scores_levels( $board );
 	if ( 'run' === $board ) {
-		$what = __( 'Run', 'lazer-wave-game' );
+		$what = __( 'Full Run', 'lazer-wave-game' );
 	} elseif ( 'rush' === $board ) {
 		$what = __( 'Boss Rush', 'lazer-wave-game' );
 	} else {
@@ -623,6 +654,7 @@ function lazer_wave_scores_render( $args = array() ) {
 						<th scope="col">#</th>
 						<th scope="col"><?php esc_html_e( 'Name', 'lazer-wave-game' ); ?></th>
 						<th scope="col"><?php esc_html_e( 'Score', 'lazer-wave-game' ); ?></th>
+						<th scope="col"><?php esc_html_e( 'Max combo', 'lazer-wave-game' ); ?></th>
 						<th scope="col"><?php echo 0 === strpos( $board, 'level-' ) ? esc_html__( 'Rank', 'lazer-wave-game' ) : esc_html__( 'Reached', 'lazer-wave-game' ); ?></th>
 					</tr>
 				</thead>
@@ -632,6 +664,7 @@ function lazer_wave_scores_render( $args = array() ) {
 							<td><?php echo esc_html( $row['place'] ); ?></td>
 							<td><?php echo esc_html( $row['name'] ); ?></td>
 							<td><?php echo esc_html( number_format_i18n( $row['score'] ) ); ?></td>
+							<td><?php echo null === $row['combo'] ? '&ndash;' : esc_html( number_format_i18n( $row['combo'] ) ); ?></td>
 							<td><?php echo esc_html( lazer_wave_scores_detail( $board, $row ) ); ?></td>
 						</tr>
 					<?php endforeach; ?>
@@ -755,6 +788,7 @@ function lazer_wave_scores_admin_page() {
 					<th><?php esc_html_e( 'Difficulty', 'lazer-wave-game' ); ?></th>
 					<th><?php esc_html_e( 'Name', 'lazer-wave-game' ); ?></th>
 					<th><?php esc_html_e( 'Score', 'lazer-wave-game' ); ?></th>
+					<th><?php esc_html_e( 'Max combo', 'lazer-wave-game' ); ?></th>
 					<th><?php esc_html_e( 'Reached', 'lazer-wave-game' ); ?></th>
 					<th><?php esc_html_e( 'Took', 'lazer-wave-game' ); ?></th>
 					<th><?php esc_html_e( 'Posted (UTC)', 'lazer-wave-game' ); ?></th>
@@ -764,7 +798,7 @@ function lazer_wave_scores_admin_page() {
 			</thead>
 			<tbody>
 				<?php if ( ! $rows ) : ?>
-					<tr><td colspan="9"><?php esc_html_e( 'No scores.', 'lazer-wave-game' ); ?></td></tr>
+					<tr><td colspan="10"><?php esc_html_e( 'No scores.', 'lazer-wave-game' ); ?></td></tr>
 				<?php endif; ?>
 				<?php foreach ( (array) $rows as $row ) : ?>
 					<tr<?php echo $row['hidden'] ? ' style="opacity: 0.5;"' : ''; ?>>
@@ -772,6 +806,7 @@ function lazer_wave_scores_admin_page() {
 						<td><?php echo esc_html( strtoupper( $row['difficulty'] ) ); ?></td>
 						<td><?php echo esc_html( $row['name'] ); ?></td>
 						<td><?php echo esc_html( number_format_i18n( (int) $row['score'] ) ); ?></td>
+						<td><?php echo null === $row['combo'] ? '&ndash;' : esc_html( number_format_i18n( (int) $row['combo'] ) ); ?></td>
 						<td><?php echo esc_html( lazer_wave_scores_detail( $row['board'], $row ) ); ?></td>
 						<td><?php echo esc_html( gmdate( 'G:i:s', (int) $row['seconds'] ) ); ?></td>
 						<td><?php echo esc_html( $row['created'] ); ?></td>

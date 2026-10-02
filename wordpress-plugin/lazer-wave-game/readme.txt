@@ -4,7 +4,7 @@ Tags: game, rhythm, arcade, html5, embed
 Requires at least: 6.1
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 1.11.0
+Stable tag: 1.13.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -29,8 +29,9 @@ own. A level played from the level select has no lives: a death offers it again,
 plays the five bosses back to back, with records of its own.
 
 Online leaderboards: players post their own scores to your site, under a name they type, on boards kept per
-difficulty for a run's total, a boss rush's total and each of the 25 levels played on its own. The game's HIGH SCORES
-screen shows them, and so can any page:
+difficulty for a full run's total, a boss rush's total and each of the 25 levels played on its own, each score with
+its MAX COMBO. The game's HIGH SCORES screen shows them (GLOBAL), beside each player's own bests, kept in their
+browser (LOCAL), and so can any page:
 
 * the **Lazer Wave Leaderboard** block (in the Widgets category), or
 * the shortcode `[lazer_wave_scores]`, with `board` (`run`, the default, `rush`, or `level-1` to `level-25`),
@@ -107,10 +108,41 @@ reinstall keeps the boards.
 
 == Changelog ==
 
+= 1.13.1 =
+* A new telling of the story. Every act's intro and every level's card tell it, a line or two a level, and none of
+  them says how to play any more: the wave climbing from the dark below the red, the Array guarding the way up, and
+  what waits at the Source of the Broadcast.
+
+= 1.13.0 =
+* HIGH SCORES is always on the start screen, with GLOBAL and LOCAL toggled under its title. LOCAL is the player's own
+  bests, kept in their browser, every difficulty at once: for a full run and the boss rush the best total, the
+  longest combo, how far one has got and the fastest finish with what it cost; for each level the best score from
+  the level select and the best rank (or, unbeaten, how far an attempt has got). GLOBAL is your site's leaderboards,
+  as before. Opened on its own, without your site, the game has LOCAL alone.
+* A full run's or a boss rush's total counts as each level ends, deaths and the game over included, as their results
+  show it, and says NEW BEST there when it is one: a run that never clears a level still leaves a best. The longest
+  combo of a full run and of a boss rush, and the furthest level a full run has reached, are kept from this version
+  on.
+
+= 1.12.0 =
+* START opens a mode select screen: FULL RUN, LEVELS or BOSS RUSH, each saying what it is and going on to the
+  difficulty screen, titled with the mode. LEVELS and BOSS RUSH are no longer on the start screen. BACK, Esc or a
+  controller's B goes back one screen at a time.
+* The leaderboards keep each score's MAX COMBO: a level's longest combo, as its results show it, or for a full run or
+  a boss rush the longest in any of its levels. It is a column on the HIGH SCORES screen, the Lazer Wave Leaderboard
+  block and shortcode, and Tools > Lazer Wave Scores, and the name panel shows it. Scores posted before this update
+  show a dash.
+* The run board is called FULL RUN, as its mode is.
+
+= 1.11.1 =
+* Fixed: a cleared level asked for a name for the leaderboard whenever its score would make the board's top ten, so on
+  a board with room left, every clear did, even one below your best. Only a new best asks now: a level cleared with
+  its results saying NEW BEST, or a run or a boss rush whose total beats the most one had scored before.
+
 = 1.11.0 =
 * Online leaderboards. Players post their own scores to your site: a run's total, a boss rush's total and each level
-  played from the level select, on boards kept per difficulty. A score that would make its board's top ten asks for a
-  name. HIGH SCORES on the start screen shows the boards, and the Lazer Wave Leaderboard block and the
+  played from the level select, on boards kept per difficulty. A new best that would make its board's top ten asks
+  for a name. HIGH SCORES on the start screen shows the boards, and the Lazer Wave Leaderboard block and the
   `[lazer_wave_scores]` shortcode show one on any page. Tools > Lazer Wave Scores hides or deletes a score.
 * BOSS RUSH: the five bosses back to back, with lives, the charge and the combo carried from one to the next, and
   records of its own per difficulty: its best total, its fastest finish and each boss's best rank in it.
@@ -248,6 +280,10 @@ reinstall keeps the boards.
 * First release.
 
 == Upgrade Notice ==
+
+= 1.12.0 =
+The scores table gains a MAX COMBO column on the first page load after the update. Scores already posted keep their
+place, with no combo shown.
 
 = 1.11.0 =
 Adds online leaderboards. The plugin makes a table for the scores on the first page load after the update.

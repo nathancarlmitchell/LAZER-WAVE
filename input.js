@@ -669,7 +669,7 @@ function onTouchEnd(e) { // touchend and touchcancel
             } else if (button && START_BUTTONS[button].setting) {
                 cycleSetting(START_BUTTONS[button].setting);
             } else {
-                openMenu("difficulty"); // a tap anywhere else is START: the difficulty screen, whose buttons start the run
+                openMenu("mode"); // a tap anywhere else is START: the mode screen, and from it the difficulty screen
             }
         } else if (runFinished && restartArmed) {
             restartRun();
@@ -928,6 +928,9 @@ function padDefault(screen) { // the button lit when a controller comes to a scr
     if (screen == "menu" && menuScreen == "scores") { // the board shown
         return "sc_kind_" + scoresView.kind;
     }
+    if (screen == "menu" && menuScreen == "mode") { // the mode picked last
+        return "mode_" + playMode;
+    }
     if (screen == "menu" && difficultyScreen()) { // the difficulty chosen last
         return "diff_" + difficulty;
     }
@@ -983,7 +986,7 @@ function padConfirm(screen) { // A: press the lit button, or the one that would 
     if (screen == "start") {
         var b = START_BUTTONS[name];
         if (name == "start") {
-            openMenu("difficulty"); // START: the difficulty screen, whose buttons start the run
+            openMenu("mode"); // START: the mode screen, and from it the difficulty screen
         } else if (b && b.menu) {
             openMenu(b.menu);
         } else if (b && b.setting) {
@@ -1012,7 +1015,7 @@ function padBack(screen) { // B: out of a menu, or back into the level from the 
 
 function padStart(screen) { // START: the way on from wherever it is pressed
     if (screen == "start") {
-        openMenu("difficulty"); // START: the difficulty screen, whose buttons start the run
+        openMenu("mode"); // START: the mode screen, and from it the difficulty screen
     } else if (screen == "menu") {
         closeMenu();
     } else if (screen == "pause") {
@@ -1066,7 +1069,7 @@ function bindInput() { // the touch, mouse, keyboard, controller and page listen
         if (menuUp()) {
             menuPress(button, p); // a press on nothing here does nothing: it must not reach the game
         } else if (button == "start") {
-            openMenu("difficulty"); // the difficulty screen, whose buttons start the run
+            openMenu("mode"); // the mode screen, and from it the difficulty screen
         } else if (button && START_BUTTONS[button].menu) {
             openMenu(START_BUTTONS[button].menu);
         } else if (button && START_BUTTONS[button].setting) {

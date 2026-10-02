@@ -17,8 +17,9 @@ The plugin also keeps the online leaderboards (`scores.php`): a table of its own
 `/wp-json/lazer-wave/v1/` (GET `scores` for a board, POST `tickets` as a play starts, POST `scores` with its ticket),
 the Lazer Wave Leaderboard block and the `[lazer_wave_scores board="run" difficulty="normal" limit="10"]` shortcode
 (`board` is `run`, `rush`, or `level-1` to `level-25`) to show a board on any page, and Tools > Lazer Wave Scores to
-hide or delete a score. The embed passes the routes' address on the game's URL (`api=`), which is how the game knows
-to show HIGH SCORES. A browser game's score can always be forged, so the site makes it hard to do grossly: a score
+hide or delete a score. Each score keeps its play's MAX COMBO (`combo`; posted before 1.12.0, none). The embed
+passes the routes' address on the game's URL (`api=`), which is how the game knows to give HIGH SCORES its GLOBAL
+view (LOCAL, the browser's own bests, is there either way). A browser game's score can always be forged, so the site makes it hard to do grossly: a score
 comes back with the signed ticket its play started with, once, no higher than the levels it claims could give and no
 sooner than their songs could have played (both worked out from the game's own levels and scoring by build.js, into
 `game/scores-limits.json`; a boss level counts only its count-in and a tenth of its bars, as overdrive can bring a
@@ -123,24 +124,30 @@ old scores unfair: the site then starts fresh boards, the old scores kept but no
    itself. A retry comes straight back to the level, and a death after its results. After the last level, an epilogue,
    then the finish.
    The time the story is up is left off the run's time.
- - **Level select:** LEVELS, under START, shows every level, an act a row, each in its colour. Level 1 is
+ - **Modes:** START opens the mode screen, **MODE SELECT**: **FULL RUN** (every level from the first, on lives),
+   **LEVELS** (the level select) or **BOSS RUSH**, each saying what it is, and each going on to the difficulty screen,
+   titled with the mode (below). The mode picked last, like the difficulty, is washed in cyan, and a controller comes
+   to it. BACK goes back a screen at a time, as Escape and a controller's B do: the level select to its difficulty
+   screen, a difficulty screen to the modes, the modes to the start screen.
+ - **Level select:** LEVELS, from the mode screen and its difficulty screen, shows every level, an act a row, each in
+   its colour (L on the start screen opens it straight away). Level 1 is
    always open, and a level opens once the one before it has been beaten on the difficulty chosen, in a run or on its
    own; each difficulty has unlocks of its own. A locked one is a
    padlock. An open one shows its name, and its best rank and best score on the difficulty chosen, and the next one
    to beat says NEXT. A DIFFICULTY button beside BACK changes the difficulty there, and the bests shown with it.
    Pick one and it plays, with its act's story if it opens one, and its results end there: LEVELS on them, or QUIT,
-   goes back to the select with its best rank and score recorded, rather than on to the next level. Only a run from
-   START can set the best run. A level played from the select has no lives: a death offers it again from nothing, its
+   goes back to the select with its best rank and score recorded, rather than on to the next level. Only a full run
+   can set the best run. A level played from the select has no lives: a death offers it again from nothing, its
    points gone as the pause's RETRY's are, as often as it takes, and is never the game over.
- - **Boss rush:** BOSS RUSH, under LEVELS, opens the difficulty screen again, titled BOSS RUSH, and starts the rush on
+ - **Boss rush:** BOSS RUSH, on the mode screen, opens the difficulty screen titled BOSS RUSH, and starts the rush on
    the difficulty picked: the five bosses one after another (Red Giant, Interference, Static Bloom, Overdrive, Lazer
    Wave), as a run plays them, with its lives, and the shields, the overdrive charge and the combo carried from each
    boss to the next. Each one's card says which it is (BOSS RUSH 3 / 5), as does the HUD. After the last, the finish
    comes straight up (no epilogue): FLAWLESS BOSS RUSH, or BOSS RUSH CLEAR and what it cost, the time and the total,
    and PLAY AGAIN starts the rush over. Its records are its own, kept per difficulty apart from a run's: the most a
    rush has scored (its results say BEST RUSH, or NEW BEST), its fastest finish and what that cost, and each boss's
-   best rank in it. A rush leaves a run's records, the levels' ranks and the level select's unlocks as they were. The
-   difficulty screen shows each difficulty's best on its button, BEST RUN from START and BEST RUSH from BOSS RUSH.
+   best rank in it. A rush leaves a run's records, the levels' ranks and the level select's unlocks as they were.
+   HIGH SCORES' LOCAL view shows them all (below).
  - **Practice:** PRACTICE on the start screen plays any level, or a pattern of your own, without lives and unrecorded.
    Two tabs over its tiles pick the section, and the screen comes back on the one last used. **LEVELS** has a tile for
    every one of the game's 25 levels, an act a row in their colours of the spectrum as on the level select, the bosses
@@ -184,16 +191,24 @@ old scores unfair: the site then starts fresh boards, the old scores kept but no
    going and an attempt cut short by RESTART ON HIT count too: the HUD shows it beside the hits (in a new best's
    colour while the attempt is beating it), the results say NEW BEST when that attempt set it, and the practice
    screen shows the best for whatever is set up, over the preview.
- - **High scores (online):** on a WordPress site with the Lazer Wave Game plugin (1.11.0 or later), the start screen
-   has **HIGH SCORES** under PRACTICE, and players post their own scores to the site's boards: a run's total from
-   START, a boss rush's total, and each level's score played on its own from the level select, every board kept per
-   difficulty. The screen shows a board's top ten: RUN, BOSS RUSH or LEVELS (with arrows for which level), and the
-   difficulty, with how far each run got (LEVEL 12, BOSS 3 / 5, CLEARED) or each level's rank. A play asks the site
-   for a ticket as it starts. When it ends with a score that would make its board's top ten (a run or a rush over or
-   finished, or a level from the level select cleared), a panel over the results asks for a name, up to 20 characters
-   and remembered for next time, and posts it, saying the place it took, or what the site refused it for; SKIP, Esc or
-   a controller's B lets it go. Practice posts nothing. Without the plugin passing the site's address (the game off
-   disk, or served on its own) none of this shows.
+ - **High scores:** **HIGH SCORES**, under PRACTICE on the start screen, has two views, **GLOBAL** and **LOCAL**,
+   switched by the toggle under its title, each with FULL RUN, BOSS RUSH and LEVELS tabs (LEVELS with arrows for which
+   level). **LOCAL** is this browser's own bests, a row a difficulty, the one in force lit: for a full run or the boss
+   rush its BEST total, its **MAX COMBO** (the longest combo in any of its levels, deaths' included), how far one has
+   got (REACHED: LEVEL 13, BOSS 3 / 5, or CLEARED once one has finished) and its FASTEST finish with what that cost;
+   for a level, its best score from the level select and its best rank from any clear (or, unbeaten, how far an
+   attempt has got, or LOCKED). **GLOBAL** is the site's leaderboards, on a WordPress site with the Lazer Wave Game
+   plugin (1.11.0 or later): players post their own scores there, a full run's total, a boss rush's total, and each
+   level's score played on its own from the level select, every board kept per difficulty. It shows a board's top ten,
+   picked by its tab and the difficulty, with each score's MAX COMBO (a level's as its results showed it; a run's or a
+   rush's, the longest of its levels') and how far each run got (LEVEL 12, BOSS 3 / 5, CLEARED) or each level's rank.
+   Without a site, HIGH SCORES has LOCAL alone, and no toggle. A play asks the site for a ticket as it starts. When it ends with a new best that would also make its board's top ten (a level from the
+   level select cleared with its results saying NEW BEST, or a run or a rush over or finished with a total above the
+   most one had scored when it began), a panel over the results asks for a name, up to 20 characters and remembered
+   for next time, and posts it, saying the place it took, or what the site refused it for; SKIP, Esc or a
+   controller's B lets it go. A play that isn't a new best asks nothing, and keeps its ticket for the next. Practice
+   posts nothing, and without the plugin passing the site's address (the game off disk, or served on its own) nothing
+   is posted at all.
  - Every act has a backdrop and a song of its own, and every level a colour of the spectrum, from red at the first to
    violet at the last. The lasers follow the song: they fire on the melody's notes, as high on the screen as each note
    is high in the tune, laser form's targets trace the chorus, and each laser sounds the note it fires on. The song
@@ -208,7 +223,9 @@ old scores unfair: the site then starts fresh boards, the old scores kept but no
    unhit, WRONG or OFF TARGET) and each one's share of them, under the longest combo against the beats (MAX COMBO
    26 / 72: the level's own, not the run's carried in), coloured as the rank it would be on the same scale, so a combo
    through 90% of the beats or more is printed as an S is; and so is its score: its points (on a boss level, with what the boss paid of them on a line of its own), then
-   on a run the run's TOTAL with them and the most a run has scored (NEW BEST when that is this one), or, from the
+   on a run the run's TOTAL with them and the most a run has scored (NEW BEST when that is this one; a run's total, its
+   points kept through its deaths, counts at a death and the game over too, so a run that never clears a level still
+   leaves one), or, from the
    level select, the most the level has been cleared with on its own (NEW BEST when that is these). Over the columns, a scale from early to late shows where every press landed, in the colour
    of what it earned and brighter where more did, with the average marked over them.
  - Every level keeps its bests, on each difficulty: its best rank, and its best score from being played on its own,
@@ -231,12 +248,13 @@ old scores unfair: the site then starts fresh boards, the old scores kept but no
    one that doesn't says how far the best got. Out of lives it is the game over: FAIL under red banners, with **PLAY AGAIN** and **QUIT**.
    The lives are in the corner under the level's line: a small copy of your piece for each, its two waves meeting at
    its core, dim once spent. A death's results show them the same way, the one it spent going out. Lives belong to a
-   run from START; the level select's levels have none (above).
+   full run and the boss rush; the level select's levels have none (above).
  - **Performance:** a meter under your shields starts each attempt at 75%. Every beat hit fills it, a PERFECT by 3%, a
    GREAT by 2%, a GOOD by 1% and a BAD not at all, twice that in overdrive; every beat missed, gone by unhit, WRONG,
    OFF TARGET or a gate not passed, drains it by 4%. Empty, the track is failed, which costs what a death costs.
- - **Difficulty** decides what a run is. START opens the difficulty screen, a button a difficulty, each saying what it
-   gives, and pressing one starts the run on it; the level select has a difficulty button of its own. The numbers are
+ - **Difficulty** decides what a run is. Each mode opens the difficulty screen, a button a difficulty, each saying what
+   it gives, and pressing one starts the run or the rush on it, or opens the level select on it, which has a
+   difficulty button of its own too. The numbers are
    `DIFFICULTIES` in run.js:
    - EASY: 5 lives, 4 shields, warnings 25% longer, half points; performance fills 25% faster and drains 25% slower,
      and can never fail you.
@@ -333,7 +351,7 @@ old scores unfair: the site then starts fresh boards, the old scores kept but no
 | `music.js` | Each act's song as MIDI notes (`SONGS`: a key, the `CHORDS` of its bars, its melody, the laser sections' lead, bass and arpeggio lines, and its lead's voice), and the Web Audio synths that play it on the beat track's clock: bass, pad, arpeggio and lead, an echo, and a dip under every kick. It builds through its act, the laser sections play the chorus, overdrive opens the filters, a pause or a death cuts it, a clear rings out on the key's chord, and an act's intro plays its theme. The MUSIC setting (`musicLevel`) scales all of it, or at OFF plays none, and a change over a paused level plays a moment of Act I's theme to be heard (on the menus, the menu theme is playing to hear it in: `theme.js`). `songTune` tells the timeline where the tune's notes are, and `zapNote` which one a laser sounds |
 | `sfx.js` | The synthesized sound effects, each a function of (context, time, output, argument) built from a small kit (`sfxKit`: enveloped gains, oscillators, noise, filters, panners, a ping-pong echo, a room, pulse waves) so it can be rendered offline as well as played (`playSfx`), at its own level (`SFX_LEVELS`, set by measurement against the sounds around it) times SOUND FX's: the startup sequence, the gate, overdrive's start and end, the absorb, the multiplier, the boss's siren and fall, the new best's bells, the game over and the finale |
 | `theme.js` | The menu theme: its song (`THEME`, in the acts' songs' notation: sections of bars with their chords and their bass, arpeggio and lead lines, how bright and which drums), played on music.js's synths and audio.js's drums (on a kit and into a bus of its own) by a timer of its own, the intro once and the rest round and round; when it plays (`themeWanted`: the start screen and its menus, not the timing test, MUSIC on, the page in sight) and the hand-over from the startup sequence (`themeSync`, `themeStart`, `themeStop`) |
-| `run.js` | Difficulties (lives, shields, warning times, points, the performance meter's rates, and the blurb the difficulty screen says them in), records per difficulty in localStorage (v3, for the 25 levels): best run and the most a run has scored, each level's best rank and the best score it has been cleared with on its own, furthest level, how far through each unbeaten level an attempt has got; which levels are beaten, and so open on the level select; and the boss rush's (`RUSH_LEVELS`, `rushNext`): its best time and what it cost, the most it has scored, each boss's best rank in it, apart from the rest (`recordRush`, `recordRushScore`, `recordRushLevel`) |
+| `run.js` | Difficulties (lives, shields, warning times, points, the performance meter's rates, and the blurb the difficulty screen says them in), records per difficulty in localStorage (v3, for the 25 levels): best run and the most a run has scored, each level's best rank and the best score it has been cleared with on its own, furthest level (and apart, the furthest a full run has started, `runFurthest`), the longest combo a full run has had (`runCombo`), how far through each unbeaten level an attempt has got; which levels are beaten, and so open on the level select; and the boss rush's (`RUSH_LEVELS`, `rushNext`): its best time and what it cost, the most it has scored, its longest combo, each boss's best rank in it, apart from the rest (`recordRush`, `recordRushScore`, `recordRushLevel`) |
 | `world.js` | `component`, the player piece's stepped movement, the `hazards` list and hit testing |
 | `player.js` | The player's look: two sine waves drawn off its position history, drifting into a glowing trail, meeting on each beat, the coming beat's colour lit |
 | `death.js` | The death animation: the picture of the hit, taken as the level stops, worked over for 1.3 s before the results in three overlapping movements (the prism split, burn-through, decoherence); it plays out whatever is pressed, and reduced effects skip it |
@@ -341,13 +359,13 @@ old scores unfair: the site then starts fresh boards, the old scores kept but no
 | `hud.js` | Score / deaths / act and level readout, the overdrive meter and the progress stripe |
 | `fx.js` | The effects setting (auto / full / reduced / off, honouring reduced motion), `fxHash`, the CRT overlay |
 | `sky.js` | Each level's colour, from its act's band of the spectrum, and each act's backdrop in it (`SKY_STYLES`: rising embers, a sun over a grid, an oscilloscope, a warp, an aurora), pulsing on the beat under the level and the story screens, still under the screens between levels. Moving at full effects, still when reduced, only the colour when off |
-| `menu.js` | Start, difficulty, options, help and level select screens (the select: an act a row, a tile a level, locked until the one before is beaten on the difficulty chosen), settings persistence, hover flash, slogans, start-screen glitches |
+| `menu.js` | Start, mode (`playMode`), difficulty, options, help and level select screens (the select: an act a row, a tile a level, locked until the one before is beaten on the difficulty chosen), settings persistence, hover flash, slogans, start-screen glitches |
 | `practice.js` | The practice screen, in two sections: LEVELS, a tile for each of the game's levels, played whole (`practiceWave`); CUSTOM, a tile a laser type, the boxes for the rest, the level they describe (`practiceDef`, dealt in the song and seeds of the chosen act's middle level), the live preview (the game's own lasers and backdrop drawn onto a canvas of its own the size of the layout, the game's state swapped for the preview's while they step and draw, and put back), the aids (OVERDRIVE, AUTO TIMING, RESTART ON HIT, LOOP), the session's bests (in memory only, per setup: `practiceKey`), and PLAY. The rules of a practice level (counted hits, no lives, no records) live with the rest of the game's, under `practice` (loop.js, levels.js) |
-| `online.js` | The online leaderboards, where the WordPress plugin passes the site's scores address on the game's URL (`api=`): a ticket from the site as a play starts (`onlinePlayStarts`), the name asked for over the results when a score would make its board's top ten (`onlineOffer`; a panel of the page's own, which keeps the keys and presses to itself while it is up), posting it, and the HIGH SCORES screen (`drawScoresScreen`: a board at a time, by kind, level and difficulty, fetched as it is picked). `SCORE_VERSION` is the scoring the boards are kept under |
+| `online.js` | The HIGH SCORES screen (`drawScoresScreen`), LOCAL (this browser's bests, `localRunBests`, `localLevelBests`) and GLOBAL, and the online leaderboards behind GLOBAL, where the WordPress plugin passes the site's scores address on the game's URL (`api=`): a ticket from the site as a play starts (`onlinePlayStarts`), a run's MAX COMBO gathered from its levels (`onlineLevelEnds`), the name asked for over the results when a new best would make its board's top ten (`onlineOffer`; a panel of the page's own, which keeps the keys and presses to itself while it is up), posting it, and GLOBAL's boards, a board at a time, by kind, level and difficulty, fetched as it is picked. `SCORE_VERSION` is the scoring the boards are kept under |
 | `titlelight.js` | The start screen's laser: a WebGL fragment shader on a screen-blended canvas over the game's, sweeping behind the title, with light-scattering rays the letters cut shadows through and their outlines burning where it passes. Only at full effects, and nothing at all without WebGL |
-| `titleparticles.js` | The start screen's particles, which go on rising behind its menu screens (the difficulty screen, the level select, the options, the help and the timing test, behind whatever they draw), on a screen-blended canvas of their own: neon dust drifting up, big soft lights far behind it, a shooting star now and then, and sparks struck off the title's letters where the laser crosses behind them, the dust near the laser catching its light. They cut out everything the screen draws in front of its ground, read off the canvas (the title, the text, the buttons' frames and labels, the stripes), so they pass behind all of it and show through the buttons' insides. Moving at full effects, still when reduced, gone when off; the dust and stars without WebGL, the sparks only with the laser |
+| `titleparticles.js` | The start screen's particles, which go on rising behind its menu screens (the mode and difficulty screens, the level select, the options, the help and the timing test, behind whatever they draw), on a screen-blended canvas of their own: neon dust drifting up, big soft lights far behind it, a shooting star now and then, and sparks struck off the title's letters where the laser crosses behind them, the dust near the laser catching its light. They cut out everything the screen draws in front of its ground, read off the canvas (the title, the text, the buttons' frames and labels, the stripes), so they pass behind all of it and show through the buttons' insides. Moving at full effects, still when reduced, gone when off; the dust and stars without WebGL, the sparks only with the laser |
 | `calibrate.js` | The timing test (OPTIONS → CALIBRATE): a 100 BPM beat handed to the audio clock as a level's beats are, taps from every input timed by the input's own moment, each measured against its nearest beat less the audio delay the browser reports, and the offset they ask for (their mean once slips are left out, in 5 ms steps, within 300 ms), offered only when they are steady enough. Nothing on its screen moves on the beat |
-| `levels.js` | Level start / end flow (a run from START or from the level select, or a practice level, a new level through its act's story and its card, a death or a retry straight back), the death message, a cleared level's results (the beat breakdown, the rank, the score against its best, and the run's total) and their CONTINUE and RETRY, the pause's RETRY and QUIT, the epilogue and the finish screen |
+| `levels.js` | Level start / end flow (a full run, a boss rush or a level from the level select, or a practice level, a new level through its act's story and its card, a death or a retry straight back), the death message, a cleared level's results (the beat breakdown, the rank, the score against its best, and the run's total) and their CONTINUE and RETRY, the pause's RETRY and QUIT, the epilogue and the finish screen |
 | `input.js` | `ACTIONS` (key / mouse / touch / controller bindings), mouse & multi-touch steering, touch buttons, the controller (Gamepad API polling, stick steering, moving between a screen's buttons), the pause panel and the touch resume countdown |
 | `loop.js` | Game state, the fixed 10ms step loop, the beat clock (`beatPos`): the step count less the audio's delay and the timing offset, the beat as it is heard, which every laser, target, gate, pulse and judgment keeps to (`judgePos` is the same clock; `beatOpen` says whether a beat can still be hit), the audio's delay followed as the browser reports it once its estimate has settled (`trackLatency`: jumped to over a count-in and after a resume, eased into in mid-play), and the beat track scheduled 150 ms ahead from a steady timer as well as from the steps, held while the browser has the audio asleep, hit judging, combo, shields, overdrive, and wave / laser form |
 
@@ -364,7 +382,8 @@ old scores unfair: the site then starts fresh boards, the old scores kept but no
   `onset[i]`, the note the tune starts on beat i, or null, `hold[i]`, how many beats it is held, `sound[i]`, the note
   sounding on it, and `bass[i]`, the bass's note under it; `tuneBeam` and `tuneAt` put a note at its height on the
   screen, and `bassAt` the bass's across it, so the lasers follow the song.
-- A level is an entry in `LEVELS` with its `name` and `lore` (a line or two for its card); every five of them are an
+- A level is an entry in `LEVELS` with its `name` and `lore` (a line or two of the story for its card, never how to
+  play it); every five of them are an
   act. An act is an entry in `ACTS` (story.js): its `name`, `jp`, the `band` of the spectrum its levels' colours run
   through (in nm), its `sky` (a style in `SKY_STYLES`, sky.js, which draws over the level's colour) and its `lore`; and
   a song in `SONGS`.
