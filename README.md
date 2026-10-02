@@ -17,7 +17,13 @@ For WordPress, `node wordpress-plugin/build.js` copies the game into the plugin 
 
  - Lasers warn, then fire **on the beat**. Steer out of them. A warning is a thin, dim outline until its last beat, when
    it comes up to full and flickers, and the ground it will burn is hatched: what is left clear is safe. A burning
-   laser's red core, with a hard white edge, is all that can hit; the glow outside it is forgiven. One on a held note burns for as long as
+   laser's red core, with a hard white edge, is all that can hit; the glow outside it is forgiven. A laser that moves
+   while it can hit wears a run of small white triangles inside it, rimmed dark, repeated along its length off its hot
+   white line on the side it is going to (clear of it by a tenth of the laser's thickness, 3 px at least, so the wide
+   bands' triangles sit further out than the thin rays'), tips out toward that edge, blinking on the beat, for as long
+   as it can hit: a sweeper across, a pendulum through each
+   burn of its swing, and the radar's ray and the spinning X's arms round the way they turn. (Fallers, closing walls
+   and chasers do their moving in their warnings, and are still by the time they can hit.) One on a held note burns for as long as
    the note holds. Some drop in from the top of the screen: their outline warns from the start where they will land,
    and they land on it early and sit there, then fire from it on the beat. Some come as a pair closing on a note from
    above and below, a pincer: the gap between
@@ -113,6 +119,43 @@ For WordPress, `node wordpress-plugin/build.js` copies the game into the plugin 
    goes back to the select with its best rank and score recorded, rather than on to the next level. Only a run from
    START can set the best run. A level played from the select has no lives: a death offers it again from nothing, its
    points gone as the pause's RETRY's are, as often as it takes, and is never the game over.
+ - **Practice:** PRACTICE on the start screen plays any level, or a pattern of your own, without lives and unrecorded.
+   Two tabs over its tiles pick the section, and the screen comes back on the one last used. **LEVELS** has a tile for
+   every one of the game's 25 levels, an act a row in their colours of the spectrum as on the level select, the bosses
+   marked, all of them open: it plays the level picked whole, as a run does, its song, its lasers, its laser form and
+   its boss, with the difficulty's box beside them. Its preview plays the whole level after its rest, round and round,
+   naming the lasers each bar deals as it goes (and the bar and the beat), and under it go the level's name and place,
+   its tempo, length, warnings and laser form, and every laser it deals, in order; a tile's tooltip says the same.
+   **CUSTOM** puts the makings of any level together and plays them. Pick one laser
+   type, or two dealt into the same bars, from a tile for each of the 27 (in the order the levels bring them in), and
+   set the rest in boxes: the form (wave, laser, or switching between them by turns: two bars of each), laser form's
+   targets and the lasers to dodge between them, the beats' colours, the song (an act's, with its backdrop), a tempo
+   from 72 to 132 BPM, a warning of 2, 1.5 or 1 beats, 4, 8 or 16 bars, and the difficulty. Point at a tile or a box
+   (or light it with a controller, or tap it) and a tooltip beside it says what it does. What the form makes no use
+   of is greyed out and takes no press, its tooltip saying what would turn it on: TARGETS and DODGES in wave form, which
+   has no targets, and the laser tiles in laser form, which deals only targets. A preview plays the
+   pattern's first bars round and round as it is put together, with the game's own lasers and backdrop and a piece to
+   show where you would be (lining up with the targets in laser form), says what each type picked does, and says so
+   when a pair is one the levels never deal (a corridor with anything, a cage with a laser on its own note). PLAY plays
+   it after the count-in and a bar's rest. In either section, it can't be lost: a laser that gets you, or a gate let
+   by, is counted as a HIT rather than costing a shield, and the meter never fails you; it has no lives, and nothing it
+   does is recorded. Under the preview, in both, four boxes set how it is practised (each washed in cyan while it is
+   doing something):
+   **OVERDRIVE** (OFF, the default: no meter at all; ON: it charges and SPACE spends it; AUTO: spent the moment it is
+   full; the OVERDRIVE setting in OPTIONS doesn't count here), **AUTO TIMING** (every beat hit for you exactly on it,
+   PERFECT, in the colour it wants, gates passed; you steer, and in laser form lining up with each target is still
+   yours; Z and X do nothing, SPACE still spends overdrive), **RESTART ON HIT** (a laser that gets you, or a gate let
+   by, starts the practice again from the top at once) and **LOOP** (the pattern goes round and round, BARS a round,
+   or a level's every bar after its rest, with no end and no results, until you pause and QUIT; the HUD counts the
+   rounds; greyed out on a boss level, which goes round by itself until its boss falls). All four are off to begin with.
+   Its results show the rank (with what was practised under it), the beats, the timing scale, the points, the hits
+   and the **session best**, with **AGAIN** and **PRACTICE**, back to the screen as it was left. The choices are
+   remembered; the session bests are not. A session best is the most a setup (the level, or the pattern as dealt; the
+   difficulty, OVERDRIVE, AUTO TIMING and LOOP) has scored since the page was opened, kept in memory only, so a reload clears
+   them all. It climbs with the score once an attempt passes it, as an arcade's high score does, so a LOOP still
+   going and an attempt cut short by RESTART ON HIT count too: the HUD shows it beside the hits (in a new best's
+   colour while the attempt is beating it), the results say NEW BEST when that attempt set it, and the practice
+   screen shows the best for whatever is set up, over the preview.
  - Every act has a backdrop and a song of its own, and every level a colour of the spectrum, from red at the first to
    violet at the last. The lasers follow the song: they fire on the melody's notes, as high on the screen as each note
    is high in the tune, laser form's targets trace the chorus, and each laser sounds the note it fires on. The song
@@ -142,7 +185,8 @@ For WordPress, `node wordpress-plugin/build.js` copies the game into the plugin 
    bleeds its glow while the picture dims, the core splits into a cyan copy and a magenta copy flying apart along the
    laser as the waves lose phase and their trail scatters, and it fades to dark (skipped with the effects
    reduced or off). Then it has results of its own: how far the
-   attempt got, its beats so far and its points, and the lives left, with **TRY AGAIN**, which the life spent pays
+   attempt got, the timing scale of where its presses landed (as a clear's), its beats so far and its points, and the
+   lives left, with **TRY AGAIN**, which the life spent pays
    for, the points kept, and **QUIT**. While a level is unbeaten, the furthest an attempt has got through it is kept
    (on a boss level, how far the boss was worn down), and a death that gets further says **NEW BEST** under how far it got;
    one that doesn't says how far the best got. Out of lives it is **GAME OVER**, with **PLAY AGAIN** and **QUIT**.
@@ -178,10 +222,29 @@ For WordPress, `node wordpress-plugin/build.js` copies the game into the plugin 
  - **Music and sound:** OPTIONS → **MUSIC** sets how loud the song plays under the beat, and **SOUND FX** how loud the
    sound effects are (the lasers' zaps, your shots, the gates, the menus' clicks and the rest): 100%, 75%, 50%, 25% or
    OFF each. The beat track (the kick, the hat and the count-in) stays as it is under both, so there is always a beat
-   to play to: MUSIC OFF is for playing to it alone. An act's theme follows MUSIC too. A press on MUSIC plays a moment
-   of the music at the new level, and one on SOUND FX clicks at its new level. The game comes on with a startup
-   sequence, a thump, a charge and the key's chord as the title's laser comes up; a browser that holds sound until
-   the page has had a click, a key or a tap plays it at the first of those, with the laser starting over to match.
+   to play to: MUSIC OFF is for playing to it alone. An act's theme follows MUSIC too. A press on MUSIC over a paused
+   level plays a moment of the music at the new level, and one on SOUND FX clicks at its new level. The game comes on
+   with its startup sequence as the title's laser comes up: the game's gun charging and firing, a whine climbing three
+   octaves over a throbbing hum and crackles of static, two lock-on pips, and the shot landing as the laser reaches the
+   title, a crack and a boom with the key's chord humming on after it; a browser that holds sound until the page has
+   had a click, a key or a tap plays it at the first of those, with the laser starting over to match.
+ - **Sound effects:** besides the beat, the lasers' zaps and your shots, the game's moments have sounds of their own,
+   synthesized as the startup is and, where they have a pitch, in the act's key: a gate passed (two tones meeting in
+   the beam the waves become, or parting again back to the wave), overdrive coming on (a shot, and the power surging
+   up) and running out (the surge in reverse), a laser absorbed in it (a zap played backwards), the multiplier
+   climbing (three quick blips, higher for each step), a boss level's siren over the count-in, its boss brought down (a
+   big chord stab over a gated snare and its debris), a new best on the results (bells; for a FLAWLESS, the octave as
+   its stamp lands), the game over (an arcade's tube switching off) and the run's finish (the stab after a swell drawn
+   in backwards). All of them follow SOUND FX.
+ - **Menu theme:** the start screen and every menu over it (the settings, the difficulty, the instructions, the level
+   select and practice) play the game's own theme, a synthwave song in A minor at 100 BPM on the same synths and
+   drums as the acts' songs. Its pad swells in under the startup sequence's chord as it rings (or comes in at the
+   first press, where the browser held sound back until one, even with SOUND FX off). Its four-bar intro of pad and
+   arpeggio plays once; then the verse with the hook, the chorus with the lead doubled an octave up, and a breakdown
+   that rolls back in, round and round, about 48 seconds a time. MUSIC sets how loud it is, live, so a press on MUSIC
+   from the start screen is heard in the theme itself, and MUSIC OFF stops it. It gives way to the timing test, whose
+   beat is the point, and stops while the page is out of sight, coming back at the start of the section it was in; a
+   run fades it out under the story, and the menus start it again from the top.
  - **Timing:** OPTIONS → **CALIBRATE** plays a steady beat to tap along to by ear, with whatever you play with. After
    4 warm-up taps it counts 16, shows where each landed, early or late, and suggests the TIMING OFFSET that puts them
    on the beat, with how steady they were; **USE** sets it. It measures what the game judges, so it takes in what the
@@ -220,11 +283,13 @@ For WordPress, `node wordpress-plugin/build.js` copies the game into the plugin 
 
 | File | What it holds |
 |---|---|
-| `audio.js` | The synthesized beat track (kick, hat, count-in tick, laser zap, the piece's shot and gate sweep, the overdrive meter's chime when it fills, and the startup sequence the game comes on with, on Web Audio), the playlist (`TRACKS`, for recorded songs: empty, as the levels' songs are synthesized, `music.js`), sound effects, all but the beat track at the SOUND FX setting's level (`sfxLevel`) |
+| `audio.js` | The synthesized beat track (kick, hat, count-in tick, laser zap, the piece's shot, the overdrive meter's chime when it fills, on Web Audio; the drums can play into a node and on a kit of their own, as the menu theme's do), when the startup sequence plays (its sound is `sfx.js`'s), the playlist (`TRACKS`, for recorded songs: empty, as the levels' songs are synthesized, `music.js`), sound effects, all but the beat track at the SOUND FX setting's level (`sfxLevel`) |
 | `layout.js` | The palette (`COLORS`), the 1280x800 layout frame, band fitting for phones, the HUD transform, banners, resize handling |
 | `waves.js` | `LEVELS` (the 25 levels: name and lore, bpm, bars, warning lead, phrases, colours, laser sections, and the curve they climb), the `PHRASES` that fill a bar, placing their beams on the tune's notes, the `COLOR_PATTERNS` that paint one, laser form's `TARGET_PHRASES` (`tune` traces the chorus), the seeded timeline, and what goes on screen: `Beam`, `Target`, `Gate` |
 | `story.js` | The acts (`ACTS`: name, their band of the spectrum, backdrop and lore; five levels each) and the epilogue, and the story screens between levels: an act's intro, typed over its backdrop to its theme, a level's card, the epilogue before the finish |
-| `music.js` | Each act's song as MIDI notes (`SONGS`: a key, the `CHORDS` of its bars, its melody, the laser sections' lead, bass and arpeggio lines, and its lead's voice), and the Web Audio synths that play it on the beat track's clock: bass, pad, arpeggio and lead, an echo, and a dip under every kick. It builds through its act, the laser sections play the chorus, overdrive opens the filters, a pause or a death cuts it, a clear rings out on the key's chord, and an act's intro plays its theme. The MUSIC setting (`musicLevel`) scales all of it, or at OFF plays none, and a change plays a moment of Act I's theme to be heard. `songTune` tells the timeline where the tune's notes are, and `zapNote` which one a laser sounds |
+| `music.js` | Each act's song as MIDI notes (`SONGS`: a key, the `CHORDS` of its bars, its melody, the laser sections' lead, bass and arpeggio lines, and its lead's voice), and the Web Audio synths that play it on the beat track's clock: bass, pad, arpeggio and lead, an echo, and a dip under every kick. It builds through its act, the laser sections play the chorus, overdrive opens the filters, a pause or a death cuts it, a clear rings out on the key's chord, and an act's intro plays its theme. The MUSIC setting (`musicLevel`) scales all of it, or at OFF plays none, and a change over a paused level plays a moment of Act I's theme to be heard (on the menus, the menu theme is playing to hear it in: `theme.js`). `songTune` tells the timeline where the tune's notes are, and `zapNote` which one a laser sounds |
+| `sfx.js` | The synthesized sound effects, each a function of (context, time, output, argument) built from a small kit (`sfxKit`: enveloped gains, oscillators, noise, filters, panners, a ping-pong echo, a room, pulse waves) so it can be rendered offline as well as played (`playSfx`), at its own level (`SFX_LEVELS`, set by measurement against the sounds around it) times SOUND FX's: the startup sequence, the gate, overdrive's start and end, the absorb, the multiplier, the boss's siren and fall, the new best's bells, the game over and the finale |
+| `theme.js` | The menu theme: its song (`THEME`, in the acts' songs' notation: sections of bars with their chords and their bass, arpeggio and lead lines, how bright and which drums), played on music.js's synths and audio.js's drums (on a kit and into a bus of its own) by a timer of its own, the intro once and the rest round and round; when it plays (`themeWanted`: the start screen and its menus, not the timing test, MUSIC on, the page in sight) and the hand-over from the startup sequence (`themeSync`, `themeStart`, `themeStop`) |
 | `run.js` | Difficulties (lives, shields, warning times, points, the performance meter's rates, and the blurb the difficulty screen says them in), records per difficulty in localStorage (v3, for the 25 levels): best run and the most a run has scored, each level's best rank and the best score it has been cleared with on its own, furthest level, how far through each unbeaten level an attempt has got; which levels are beaten, and so open on the level select |
 | `world.js` | `component`, the player piece's stepped movement, the `hazards` list and hit testing |
 | `player.js` | The player's look: two sine waves drawn off its position history, drifting into a glowing trail, meeting on each beat, the coming beat's colour lit |
@@ -234,10 +299,11 @@ For WordPress, `node wordpress-plugin/build.js` copies the game into the plugin 
 | `fx.js` | The effects setting (auto / full / reduced / off, honouring reduced motion), `fxHash`, the CRT overlay |
 | `sky.js` | Each level's colour, from its act's band of the spectrum, and each act's backdrop in it (`SKY_STYLES`: rising embers, a sun over a grid, an oscilloscope, a warp, an aurora), pulsing on the beat under the level and the story screens, still under the screens between levels. Moving at full effects, still when reduced, only the colour when off |
 | `menu.js` | Start, difficulty, options, help and level select screens (the select: an act a row, a tile a level, locked until the one before is beaten on the difficulty chosen), settings persistence, hover flash, slogans, start-screen glitches |
+| `practice.js` | The practice screen, in two sections: LEVELS, a tile for each of the game's levels, played whole (`practiceWave`); CUSTOM, a tile a laser type, the boxes for the rest, the level they describe (`practiceDef`, dealt in the song and seeds of the chosen act's middle level), the live preview (the game's own lasers and backdrop drawn onto a canvas of its own the size of the layout, the game's state swapped for the preview's while they step and draw, and put back), the aids (OVERDRIVE, AUTO TIMING, RESTART ON HIT, LOOP), the session's bests (in memory only, per setup: `practiceKey`), and PLAY. The rules of a practice level (counted hits, no lives, no records) live with the rest of the game's, under `practice` (loop.js, levels.js) |
 | `titlelight.js` | The start screen's laser: a WebGL fragment shader on a screen-blended canvas over the game's, sweeping behind the title, with light-scattering rays the letters cut shadows through and their outlines burning where it passes. Only at full effects, and nothing at all without WebGL |
 | `titleparticles.js` | The start screen's particles, which go on rising behind its menu screens (the difficulty screen, the level select, the options, the help and the timing test, behind whatever they draw), on a screen-blended canvas of their own: neon dust drifting up, big soft lights far behind it, a shooting star now and then, and sparks struck off the title's letters where the laser crosses behind them, the dust near the laser catching its light. They cut out everything the screen draws in front of its ground, read off the canvas (the title, the text, the buttons' frames and labels, the stripes), so they pass behind all of it and show through the buttons' insides. Moving at full effects, still when reduced, gone when off; the dust and stars without WebGL, the sparks only with the laser |
 | `calibrate.js` | The timing test (OPTIONS → CALIBRATE): a 100 BPM beat handed to the audio clock as a level's beats are, taps from every input timed by the input's own moment, each measured against its nearest beat less the audio delay the browser reports, and the offset they ask for (their mean once slips are left out, in 5 ms steps, within 300 ms), offered only when they are steady enough. Nothing on its screen moves on the beat |
-| `levels.js` | Level start / end flow (a run from START or from the level select, a new level through its act's story and its card, a death or a retry straight back), the death message, a cleared level's results (the beat breakdown, the rank, the score against its best, and the run's total) and their CONTINUE and RETRY, the pause's RETRY and QUIT, the epilogue and the finish screen |
+| `levels.js` | Level start / end flow (a run from START or from the level select, or a practice level, a new level through its act's story and its card, a death or a retry straight back), the death message, a cleared level's results (the beat breakdown, the rank, the score against its best, and the run's total) and their CONTINUE and RETRY, the pause's RETRY and QUIT, the epilogue and the finish screen |
 | `input.js` | `ACTIONS` (key / mouse / touch / controller bindings), mouse & multi-touch steering, touch buttons, the controller (Gamepad API polling, stick steering, moving between a screen's buttons), the pause panel and the touch resume countdown |
 | `loop.js` | Game state, the fixed 10ms step loop, the beat clock (`beatPos`): the step count less the audio's delay and the timing offset, the beat as it is heard, which every laser, target, gate, pulse and judgment keeps to (`judgePos` is the same clock; `beatOpen` says whether a beat can still be hit), the delay latched as a level starts and read again on a resume, and the beat track scheduled 150 ms ahead from a steady timer as well as from the steps, held while the browser has the audio asleep, hit judging, combo, shields, overdrive, and wave / laser form |
 

@@ -34,11 +34,9 @@ var sfxLevel = 1; // the SOUND FX setting (OPTIONS): the share of its own volume
 const aud_menuSound = sfxFile("music/Menu Sounds_2.wav", 0.2);
 const aud_death = sfxFile("music/Fx 14.wav", 0.15);
 const aud_danger = sfxFile("music/72.wav", 0.05);
-const aud_powerUp = sfxFile("music/powerUp.wav", 0.1);
-const aud_pickupCoin = sfxFile("music/pickupCoin.wav", 0.1);
 const aud_click = sfxFile("music/click.wav", 0.1);
 // The sound effects a touch start unlocks together, which fetches every one of them: so only the sounds the game plays
-const ALL_SFX = [aud_menuSound, aud_death, aud_danger, aud_powerUp, aud_pickupCoin, aud_click];
+const ALL_SFX = [aud_menuSound, aud_death, aud_danger, aud_click]; // the rest are synthesized (sfx.js)
 var musicVolume = 0.2;
 
 function loadAudio() { // on the first click, which is the one the browser lets sound start in. The levels bring
@@ -163,25 +161,32 @@ function audioLatencyMs() { // how long after it is scheduled a sound actually l
     return audioCtx ? 1000 * ((audioCtx.baseLatency || 0) + (audioCtx.outputLatency || 0)) : 0;
 }
 
-function envelope(c, when, peak, decay) { // a gain node that hits peak at `when` and dies away over `decay` seconds
+function envelope(c, when, peak, decay, out) { // a gain node that hits peak at `when` and dies away over `decay` seconds,
+    // into out (the context's own output, by default)
     var g = c.createGain();
     g.gain.setValueAtTime(0.0001, when);
     g.gain.exponentialRampToValueAtTime(peak * BEAT_VOLUME, when + 0.004);
     g.gain.exponentialRampToValueAtTime(0.0001, when + decay);
-    g.connect(c.destination);
+    g.connect(out || c.destination);
     return g;
 }
 
-function synthKick(delay, accent) { // a pitch-dropping sine: the beat
-    var c = beatAudio();
+// The drums take `via`, given: { c, out, kit }, a context, a node and a kit (DRUM_KITS' shape) of their own to play in,
+// into and on, as the menu theme's do (theme.js); without it, the game's audio, its output and the level's kit
+function drumContext(via) {
+    return via && via.c || beatAudio();
+}
+
+function synthKick(delay, accent, via) { // a pitch-dropping sine: the beat
+    var c = drumContext(via);
     if (!c) {
         return;
     }
-    var when = c.currentTime + delay, kit = drumKit();
+    var when = c.currentTime + delay, kit = via && via.kit || drumKit(), out = via && via.out;
     var o = c.createOscillator();
     o.frequency.setValueAtTime(kit.kick[0] * (accent ? 1.2 : 1), when);
     o.frequency.exponentialRampToValueAtTime(kit.kick[1], when + 0.14);
-    o.connect(envelope(c, when, accent ? 0.9 : 0.65, kit.kick[2]));
+    o.connect(envelope(c, when, accent ? 0.9 : 0.65, kit.kick[2], out));
     o.start(when);
     o.stop(when + kit.kick[2] + 0.02);
 }
@@ -199,37 +204,37 @@ function noiseSource(c) { // a quarter second of white noise to play, for the ha
     return n;
 }
 
-function synthHat(delay, open, soft) { // a tick of high-passed noise: the off-beat; open, it hisses on a little, as
-    // a hat struck open does, on the last off-beat of a bar; soft, a sixteenth between, quieter
-    var c = beatAudio();
+function synthHat(delay, open, soft, via) { // a tick of high-passed noise: the off-beat; open, it hisses on a little,
+    // as a hat struck open does, on the last off-beat of a bar; soft, a sixteenth between, quieter
+    var c = drumContext(via);
     if (!c) {
         return;
     }
-    var when = c.currentTime + delay;
+    var when = c.currentTime + delay, kit = via && via.kit || drumKit();
     var n = noiseSource(c);
     var hp = c.createBiquadFilter();
     hp.type = "highpass";
-    hp.frequency.value = drumKit().hat - (open ? 2000 : 0);
+    hp.frequency.value = kit.hat - (open ? 2000 : 0);
     n.connect(hp);
-    hp.connect(envelope(c, when, open ? 0.16 : soft ? 0.09 : 0.18, open ? 0.25 : 0.05));
+    hp.connect(envelope(c, when, open ? 0.16 : soft ? 0.09 : 0.18, open ? 0.25 : 0.05, via && via.out));
     n.start(when);
     n.stop(when + (open ? 0.3 : 0.06));
 }
 
-function synthSnare(delay, soft) { // the backbeat, on a bar's second and fourth beats: a burst of band-passed noise
-    // with a short tone dropping under it; soft, a stroke of the fill that runs into every fourth bar's end
-    var c = beatAudio();
+function synthSnare(delay, soft, via) { // the backbeat, on a bar's second and fourth beats: a burst of band-passed
+    // noise with a short tone dropping under it; soft, a stroke of the fill that runs into every fourth bar's end
+    var c = drumContext(via);
     if (!c) {
         return;
     }
-    var when = c.currentTime + delay, kit = drumKit();
+    var when = c.currentTime + delay, kit = via && via.kit || drumKit(), out = via && via.out;
     var n = noiseSource(c);
     var bp = c.createBiquadFilter();
     bp.type = "bandpass";
     bp.frequency.value = kit.snare[0];
     bp.Q.value = 0.7;
     n.connect(bp);
-    bp.connect(envelope(c, when, soft ? 0.22 : 0.45, soft ? 0.08 : kit.snare[1]));
+    bp.connect(envelope(c, when, soft ? 0.22 : 0.45, soft ? 0.08 : kit.snare[1], out));
     n.start(when);
     n.stop(when + 0.25);
     if (kit.clap && !soft) { // the clap over it: a second burst, a little later and higher, as hands are
@@ -239,7 +244,7 @@ function synthSnare(delay, soft) { // the backbeat, on a bar's second and fourth
         bp2.frequency.value = kit.snare[0] * 1.4;
         bp2.Q.value = 1.2;
         n2.connect(bp2);
-        bp2.connect(envelope(c, when + 0.022, 0.3, 0.12));
+        bp2.connect(envelope(c, when + 0.022, 0.3, 0.12, out));
         n2.start(when + 0.022);
         n2.stop(when + 0.2);
     }
@@ -247,7 +252,7 @@ function synthSnare(delay, soft) { // the backbeat, on a bar's second and fourth
     o.type = "triangle";
     o.frequency.setValueAtTime(soft ? 200 : 180, when);
     o.frequency.exponentialRampToValueAtTime(120, when + 0.08);
-    o.connect(envelope(c, when, soft ? 0.15 : 0.3, 0.1));
+    o.connect(envelope(c, when, soft ? 0.15 : 0.3, 0.1, out));
     o.start(when);
     o.stop(when + 0.12);
 }
@@ -299,20 +304,6 @@ function synthShot(delay) { // the piece's own beam striking a target: the other
     o.stop(when + 0.14);
 }
 
-function synthGate(delay) { // a gate passed: a sine sweeping up two octaves
-    var c = beatAudio();
-    if (!c || sfxLevel <= 0) {
-        return;
-    }
-    var when = c.currentTime + delay;
-    var o = c.createOscillator();
-    o.frequency.setValueAtTime(220, when);
-    o.frequency.exponentialRampToValueAtTime(880, when + 0.25);
-    o.connect(envelope(c, when, 0.35 * sfxLevel, 0.35));
-    o.start(when);
-    o.stop(when + 0.4);
-}
-
 function synthCharged(delay, note) { // the overdrive meter filling: three quick triangle notes climbing the key's chord,
     // tonic, fifth and octave, from the MIDI note `note` (the act's key, music.js; A if none), the last left to ring,
     // so the player hears that SPACE is loaded without looking at the meter
@@ -333,22 +324,20 @@ function synthCharged(delay, note) { // the overdrive meter filling: three quick
     });
 }
 
-// The startup sequence: the sound the game comes on with, as the title's laser comes up (titlelight.js), synthesized
-// as the other sound effects are, in Act I's key: a thump and a rising hiss as the machine wakes, a sawtooth charging
-// up two octaves under three boot beeps (the overdrive chime's own figure: tonic, fifth, octave), then, as the glow
-// comes fully up, the hit: a kick, the key's chord on saws over its bass root and an open hat, and the chord rings
-// out under two high pings as the laser crosses the title. A browser won't let sound start before the page has had
-// a click, a key or a tap: it plays at the load where one lets it, and otherwise at the first of those (startupArm),
-// with the laser starting over so the two run together. A sound effect: at SOUND FX's level, and nothing when it is
-// off
+// The startup sequence: the sound the game comes on with, as the title's laser comes up (titlelight.js): the game's gun
+// charging and firing, the shot landing as the laser reaches the title (startupSequence, sfx.js). A browser won't let
+// sound start before the page has had a click, a key or a tap: it plays at the load where one lets it, and otherwise
+// at the first of those (startupArm), with the laser starting over so the two run together. A sound effect: at SOUND
+// FX's level, and nothing when it is off
 var STARTUP_KEY = 69; // A: Act I's key (SONGS, music.js), the key the game opens in
 var STARTUP_HIT = 0.85; // s from the start to the hit: the title's laser is fully up by then (TITLE_FADE, titlelight.js)
-var STARTUP_LENGTH = 2.2; // s the whole sequence lasts, the chord's ring included
+var STARTUP_LENGTH = 2.9; // s the whole sequence lasts, the chord's hum included
 var STARTUP_CUT = 0.15; // s it takes to go when a run starts under it
 const STARTUP_PRESSES = ["mousedown", "keydown", "touchend"]; // the presses a browser lets sound start from
 var startupPlayed = false; // it plays once a page load
 var startupArmed = false; // the presses are listened for
 var startupGain = null; // what it plays through, while it plays: to cut it
+var startupAt = null; // the audio time it started at, once it has: the menu theme comes in as it rings (theme.js)
 
 function startupSound() { // play the startup sequence, once: now if the browser lets sound start, or else at the
     // first press. Called at load (onLoad, loop.js), and then by the presses until it has played
@@ -385,7 +374,8 @@ function startupPlay(c) { // the sequence, from now, and the title's laser from 
     STARTUP_PRESSES.forEach(function (type) { window.removeEventListener(type, startupSound, true); });
     startupGain = c.createGain();
     startupGain.connect(c.destination);
-    startupSequence(c, c.currentTime + 0.02, sfxLevel, startupGain);
+    startupAt = c.currentTime + 0.02;
+    startupSequence(c, startupAt, sfxLevel, startupGain);
     titleLightRestart();
 }
 
@@ -397,93 +387,4 @@ function startupStop() { // a run started under it: it goes, over STARTUP_CUT, u
     g.setValueAtTime(g.value, now);
     g.linearRampToValueAtTime(0, now + STARTUP_CUT);
     startupGain = null;
-}
-
-function startupSequence(c, when, level, out) { // the sequence's sounds, scheduled on the context c from `when`,
-    // at `level` (the SOUND FX setting's share), into `out` (a gain node, or the context's own output): everything
-    // it needs is handed in, so it can be rendered offline as well as played
-    out = out || c.destination;
-    var key = STARTUP_KEY, hit = when + STARTUP_HIT;
-    var shape = function (at, peak, attack, off, release, linear) { // a gain into out: up to peak over attack from
-        // `at` (exponentially, or in a straight line), held until `off`, then gone over release
-        var g = c.createGain(), top = peak * BEAT_VOLUME * level, letGo = Math.max(off, at + attack);
-        g.gain.setValueAtTime(linear ? 0 : 0.0001, at);
-        if (linear) {
-            g.gain.linearRampToValueAtTime(top, at + attack);
-        } else {
-            g.gain.exponentialRampToValueAtTime(top, at + attack);
-        }
-        g.gain.setValueAtTime(top, letGo);
-        g.gain.exponentialRampToValueAtTime(0.0001, letGo + release);
-        g.connect(out);
-        return g;
-    };
-    var tone = function (type, hz, at, until, cents) { // an oscillator sounding from `at` to `until`
-        var o = c.createOscillator();
-        o.type = type;
-        o.frequency.setValueAtTime(hz, at);
-        o.detune.value = cents || 0;
-        o.start(at);
-        o.stop(until);
-        return o;
-    };
-    var filter = function (type, hz, q, at) { // a filter at hz from `at`, for its ramps to run from
-        var f = c.createBiquadFilter();
-        f.type = type;
-        f.frequency.setValueAtTime(hz, at);
-        f.Q.value = q;
-        return f;
-    };
-    // the thump: a sine dropping under hearing, the power coming on
-    var thump = tone("sine", 90, when, when + 0.45);
-    thump.frequency.exponentialRampToValueAtTime(35, when + 0.3);
-    thump.connect(shape(when, 0.7, 0.004, when, 0.4));
-    // the hiss: noise through a band sweeping up, swelling in and gone at the hit
-    var hiss = noiseSource(c), band = filter("bandpass", 250, 1.2, when);
-    hiss.loop = true;
-    band.frequency.exponentialRampToValueAtTime(5000, hit);
-    hiss.connect(band);
-    band.connect(shape(when, 0.07, 0.6, when + 0.6, STARTUP_HIT - 0.55, true));
-    hiss.start(when);
-    hiss.stop(hit + 0.1);
-    // the charge: a sawtooth rising two octaves to the key, its filter opening as it goes, cut off by the hit
-    var charge = tone("sawtooth", midiHz(key - 24), when + 0.1, hit + 0.02), open = filter("lowpass", 400, 2, when + 0.1);
-    charge.frequency.exponentialRampToValueAtTime(midiHz(key), hit);
-    open.frequency.exponentialRampToValueAtTime(3000, hit);
-    charge.connect(open);
-    open.connect(shape(when + 0.1, 0.12, 0.15, hit - 0.04, 0.03));
-    // the boot beeps: the overdrive chime's figure, tonic, fifth and octave, on triangles, quick, over the charge
-    [0, 7, 12].forEach(function (step, i) {
-        var at = hit - 0.35 + i * 0.1;
-        tone("triangle", midiHz(key + 12 + step), at, at + 0.14).connect(shape(at, 0.1, 0.004, at, 0.12));
-    });
-    // the hit: a kick
-    var kick = tone("sine", 150, hit, hit + 0.25);
-    kick.frequency.exponentialRampToValueAtTime(45, hit + 0.14);
-    kick.connect(shape(hit, 0.6, 0.004, hit, 0.22));
-    // the bass root under the chord: two saws apart, through a resonant low-pass that snaps shut, as the songs' bass
-    var low = filter("lowpass", 1200, 4, hit);
-    low.frequency.exponentialRampToValueAtTime(320, hit + 0.15);
-    [-6, 6].forEach(function (cents) { tone("sawtooth", midiHz(key - 24), hit, hit + 1, cents).connect(low); });
-    low.connect(shape(hit, 0.12, 0.004, hit + 0.45, 0.5));
-    // the chord, the key's own: saws two a note drifting against each other, through a filter that opens on the hit
-    // and closes as the chord rings
-    var pad = filter("lowpass", 500, 0.7, hit);
-    pad.frequency.exponentialRampToValueAtTime(2600, hit + 0.04);
-    pad.frequency.exponentialRampToValueAtTime(900, hit + 0.9);
-    [-12, -9, -5, 0].forEach(function (step) {
-        [-8, 8].forEach(function (cents) { tone("sawtooth", midiHz(key + step), hit, hit + 1.35, cents).connect(pad); });
-    });
-    pad.connect(shape(hit, 0.05, 0.01, hit + 0.5, 0.8));
-    // an open hat over it
-    var hat = noiseSource(c), high = filter("highpass", 6000, 0.7, hit);
-    hat.connect(high);
-    high.connect(shape(hit, 0.12, 0.004, hit, 0.35));
-    hat.start(hit);
-    hat.stop(hit + 0.4);
-    // and the pings as the laser crosses the title: the fifth, then the octave, left to ring
-    [[19, 0.35, 0.12, 0.5], [24, 0.55, 0.09, 0.8]].forEach(function (p) {
-        var at = hit + p[1];
-        tone("sine", midiHz(key + p[0]), at, at + p[3] + 0.02).connect(shape(at, p[2], 0.004, at, p[3]));
-    });
 }

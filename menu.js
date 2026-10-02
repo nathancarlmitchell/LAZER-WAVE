@@ -22,16 +22,20 @@ const START_BUTTONS = {
     // (DIFFICULTY_BUTTONS), which starts the run
     levels: { dx: -410, dy: 60, w: 300, h: 44, menu: "levels",
         touch: { dx: -450, dy: 110, w: 400, h: 100 } },
-    options: { dx: -410, dy: 124, w: 300, h: 44, menu: "options",
+    // practice (practice.js): any of the levels' makings put together and played, unrecorded
+    practice: { dx: -410, dy: 124, w: 300, h: 44, menu: "practice",
+        touch: { dx: 60, dy: -60, w: 400, h: 90 } },
+    options: { dx: -410, dy: 188, w: 300, h: 44, menu: "options",
         touch: { dx: 60, dy: 50, w: 400, h: 90 } },
-    help: { dx: -410, dy: 188, w: 300, h: 44, menu: "help",
+    help: { dx: -410, dy: 252, w: 300, h: 44, menu: "help",
         touch: { dx: 60, dy: 160, w: 400, h: 90 } },
 };
 
 var menuScreen = ""; // which menu screen is up: "" for none, "difficulty" for the difficulty screen START opens,
                      // "options" for the settings, "help" for the instructions, "levels" for the level select,
-                     // "calibrate" for the timing test (calibrate.js), which opens from the settings. The instructions
-                     // are the one that can also come up over a paused level
+                     // "practice" for the practice screen (practice.js), "calibrate" for the timing test
+                     // (calibrate.js), which opens from the settings. The instructions are the one that can also come
+                     // up over a paused level
 
 function menuUp() {
     return menuScreen != "";
@@ -65,7 +69,7 @@ const OPTION_BUTTONS = {
 function buttonTable() { // whichever screen's buttons are live
     return menuScreen == "options" ? OPTION_BUTTONS : menuScreen == "help" ? HELP_BUTTONS
         : menuScreen == "difficulty" ? DIFFICULTY_BUTTONS : menuScreen == "levels" ? levelButtons()
-        : menuScreen == "calibrate" ? calButtons() : START_BUTTONS;
+        : menuScreen == "practice" ? practiceButtons() : menuScreen == "calibrate" ? calButtons() : START_BUTTONS;
 }
 
 function buttonDef(name) { // a live button's definition, for the things that only need its flags
@@ -263,8 +267,8 @@ function mouseMove(event) { // highlight the button under the mouse, on the star
 
 function setHovered(name) { // highlight one button (or none)
     if (name != hoveredButton) { // only one button highlighted at a time
-        drawStartScreen(); // erase the old highlight
         hoveredButton = name;
+        drawStartScreen(); // erase the old highlight, and draw what goes with the new one (the practice screen's tooltip)
     }
 }
 
@@ -342,10 +346,11 @@ function flashColor() { // a colour for this tick of the flash, hashed, as the e
 
 function highlightControl() { // Flashing edge on the hovered button, on whichever menu screen is up
     var g = buttonDef(hoveredButton) ? geom(hoveredButton) : null;
-    if (!g) {
-        return; // nothing under the cursor, or nothing shown in this layout
+    if (!g || (g.inactive && g.inactive())) {
+        return; // nothing under the cursor, nothing shown in this layout, or a button greyed out (practice.js)
     }
-    var out = menuScreen == "levels" ? 5 : 0; // the level select's tiles wear their own colours at the edge: the flash
+    var out = menuScreen == "levels" || menuScreen == "practice" ? 5 : 0; // the level select's tiles, and practice's,
+    // wear their own colours at the edge: the flash
     var t = out ? 3 : 2; // goes round them instead, in the gap between, thicker
     var bx = LAYOUT_W / 2 + g.dx - out, by = LAYOUT_H / 2 + g.dy - out, w = g.w + 2 * out, h = g.h + 2 * out;
     useScreenFrame(); // a menu row is fitted to its screen's band; the start screen's buttons are in the whole frame
@@ -424,6 +429,10 @@ function drawStartScreen() { // draw the start screen, or whichever menu screen 
         drawLevelsScreen();
         return;
     }
+    if (menuScreen == "practice") {
+        drawPracticeScreen();
+        return;
+    }
     if (menuScreen == "calibrate") {
         drawCalibrateScreen();
         return;
@@ -451,6 +460,7 @@ function drawStartScreen() { // draw the start screen, or whichever menu screen 
 
     var small = (touch ? 34 : 22) + "px Arial";
     drawMenuButton(geom("levels"), "LEVELS レベル", small);
+    drawMenuButton(geom("practice"), "PRACTICE 練習", small);
     drawMenuButton(geom("options"), "OPTIONS 設定", small);
     drawMenuButton(geom("help"), "HELP 説明", small);
 
@@ -900,6 +910,10 @@ function openMenu(name) { // put a menu screen up, over the start screen or over
         musicPreviewStop(); // the music the MUSIC setting was playing gives way to the test's beat
         calStart(); // the beat starts: in this press, which is what lets the browser sound it
     }
+    if (name == "practice") {
+        practiceOpened(); // its preview from the top (practice.js)
+    }
+    themeSync(); // the menu theme plays on, but for the timing test (theme.js)
     drawStartScreen();
     if (gameStart && !menuFlash) {
         menuFlash = setInterval(highlightControl, 100); // the flash the start screen's own timer would be giving it
@@ -924,6 +938,7 @@ function closeMenu() { // and put back whatever it was covering. The timing test
     hoveredButton = "";
     menuScreen = "";
     playSound(aud_click);
+    themeSync();
     if (gameStart) {
         stopResume(); // a countdown can't have been running under it, but a tap may have started one since
         drawPauseScreen(); // the level, and the panel over it
@@ -944,8 +959,8 @@ function optionsPress(name) { // a press on the settings screen: cycle a row, op
         openMenu(b.menu);
     } else {
         cycleSetting(b.setting);
-        if (b.setting == "music") {
-            musicPreview(); // the new level, heard
+        if (b.setting == "music" && gameStart) { // the new level, heard: over a paused level, a moment of music;
+            musicPreview(); // over the start screen, the menu theme, playing on at it (theme.js)
         }
     }
 }
@@ -960,6 +975,8 @@ function menuPress(name, p) { // a press while a menu screen is up, whichever on
         helpPress(name);
     } else if (menuScreen == "levels") {
         levelsPress(name, p);
+    } else if (menuScreen == "practice") {
+        practicePress(name, p);
     } else if (menuScreen == "calibrate") {
         calPress(name);
     }

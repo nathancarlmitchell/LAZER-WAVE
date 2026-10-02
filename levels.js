@@ -15,6 +15,7 @@ function startGame(e) { // START, or a level picked on the level select: the run
     loadAudio();
     playSound(aud_click);
     startupStop(); // the startup sequence, if it is still going: the run has its own sounds
+    themeStop(false, THEME_GO); // and the menu theme, which the menus start again from the top (theme.js)
     startTime = Date.now();
     startRunLives(); // the difficulty is locked in from here: its buttons are only on the difficulty screen and the
     // level select
@@ -57,7 +58,12 @@ function startRunAt(n, p) { // the level select: a run from level n, started as 
 }
 
 function enterLevel() { // the run comes to a level it hasn't played: the story of the act it opens, if it opens one,
-    // then its card, then the level. A death or a retry comes back to it without them (startNextLevel)
+    // then its card, then the level. A death or a retry comes back to it without them (startNextLevel), and practice
+    // goes straight in
+    if (practice) {
+        playLevel();
+        return;
+    }
     var card = function () { showLevelCard(level, playLevel); };
     if (level == actFirstLevel(levelAct(level))) {
         showActIntro(levelAct(level), card);
@@ -69,7 +75,9 @@ function enterLevel() { // the run comes to a level it hasn't played: the story 
 function playLevel() { // an attempt at the level begins: after its card, after a death, or on a retry
     gameArea.start();
     alive = true;
-    reachedLevel(level);
+    if (!practice) { // practice is never recorded
+        reachedLevel(level);
+    }
     restFrame = null; // the next transition screen gets a fresh copy
     pause = false;
     var cx = gamePiece.x + gamePiece.width / 2;
@@ -483,6 +491,12 @@ function showRank(dy) { // the cleared level's rank, large: an S is printed as t
         ctx.fillStyle = rank.color;
         centerText(rank.grade, dy, 3, RESULTS_RANK_X);
     }
+    if (practice) { // nothing kept: what was practised, in its place
+        ctx.font = "22px Arial";
+        ctx.fillStyle = COLORS.dim;
+        centerText(practiceTitle(), dy + RESULTS_BOTTOM, 1, RESULTS_RANK_X);
+        return;
+    }
     ctx.font = "30px Arial";
     ctx.fillStyle = gradeRecord ? COLORS.good : COLORS.text;
     centerText(gradeRecord ? "NEW BEST" : "best " + best, dy + RESULTS_BOTTOM, 1, RESULTS_RANK_X);
@@ -492,11 +506,15 @@ function showScore(dy, dead) { // what the level scored, the breakdown's mirror:
     // boss paid of them on a line of its own), then on a run the run's TOTAL with them and the most a run has had (NEW
     // BEST when that is this one, as the rank's best says under it), or, from the level select, the most the level has
     // been cleared with on its own (NEW BEST when that is these). After a death the bests are just shown
-    var rows = [["LEVEL " + level, score, ""]];
+    var rows = [[practice ? "POINTS" : "LEVEL " + level, score, ""]];
     if (!dead && bossBonusWon > 0) { // of the level's points, what the boss paid (bossBonus, boss.js)
         rows.push(["BOSS", "+" + bossBonusWon, "boss"]);
     }
-    if (selectRun) {
+    if (practice) { // nothing kept to set them against: the hits shields would have paid for instead, and the most this
+        // setup has scored this session (practice.js), NEW BEST when that is these
+        rows.push(["HITS", practiceHits, practiceHits ? "hit" : "top"]);
+        rows.push([practiceNewBest() ? "NEW BEST" : "SESSION BEST", practiceBestText(), practiceNewBest() ? "top" : ""]);
+    } else if (selectRun) {
         var best = rec().score[level];
         rows.push([!dead && scoreRecord ? "NEW BEST" : "BEST", best === undefined ? "-" : best, !dead && scoreRecord ? "top" : ""]);
     } else {
@@ -512,11 +530,12 @@ function showScore(dy, dead) { // what the level scored, the breakdown's mirror:
         var total = row[2] == "total"; // the one that matters most, set apart
         var top = row[2] == "top"; // a new best, in the colour the other new bests are in
         var bonus = row[2] == "boss"; // and the boss's bonus, in its colour
+        var hit = row[2] == "hit"; // and practice's hits, in the laser's
         ctx.font = "bold 30px Arial";
-        ctx.fillStyle = top ? COLORS.good : total ? COLORS.text : COLORS.dim;
+        ctx.fillStyle = top ? COLORS.good : total ? COLORS.text : hit ? COLORS.warn : COLORS.dim;
         columnText(row[0], RESULTS_SCORE_X, at, "left");
         ctx.font = (total ? "bold 36px" : "30px") + " Arial";
-        ctx.fillStyle = top ? COLORS.good : total ? COLORS.cyan : bonus ? COLORS.laser : COLORS.text;
+        ctx.fillStyle = top ? COLORS.good : total ? COLORS.cyan : bonus ? COLORS.laser : hit ? COLORS.warn : COLORS.text;
         columnText(String(row[1]), RESULTS_POINTS_X, at, "right");
     });
 }
@@ -614,8 +633,12 @@ const RESULT_BUTTONS = { // by the results' kind, left to right: where each sits
 };
 
 function resultButtons() { // the buttons the results up have: a clear's way on is CONTINUE, or after a level played
-    // from the level select, LEVELS, which is where it goes
+    // from the level select, LEVELS, which is where it goes, and after practice PRACTICE, with AGAIN for RETRY
     var buttons = RESULT_BUTTONS[resultsKind];
+    if (resultsKind == "clear" && practice) {
+        return { retry: { side: -1, label: "AGAIN", keys: "R", jp: "もう一度" },
+            next: { side: 1, label: "PRACTICE", keys: "ENTER / SPACE", jp: "練習", primary: true } };
+    }
     if (resultsKind == "clear" && selectRun) {
         return { retry: buttons.retry, next: { side: 1, label: "LEVELS", keys: "ENTER / SPACE", jp: "レベル", primary: true } };
     }
@@ -650,6 +673,14 @@ function raiseResults(kind) { // the level ended: its results come up, of the ki
     resultsClock = performance.now();
     if (kind == "clear") {
         playSound(aud_menuSound);
+        var flawless = levelFlawless(); // a new best, or a FLAWLESS, rings as it is said (sfx.js): a run's, the level
+        if (flawless || gradeRecord || scoreRecord || runRecord // select's, or practice's when it beat one it had
+            || practice && practiceRun.from > 0 && practiceNewBest()) {
+            playSfx(sfxReward, flawless ? FLAWLESS_IN : REWARD_DELAY, SFX_LEVELS.reward,
+                { key: actSong(level).key, flawless: flawless });
+        }
+    } else if (kind == "over") { // and the game over, as the tube goes off
+        playSfx(sfxGameOver, 0, SFX_LEVELS.gameOver);
     }
     drawResultsScreen();
     cancelAnimationFrame(resultsFrame);
@@ -678,9 +709,9 @@ function drawResultsScreen() { // drawn as they come up, and again on a resize, 
     drawSky(level, resultsSkyTime(), null, SKY_RESULTS); // the level's backdrop, moving on and dimmed, behind them:
     // the ground as well
     ctx.font = "80px Arial";
-    printText("Level " + level + " Clear", -175);
+    printText(practice ? "Practice" : "Level " + level + " Clear", -175);
     ctx.font = "60px Arial";
-    printText("クリア", -75);
+    printText(practice ? "練習" : "クリア", -75);
     var next = 0; // the line under the title
     if (levelFlawless()) { // no miss, one combo through every beat, no hit: said, and worth nothing more
         showFlawless(FLAWLESS_DY);
@@ -743,15 +774,15 @@ function chooseResult(name) { // a button on the results: a clear's CONTINUE ("n
     } else if (resultsKind == "death") { // the level again, from full shields: on a run with its points kept, which the
         // life spent paid for; from the level select, which has no lives, from nothing, as the pause's RETRY, so its
         // best score is always one attempt's
-        if (selectRun) {
+        if (selectRun || practice) {
             score = 0;
         }
         startNextLevel();
     } else if (resultsKind == "over") { // the run again, from where it began
         restartRun();
     } else {
-        if (name == "next" && selectRun) { // a level played from the level select ends here: back to the select, its
-            endRun(); // bests recorded
+        if (name == "next" && (selectRun || practice)) { // a level played from the level select ends here: back to the
+            endRun(); // select, its bests recorded; and practice back to the practice screen
             return;
         }
         if (name == "next") { // on to the next level, with the shields, the charge and the combo this one left
@@ -778,6 +809,7 @@ function showFinish() { // the last level continued past: the run's time and its
     var runBest = full && recordRun(runMs, deaths);
     restFrame = null; // a resize copies this screen, not the results under it
     gameArea.clear();
+    playSfx(sfxFinale, 0, SFX_LEVELS.finale); // the finale (sfx.js)
     ctx.font = "80px Arial";
     if (deaths == 0) {
         printText("Flawless Victory", -175);
@@ -819,6 +851,7 @@ function showFinish() { // the last level continued past: the run's time and its
 }
 
 function stopLevel() { // the level stops where it stands, however it ended: the loop, the lasers, the effects
+    notePracticeScore(); // a practice attempt's points, a press since the last step's included, before anything clears them
     gameArea.stop();
     alive = false;
     endLevel(); // the game's own teardown
@@ -861,9 +894,13 @@ function endRun() { // the run ends, unrecorded, from the pause's QUIT or the re
     hoveredButton = "";
     startMenuTimers();
     updateSloganText(); // which draws the start screen
-    if (selectRun) { // the run came from the level select: back to it, with any bests it just set
+    if (practice) { // practice: back to the practice screen, as it was left
+        practice = false;
+        openMenu("practice");
+    } else if (selectRun) { // the run came from the level select: back to it, with any bests it just set
         openMenu("levels");
     }
+    themeSync(); // the menus' theme, from the top
 }
 
 function gameOver() { // the level was cleared or the player died
@@ -871,17 +908,21 @@ function gameOver() { // the level was cleared or the player died
     var picture = levelCleared ? null : deathPicture(); // the hit as it stands, before the level is cleared away
     stopLevel();
     if (levelCleared) {
-        recordLevel(level); // its rank, and from the level select its score
-        runRecord = !selectRun && recordRunScore(runScore + score); // on a run, its total so far against the most a run has had
+        if (practice) { // nothing to record
+            gradeRecord = scoreRecord = runRecord = false;
+        } else {
+            recordLevel(level); // its rank, and from the level select its score
+            runRecord = !selectRun && recordRunScore(runScore + score); // on a run, its total so far against the most a run has had
+        }
         raiseResults("clear"); // which keep its score up until CONTINUE banks it or RETRY lets it go
         return;
     }
     deaths += 1;
-    reachRecord = recordReach(level, deathProgress); // the furthest an attempt has got, while the level is unbeaten
+    reachRecord = !practice && recordReach(level, deathProgress); // the furthest an attempt has got, while the level is unbeaten
     playSound(aud_death);
     var kind = "over"; // none left: the run is over
-    if (selectRun) { // a level from the level select has no lives (runLivesMax, run.js): a death offers it again, as
-        kind = "death"; // often as it takes, and is never the game over
+    if (selectRun || practice) { // a level from the level select has no lives (runLivesMax, run.js): a death offers it
+        kind = "death"; // again, as often as it takes, and is never the game over (and practice can't die at all)
     } else if (runLives > 0) { // a life buys the level again, its points kept: the death's results say so, and wait
         runLives--; // for TRY AGAIN
         kind = "death";
@@ -895,8 +936,8 @@ function gameOver() { // the level was cleared or the player died
 }
 
 function drawDeathResults() { // a death's results, over the level's backdrop, still and dimmed: how far the attempt
-    // got, its beats so far and its points, the lives left (on a run), and TRY AGAIN or QUIT; or, with none left, the
-    // game over, and PLAY AGAIN or QUIT
+    // got, where its presses landed, its beats so far and its points, the lives left (on a run), and TRY AGAIN or QUIT;
+    // or, with none left, the game over, and PLAY AGAIN or QUIT
     var over = resultsKind == "over";
     drawSky(level, resultsSkyTime(), null, SKY_RESULTS);
     ctx.font = "80px Arial";
@@ -908,10 +949,10 @@ function drawDeathResults() { // a death's results, over the level's backdrop, s
         ctx.fillStyle = timingColor();
         centerText(timingText(), 0);
     }
+    showTimingScale(); // and where every one of them landed, as a clear's results show it
     var dy = msgBottom() + 160;
     showBreakdown(dy, Math.max(0, nextJudge - firstPlayBeat(), perfects + greats + goods + bads)); // the beats it got
-    // through:
-    // judged by then, and any hit early on top
+    // through: judged by then, and any hit early on top
     showReached(dy, over);
     showScore(dy, true);
     showResultButtons();

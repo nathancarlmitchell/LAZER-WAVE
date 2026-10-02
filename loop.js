@@ -27,6 +27,29 @@ var level = 1;
 var runFrom = 1; // the level the run began at: the first, from START, or any the level select opened (menu.js)
 var selectRun = false; // the run was started from the level select: it ends on its level's results, back at the
                        // select, rather than going on to the next level as a run from START does
+var practice = false; // the level is a practice one (practice.js): put together on the practice screen, played on its own
+                      // and back there after, never lost (a hit is counted, not a shield), never recorded
+var practiceHits = 0; // the lasers, and the gates let by, that got the piece in a practice level: what shields would
+                      // have paid
+var practiceRestartDue = false; // a hit in a practice level with RESTART ON HIT: the step it came in starts it again
+
+function practiceAuto() { // practice's AUTO TIMING, on
+    return practice && practiceOpts.auto;
+}
+
+function practiceLoop() { // practice's LOOP, on: the pattern goes round until the player quits (never a boss level,
+    // which goes round by itself until its boss falls: practiceLoopOn, practice.js)
+    return practice && practiceLoopOn();
+}
+
+function driveOff() { // practice's OVERDRIVE, OFF: the meter never charges, and the HUD leaves it out
+    return practice && practiceOpts.drive == "off";
+}
+
+function practiceRound() { // practice on LOOP: the round being played, from 1, the opening rest in the first
+    var first = (COUNT_IN_BARS + 1) * BEATS_PER_BAR;
+    return loopLen > 0 && beatPos >= first ? 1 + Math.floor((beatPos - first) / loopLen) : 1;
+}
 var showFrame = true; // is this step's picture going to be seen, or is another step already due to replace it
 
 
@@ -37,6 +60,7 @@ function onLoad() {
     updateSloganText();
     startMenuTimers(); // the start screen's flashers and glitches, now that everything they draw with exists
     startupSound(); // the startup sequence (audio.js): now, where the browser lets sound start at load, else at the first press
+    themeBegin(); // and the menu theme (theme.js) as it rings out, or at that press without it
 }
 
 
@@ -300,7 +324,10 @@ function pointsMult() { // what a point is multiplied by: the combo's multiplier
 }
 
 function chargeDrive(n, worth) { // a hit on beat n charges the meter by `worth` PERFECTs, unless it is spent over
-    // that beat
+    // that beat, or practice has overdrive OFF
+    if (driveOff()) {
+        return;
+    }
     if (drive.start !== null && n < drive.end) {
         return; // waiting for its beat, or running
     }
@@ -339,9 +366,14 @@ function startDrive(one) { // a full meter spent: overdrive runs from beat `one`
     drive.lit = false;
 }
 
+function driveAuto() { // is a full meter spent at once: in practice its OVERDRIVE says (AUTO), elsewhere the OVERDRIVE
+    // setting (OPTIONS)
+    return practice ? practiceOpts.drive == "auto" : autoDrive;
+}
+
 function driveStep() { // each step: on AUTO, a full meter is spent at once, from the next beat; announce it when its beat
     // comes, and put it out when its time is up
-    if (autoDrive && driveReady()) {
+    if (driveAuto() && driveReady()) {
         startDrive(Math.ceil(beatPos));
     }
     if (drive.start === null) {
@@ -349,10 +381,11 @@ function driveStep() { // each step: on AUTO, a full meter is spent at once, fro
     }
     if (!drive.lit && beatPos >= drive.start) {
         drive.lit = true;
-        playSound(aud_powerUp);
+        playSfx(sfxDriveStart, 0, SFX_LEVELS.driveStart, actSong(level).key); // the shot it comes on with (sfx.js)
     }
     if (beatPos >= drive.end) {
         driveOut();
+        playSfx(sfxDriveEnd, 0, SFX_LEVELS.driveEnd, actSong(level).key); // and the power running down
     }
 }
 
@@ -371,7 +404,7 @@ function absorbHazards() { // in overdrive: every laser the piece is in is absor
             score += points;
             popPoints(points, gamePiece.x + gamePiece.width / 2 + 44, gamePiece.y + gamePiece.height / 2 - 6);
         }
-        playSound(aud_pickupCoin);
+        playSfx(sfxAbsorb, 0, SFX_LEVELS.absorb, actSong(level).key);
     }
 }
 
@@ -480,13 +513,19 @@ function passGate(n) { // SPACE on a gate's beat: it flashes, and the form switc
         gate.hitAt = beatPos;
         gate.hitX = gamePiece.x + gamePiece.width / 2;
     }
-    switchForm(gateTo[n], gateFacing[n]);
-    synthGate(0);
+    playSfx(sfxGate, 0, SFX_LEVELS.gate, { key: actSong(level).key, toLaser: gateTo[n] == "laser" }); // the waves meeting
+    switchForm(gateTo[n], gateFacing[n]); // in the beam, or parting again
 }
 
-function missGate(n) { // a gate gone by unpassed: the form switches anyway, and it costs a shield. True if the last
+function missGate(n) { // a gate gone by unpassed: the form switches anyway, and it costs a shield (in practice it is
+    // counted as a hit instead). True if the last
     switchForm(gateTo[n], gateFacing[n]);
-    hp--;
+    if (practice) {
+        practiceHits++;
+        practiceRestartDue = practiceOpts.restart;
+    } else {
+        hp--;
+    }
     perfMiss();
     judge("gate");
     if (hp > 0) {
@@ -530,8 +569,8 @@ function multiplier() { // a step for every COMBO_STEP hits in a row, with no ce
 }
 
 function shownScore() { // the score the HUD shows: a run's total so far, its levels banked and this one's points, or
-    // a level's own points when it is played from the level select
-    return selectRun ? score : runScore + score;
+    // a level's own points when it is played from the level select or for practice
+    return selectRun || practice ? score : runScore + score;
 }
 
 function beatColor(n) { // the colour beat n wants, or null for either
@@ -595,9 +634,10 @@ function perfHit(grade) { // a beat hit: the meter fills by the grade, at the di
     perf = Math.min(1, perf + PERF_GAIN[grade] * mode().perfGain * (driveOn() ? PERF_DRIVE : 1));
 }
 
-function perfMiss() { // a beat missed: the meter drains at the difficulty's rate, and empty, the track is failed
+function perfMiss() { // a beat missed: the meter drains at the difficulty's rate, and empty, the track is failed (never
+    // in practice)
     perf = Math.max(0, perf - PERF_MISS * mode().perfDrain);
-    if (perf <= 0 && mode().perfFail !== false) {
+    if (perf <= 0 && mode().perfFail !== false && !practice) {
         perfFailed = true;
     }
 }
@@ -613,14 +653,18 @@ function levelRating() { // 0..1: how well this attempt's beats were hit
         return 0;
     }
     var hitWorth = (perfects + greats * 0.75 + goods / 2 + bads / 4 - strays / 2) / beats;
-    return Math.max(0, Math.min(1, hitWorth - (hpAtStart - hp) * RANK_SHIELD_COST));
+    return Math.max(0, Math.min(1, hitWorth - shieldsLost() * RANK_SHIELD_COST));
+}
+
+function shieldsLost() { // the shields this attempt has lost, or in practice, where none are, the hits that would have cost
+    return hpAtStart - hp + practiceHits;
 }
 
 function levelFlawless() { // the attempt was flawless: no miss, one combo through every beat, no hit. Every way a combo
     // breaks is a beat missed or BAD, a press off the beat (a stray) or a laser that hits, so the longest streak being the
     // beats, no stray and no shield lost says it all. The results flare FLAWLESS for it, worth no points; S+ and SS need it
     var beats = playBeats();
-    return beats > 0 && bestCombo == beats && strays == 0 && hp == hpAtStart;
+    return beats > 0 && bestCombo == beats && strays == 0 && shieldsLost() == 0;
 }
 
 function levelRank() { // this attempt's rank: { grade, color }
@@ -657,6 +701,10 @@ function levelProgress() { // 0..1 through the level, count-in included; on a bo
     if (boss) {
         return 1 - boss.health / boss.max;
     }
+    if (practiceLoop() && loopLen > 0) { // practice going round: how far through the round, from the pattern's first bar
+        var first = (COUNT_IN_BARS + 1) * BEATS_PER_BAR;
+        return beatPos < first ? 0 : ((beatPos - first) % loopLen) / loopLen;
+    }
     return Math.max(0, Math.min(1, beatPos / totalBeats));
 }
 
@@ -672,13 +720,15 @@ function levelBar(bar) { // the bar of the level's definition that bar `bar` of 
 function earning(b) { // is beat b one that earns: any, but on a boss level only the first round's. Past the level's own
     // bars, with the boss still up, nothing is earned: no points for a hit, a beat lived through or a laser absorbed, and
     // the combo holds without climbing (a miss still breaks it), so a fight drawn out gains nothing, and the boss's
-    // bonus, which follows the multiplier, only shrinks with the rounds (bossBonus, boss.js)
-    return loopLen <= 0 || b < (COUNT_IN_BARS + wave.bars) * BEATS_PER_BAR;
+    // bonus, which follows the multiplier, only shrinks with the rounds (bossBonus, boss.js). Practice on LOOP earns
+    // every round alike: there is no boss to draw out (and a boss level practised goes by the game's own rule)
+    return loopLen <= 0 || practiceLoop() || b < (COUNT_IN_BARS + wave.bars) * BEATS_PER_BAR;
 }
 
 function extendLevel() { // a boss level's end in view with its boss still up: the level goes on, its loop dealt again
-    // after its last bar, everything in it a round later, so the fight runs until the boss falls
-    if (loopLen <= 0 || !bossUp() || beatPos < totalBeats - LOOP_LEAD) {
+    // after its last bar, everything in it a round later, so the fight runs until the boss falls. A practice level on
+    // LOOP goes round the same way, until the player quits
+    if (loopLen <= 0 || !(bossUp() || practiceLoop()) || beatPos < totalBeats - LOOP_LEAD) {
         return;
     }
     passes++;
@@ -703,8 +753,13 @@ function extendLevel() { // a boss level's end in view with its boss still up: t
 }
 
 function startLevel() { // a level is about to be played: from the start, or again after a death
-    wave = levelDef(level);
-    timeline = buildTimeline(level);
+    wave = practice ? practiceWave() : levelDef(level); // a practice level is the practice screen's (practice.js)
+    timeline = buildTimeline(level, wave);
+    practiceHits = 0;
+    practiceRestartDue = false;
+    if (practice) {
+        practiceAttempt(); // the session's best for what is practised, to beat (practice.js)
+    }
     spawnQueue = timeline.slice().sort(function (a, b) {
         return (a.fire - eventLead(a, warnBeats())) - (b.fire - eventLead(b, warnBeats()));
     });
@@ -724,7 +779,8 @@ function startLevel() { // a level is about to be played: from the start, or aga
     totalBeats = (COUNT_IN_BARS + wave.bars) * BEATS_PER_BAR;
     latchLatency(false); // the audio's delay, for the clock
     bossStart(wave, timeline); // its boss, if it has one (boss.js)
-    var from = loopFrom(wave); // and its loop: the bars dealt again while the boss stands
+    var from = practiceLoop() ? 1 : loopFrom(wave); // and its loop: the bars dealt again while the boss stands, or in
+    // practice on LOOP, the whole pattern after its opening rest
     loopLen = from === null ? 0 : (wave.bars - from) * BEATS_PER_BAR;
     loopEvents = timeline.filter(function (ev) { return loopLen > 0 && ev.fire >= (COUNT_IN_BARS + from) * BEATS_PER_BAR; });
     passes = 0;
@@ -866,8 +922,12 @@ function beatOpen(n) { // can beat n still be hit: its window hasn't closed on t
     return (judgePos() - n) * msPerBeat() <= badMs();
 }
 
-function hitBeat(time, color) { // a hit in `color`: judge it against the nearest beat
-    var b = pressBeat(time);
+function hitBeat(time, color) { // a press in `color` at real time `time`: judged against the nearest beat
+    hitBeatAt(pressBeat(time), color);
+}
+
+function hitBeatAt(b, color) { // a hit in `color` at beat position b, judged against the nearest beat: a press's, or
+    // practice's AUTO TIMING's, exactly on its beat (autoTimingStep)
     var n = Math.round(b);
     playerHitFlash("miss", color); // every press shows on the head, in the count-in too, whatever it comes to; a hit
     // lights it fully below
@@ -936,6 +996,7 @@ function hitBeat(time, color) { // a hit in `color`: judge it against the neares
         if (multiplier() > multWas) { // the multiplier stepped up: said at the orb, as a hit's points are
             popText("x" + multiplier(), "MULTIPLIER", COLORS.good, gamePiece.x + gamePiece.width / 2 + 44, gamePiece.y + gamePiece.height / 2 + 26, 1.3); // under
             // the judgement, which sits over the orb
+            playSfx(sfxMultiplier, 0, SFX_LEVELS.multiplier, { key: actSong(level).key, mult: multiplier() });
         }
     }
     if (earns) {
@@ -971,11 +1032,17 @@ function checkMissed() { // beats whose window has closed on the judging clock (
     return dead;
 }
 
-function takeHit() { // a laser got the piece: returns true if that was the last shield
+function takeHit() { // a laser got the piece: returns true if that was the last shield. In practice it is counted, and
+    // costs nothing
     if (invuln > 0) {
         return false;
     }
-    hp--;
+    if (practice) {
+        practiceHits++;
+        practiceRestartDue = practiceOpts.restart; // RESTART ON HIT: the level again, once this step is through
+    } else {
+        hp--;
+    }
     breakCombo(false);
     judge("hit");
     invuln = INVULN_STEPS;
@@ -986,11 +1053,24 @@ function takeHit() { // a laser got the piece: returns true if that was the last
 }
 
 function onActionPress(name, time) { // an action went down while playing, at real time `time`. SPACE hits a gate
-    // when the beat nearest the press is one, and spends overdrive when it isn't
+    // when the beat nearest the press is one, and spends overdrive when it isn't. With practice's AUTO TIMING the beats
+    // and the gates are hit for the player, so only overdrive is left to the keys
     if (name == "gate" && beatColor(Math.round(pressBeat(time))) != "gate") {
         spendDrive(time);
-    } else {
+    } else if (!practiceAuto()) {
         hitBeat(time, ACTIONS[name].beat);
+    }
+}
+
+function autoTimingStep() { // practice's AUTO TIMING: each beat hit the moment it comes, exactly on it (PERFECT), in the
+    // colour it wants (either, cyan, where it wants none; a gate's takes any). Lining up with a target is still the
+    // player's
+    if (!practiceAuto()) {
+        return;
+    }
+    var n = Math.floor(beatPos);
+    if (n >= firstPlayBeat() && n < playEnd() && !judged[n]) {
+        hitBeatAt(n, beatColor(n) == "magenta" ? "magenta" : "cyan");
     }
 }
 
@@ -1219,6 +1299,7 @@ function updateGameArea() {
     while (lastBeat < Math.floor(beatPos)) {
         onBeat(++lastBeat);
     }
+    autoTimingStep(); // practice's AUTO TIMING hits the beat that has just come
     if (checkMissed()) { // a gate gone by took the last shield
         gameOver();
         return;
@@ -1246,7 +1327,13 @@ function updateGameArea() {
         gameOver();
         return;
     }
+    if (practiceRestartDue) { // practice with RESTART ON HIT: something got the piece, so the level starts again
+        practiceRestartDue = false;
+        practiceRestart();
+        return;
+    }
     playerRecord(); // where the piece is now, for the waves' trail
+    notePracticeScore(); // in practice, the session's best for it, if these points are more (practice.js)
 
     if (showFrame) {
         drawLevel();

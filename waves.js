@@ -668,10 +668,11 @@ function loopFrom(def) { // the bar a boss level goes back to when its end comes
     return Math.max(1, last[0] - 1); // never the opening rest bar
 }
 
-function buildTimeline(n) { // everything the level holds, in beat order: beams { fire, axis, pos, size, color, and a
-    // held note's hold or a faller's kind },
-    // targets (axis "target", pos their height) and gates (axis "gate", to the form they switch to, color "gate")
-    var def = levelDef(n);
+function buildTimeline(n, given) { // everything the level holds, in beat order: beams { fire, axis, pos, size, color,
+    // and a held note's hold or a faller's kind }, targets (axis "target", pos their height) and gates (axis "gate", to
+    // the form they switch to, color "gate"). Level n's, or given a definition, that one's in level n's song and seeds
+    // (a practice level, practice.js)
+    var def = given || levelDef(n);
     var rnd = seededRandom(n * 9973 + 17);
     var paint = seededRandom(n * 7919 + 101); // the colours' own stream, so painting a level never moves its beams
     var aim = seededRandom(n * 6151 + 29); // and laser form's, so the wave bars around it keep the beams they had
@@ -685,7 +686,7 @@ function buildTimeline(n) { // everything the level holds, in beat order: beams 
         var c = pattern ? BEAT_COLORS[pattern.charAt(Math.floor(fire) - b0)] : null;
         out.push(Object.assign({ fire: fire, axis: axis, pos: pos, size: size, color: c || null }, more || {}));
     };
-    var previous = "rest";
+    var previous = "rest", dealt = []; // and what each bar is dealt, for practice to name (practice.js)
     for (var bar = 0; bar < def.bars; bar++) {
         var name = "rest"; // the first bar is always a rest: the level opens on the beat, not on a laser
         if (bar > 0) {
@@ -694,6 +695,7 @@ function buildTimeline(n) { // everything the level holds, in beat order: beams 
             } while (name == "rest" && previous == "rest"); // never two rests running
         }
         previous = name;
+        dealt.push(laser[bar] ? "laser" : name);
         pattern = null;
         if (colors.length) {
             pattern = COLOR_PATTERNS[colors[Math.floor(paint() * colors.length)]];
@@ -731,6 +733,7 @@ function buildTimeline(n) { // everything the level holds, in beat order: beams 
     }).concat(gates);
     out = out.concat(dodgeLasers(out, def, n));
     out.sort(function (a, b) { return a.fire - b.fire; });
+    out.dealt = dealt; // bar by bar: a phrase's name, a combination's ("pincer+cage"), "rest", or "laser" in laser form
     return out;
 }
 
@@ -807,6 +810,64 @@ function warnLook(fireAt) { // how a warning due at beat fireAt is drawn now: ne
     var blink = near > 0 && (beatPos * 4) % 1 >= 0.5 ? 0.6 : 1;
     return { near: near, blink: blink, alpha: (WARN_DIM + (1 - WARN_DIM) * near) * blink, width: 1 + 2 * near,
         wash: (0.03 + 0.12 * near) * blink, hatch: near > 0 ? WARN_HATCH * blink : 0 };
+}
+
+// A laser that moves while it can hit (a sweeper wiping across, a pendulum on its swing, the radar's ray and the
+// spinning X's arms coming round) wears a run of small triangles inside it, along its length, pointing the way it is
+// going and blinking on and off, for as long as it can hit. A faller, closing walls and a chaser only move through
+// their warnings, and are still by the time they can hit; a ring only grows into the outline it fires at, and a
+// corridor always scrolls the same way with its path in view: none of them wears any
+var MOVE_TRI = 0.026; // a triangle's size, base to tip, as a fraction of the screen's shorter side...
+var MOVE_TRI_MAX = 20; // ...and at most this, in px
+var MOVE_TRI_GAP = 3; // px at least between a triangle's base and the laser's hot white line: the run sits off the line,
+                      // on the side the laser is going to, each triangle's tip out toward that edge...
+var MOVE_TRI_GAP_SHARE = 0.125; // ...and more on a thicker laser: this much of how thick it is
+var MOVE_TRI_EVERY = 3; // triangle sizes from one to the next along the laser
+var MOVE_TRI_BLINK = 2; // blinks a beat: on for the first half of each
+var MOVE_TRI_FILL = COLORS.laserCore, MOVE_TRI_EDGE = COLORS.bg; // white, rimmed dark so they read on the laser
+var RAY_HOT_LINE = 3; // px: the hot white line down the radar's ray and the spinning X's arms
+var RAY_GLOW = 2.2; // and their glow, as wide as this many of their cores: a ray's triangles reach into it
+
+function moveTrisOn() { // the run blinks on and off on the beat
+    return (beatPos * MOVE_TRI_BLINK) % 1 < 0.5;
+}
+
+function moveTriSize(room) { // a triangle's size: as the screen gives it, and no more than the `room` px it has
+    return Math.min(MOVE_TRI_MAX, MOVE_TRI * Math.min(gameArea.canvas.width, gameArea.canvas.height), room);
+}
+
+function moveTriBase(across, line) { // how far from a laser's middle its triangles' bases sit, the laser `across` px
+    // thick and its hot white line `line` px: clear of the line by the gap, which grows with the laser
+    return line / 2 + Math.max(MOVE_TRI_GAP, MOVE_TRI_GAP_SHARE * across);
+}
+
+function moveTris(x0, y0, x1, y1, angle, base, s, skip) { // a run of triangles s px big along a laser whose middle runs
+    // from (x0, y0) to (x1, y1), MOVE_TRI_EVERY sizes apart, each pointing at `angle` (0 to the right, on clockwise),
+    // its base `base` px from that middle and its tip s px further on; skip(x, y), given, leaves out any whose base's
+    // middle it is true of (a sweeper's hole)
+    var len = Math.sqrt((x1 - x0) * (x1 - x0) + (y1 - y0) * (y1 - y0)), n = Math.floor(len / (s * MOVE_TRI_EVERY));
+    var c = Math.cos(angle), d = Math.sin(angle), half = s * 0.5;
+    ctx.save();
+    ctx.globalAlpha = 1;
+    ctx.setLineDash([]);
+    ctx.beginPath();
+    for (var i = 0; i < n; i++) {
+        var t = (i + 0.5) / n, x = x0 + (x1 - x0) * t + c * base, y = y0 + (y1 - y0) * t + d * base; // the base's middle
+        if (skip && skip(x, y)) {
+            continue;
+        }
+        ctx.moveTo(x + c * s, y + d * s); // the tip, out ahead, and the base's two corners
+        ctx.lineTo(x - d * half, y + c * half);
+        ctx.lineTo(x + d * half, y - c * half);
+        ctx.closePath();
+    }
+    ctx.lineJoin = "round";
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = MOVE_TRI_EDGE;
+    ctx.stroke();
+    ctx.fillStyle = MOVE_TRI_FILL;
+    ctx.fill();
+    ctx.restore();
 }
 
 function laserHatch(tint) { // a diagonal hatch in `tint`, a repeating pattern, over the footprint of what is about to fire
@@ -1305,6 +1366,15 @@ Sweeper.prototype.update = function () { // draw it: an outline at its edge, the
         ctx.fillRect(this.x + side, hole.top - give - 1, this.width - 2 * side, 1);
         ctx.fillRect(this.x + side, hole.bottom + give, this.width - 2 * side, 1);
     }
+    if (this.firing() && moveTrisOn()) { // while it can hit, which way it wipes: down its length, just off its hot line
+        // on the side it is wiping to, inside its core, the hole left clear
+        var base = moveTriBase(this.width, Math.min(this.width * 0.2, BEAM_CORE_MAX));
+        var s = moveTriSize(this.width * (1 - 2 * BEAM_INSET) / 2 - base - 2), mid = this.x + this.width / 2;
+        var gap = this.holeEdges();
+        moveTris(mid, 0, mid, H, this.dir > 0 ? 0 : Math.PI, base, s, function (x, y) {
+            return y > gap.top - s && y < gap.bottom + s;
+        });
+    }
     ctx.restore();
 };
 
@@ -1713,13 +1783,20 @@ Radar.prototype.update = function () { // draw it: the ray's outline where it wi
         ctx.strokeStyle = COLORS.laser;
         this.ray(this.at, core);
         ctx.strokeStyle = COLORS.laserCore;
-        this.ray(this.at, 3);
+        this.ray(this.at, RAY_HOT_LINE);
         ctx.fillStyle = COLORS.laser;
         this.disc(1);
         ctx.fill();
         ctx.fillStyle = COLORS.laserCore;
         this.disc(0.5);
         ctx.fill();
+    }
+    if (this.firing() && moveTrisOn()) { // while it can hit, which way it turns, clockwise: along the ray from the disc
+        // out, just off its hot line on the side it is turning to, reaching into its glow
+        var base = moveTriBase(RADAR_WIDTH, RAY_HOT_LINE), s = moveTriSize(RADAR_WIDTH * RAY_GLOW / 2 - base);
+        var R = this.reach(), r0 = RADAR_CORE * H / 2 + s;
+        moveTris(W / 2 + Math.cos(this.at) * r0, H / 2 + Math.sin(this.at) * r0, W / 2 + Math.cos(this.at) * R,
+            H / 2 + Math.sin(this.at) * R, this.at + Math.PI / 2, base, s);
     }
     ctx.restore();
 };
@@ -1849,13 +1926,23 @@ Spinner.prototype.update = function () { // draw it: its outline turning in thro
         ctx.strokeStyle = COLORS.laser;
         this.cross(core);
         ctx.strokeStyle = COLORS.laserCore;
-        this.cross(3);
+        this.cross(RAY_HOT_LINE);
         ctx.fillStyle = COLORS.laser;
         this.hub(SPIN_WIDTH);
         ctx.fill();
         ctx.fillStyle = COLORS.laserCore;
         this.hub(SPIN_WIDTH / 2);
         ctx.fill();
+    }
+    if (this.firing() && moveTrisOn()) { // while it can hit, which way it turns: along each of its four arms from the hub,
+        // just off its hot line on the side it is turning to, reaching into its glow
+        var base = moveTriBase(SPIN_WIDTH, RAY_HOT_LINE), s = moveTriSize(SPIN_WIDTH * RAY_GLOW / 2 - base);
+        var c = this.centre(), R = this.reach(), r0 = SPIN_WIDTH + s;
+        for (var k = 0; k < 4; k++) {
+            var a = this.at + k * Math.PI / 2;
+            moveTris(c.x + Math.cos(a) * r0, c.y + Math.sin(a) * r0, c.x + Math.cos(a) * R, c.y + Math.sin(a) * R,
+                a + this.dir * Math.PI / 2, base, s);
+        }
     }
     ctx.restore();
 };
@@ -1973,6 +2060,13 @@ Pendulum.prototype.update = function () { // draw it: its outline swinging, burn
         ctx.globalAlpha = EDGE_ALPHA * fade;
         ctx.fillRect(0, this.y + inset, W, 1);
         ctx.fillRect(0, this.y + this.height - inset - 1, W, 1);
+    }
+    if (this.firing() && moveTrisOn()) { // while a burn can hit, which way it swings: along its middle. It burns from a
+        // beat, the swing's turns among them, so the way is read a moment on, the way it is going from there
+        var v = (this.to - this.from) * Math.sin(Math.PI * 2 * (beatPos - this.fireAt + 0.05) / this.beats);
+        var mid = this.y + this.height / 2, base = moveTriBase(this.height, Math.min(this.height * 0.2, BEAM_CORE_MAX));
+        moveTris(0, mid, W, mid, v >= 0 ? Math.PI / 2 : -Math.PI / 2, base,
+            moveTriSize(this.height * (1 - 2 * BEAM_INSET) / 2 - base - 2));
     }
     ctx.restore();
 };

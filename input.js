@@ -919,6 +919,9 @@ function padDefault(screen) { // the button lit when a controller comes to a scr
     if (screen == "menu" && menuScreen == "difficulty") { // the difficulty chosen last
         return "diff_" + difficulty;
     }
+    if (screen == "menu" && menuScreen == "practice") { // PLAY, the way on
+        return "pr_play";
+    }
     if (screen == "menu" && menuScreen == "levels") { // the level a player carrying on would play
         return "level_" + (levelNextUp() || RUN_LEVELS);
     }
@@ -1035,6 +1038,7 @@ function bindInput() { // the touch, mouse, keyboard, controller and page listen
         } else if (audioCtx) {
             beatAudio(); // back: the audio woken, if the browser put it to sleep meanwhile
         }
+        themeSync(); // the menu theme stops out of sight, and comes back with the page (theme.js)
     });
     window.addEventListener("pagehide", releaseAll);
     window.addEventListener('click', function (e) {

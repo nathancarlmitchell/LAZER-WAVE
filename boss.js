@@ -33,6 +33,7 @@ var BOSS_BONUS = 1000; // points a boss brought down pays, an act's number of ti
 var bossBonusWon = 0; // what the boss brought down in this attempt paid, for the results
 
 var boss = null; // the level's boss while it has one: { name, kind, max, health, downAt, parts, y, echo }
+var bossSirenQuiet = false; // a practice level started again at a hit (RESTART ON HIT): its siren isn't sounded again
 
 function bossUp() { // a boss level, its boss still standing
     return boss !== null && boss.downAt === null;
@@ -42,12 +43,17 @@ function bossStart(def, timeline) { // a level starts: its boss, if it has one, 
     // the level has
     boss = null;
     bossBonusWon = 0;
+    var quiet = bossSirenQuiet;
+    bossSirenQuiet = false;
     if (!def.boss) {
         return;
     }
     var targets = timeline.filter(function (ev) { return ev.axis == "target"; }).length;
     boss = { name: def.boss.name, kind: def.boss.kind || "node", max: Math.max(1, targets), health: Math.max(1, targets),
         downAt: null, parts: [], y: 0.5, echo: {} };
+    if (!quiet) { // and its siren, over the count-in (sfx.js)
+        playSfx(sfxBossWarning, 0, SFX_LEVELS.bossWarning, actSong(level).key);
+    }
 }
 
 function bossBonus(at) { // the points the boss pays brought down at beat `at`: the act's BOSS_BONUS within the level's own
@@ -103,7 +109,7 @@ function bossDown() { // the boss breaks up, the bar plays out, and the level en
         }
     }
     switchForm("wave");
-    synthCharged(0, actSong(level).key);
+    playSfx(sfxBossDown, 0, SFX_LEVELS.bossDown, actSong(level).key); // its stab (sfx.js)
     musicFinish((boss.playEnd * msPerBeat() - simNowMs()) / 1000); // the song's last chord, on the pause's first beat
     var W = gameArea.canvas.width, H = gameArea.canvas.height, from = bossSparkFrom();
     popPoints(bossBonusWon, from.x, from.y, "BOSS"); // said where it breaks up, as a hit's points are

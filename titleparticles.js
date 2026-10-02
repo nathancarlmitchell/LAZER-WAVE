@@ -57,8 +57,8 @@ function titleParticles() { // the start screen was drawn: what the particles pa
 }
 
 function titleParticlesWanted() { // the start screen, or a menu screen over it (not a level, nor the help over a
-    // paused one), with any effects at all
-    return !gameStart && fxLook() != "off";
+    // paused one, nor the practice screen, whose preview moves enough), with any effects at all
+    return !gameStart && fxLook() != "off" && menuScreen != "practice";
 }
 
 function titleParticlesFrame(now) {

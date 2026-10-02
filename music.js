@@ -472,10 +472,15 @@ function musicStop(fade) { // the song stops where it stands, going over `fade` 
     }
     var m = music;
     music = null;
+    fadeBus(m, fade, musicGain());
+}
+
+function fadeBus(m, fade, from) { // a song's bus (musicBus) going, over `fade` seconds from the level `from`, and then
+    // let go: notes still due sound into nothing, and the echo's loop is broken
     var now = m.out.context.currentTime;
-    m.out.gain.setValueAtTime(musicGain(), now);
+    m.out.gain.setValueAtTime(from, now);
     m.out.gain.linearRampToValueAtTime(0, now + fade);
-    setTimeout(function () { // then let it go: notes still due sound into nothing, and the echo's loop is broken
+    setTimeout(function () {
         m.out.disconnect();
         m.echo.disconnect();
     }, 1000 * fade + 200);
@@ -491,6 +496,7 @@ function setMusicLevel(v) { // the MUSIC setting changed: what plays from now on
         music.out.gain.setValueAtTime(musicGain(), music.out.context.currentTime);
     }
     setMusicVolume(musicVolume); // and the recorded tracks' (audio.js), were there any
+    themeLevel(); // and the menu theme's (theme.js), which goes with MUSIC off and comes back with it on
 }
 
 var preview = null; // the moment of theme a change of the setting is playing, and the timer that ends it
@@ -520,10 +526,11 @@ function musicPreviewStop() { // the settings went, or the timing test came up: 
     }
 }
 
-function duckAt(m, when, beatSec) { // a kick at `when`: the song dips under it and swells back over the beat
+function duckAt(m, when, beatSec, depth) { // a kick at `when`: the song dips under it (to depth, MUSIC_DUCK by default)
+    // and swells back over the beat
     var d = m.duck.gain;
     d.setValueAtTime(1, when);
-    d.linearRampToValueAtTime(MUSIC_DUCK, when + 0.01);
+    d.linearRampToValueAtTime(depth || MUSIC_DUCK, when + 0.01);
     d.linearRampToValueAtTime(1, when + 0.6 * beatSec);
 }
 

@@ -53,8 +53,8 @@ function startRunLives() { // a run begins: the lives are its own (the HUD shows
 
 function runLivesMax() { // the lives the run has to spend: the difficulty's, on a run from START; none for a level played
     // from the level select, where a death only ever offers the level again, from nothing, so there is nothing to run
-    // out of (gameOver, levels.js)
-    return selectRun ? 0 : mode().lives;
+    // out of (gameOver, levels.js), nor for practice, which can't be lost
+    return selectRun || practice ? 0 : mode().lives;
 }
 
 // Records, kept as one JSON blob beside the settings and read the same defensive way -- a private window throws rather

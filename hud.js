@@ -40,16 +40,33 @@ function drawStats(color, scoreColor) { // the score (a run's total, or the leve
         ctx.globalAlpha = i < hp ? 0.9 : 0.25;
         ctx.fillRect(50 + i * 26, 146, 18, 18);
     }
-    drawDriveMeter(touch);
+    if (!driveOff()) { // none in practice with OVERDRIVE OFF
+        drawDriveMeter(touch);
+    }
     drawPerfMeter(touch);
     ctx.globalAlpha = 1;
     ctx.font = (touch ? TOUCH_STAT_FONT : 30) + "px Arial";
     ctx.fillStyle = color;
-    ctx.fillText("Act " + roman(levelAct(level)) + "  Level " + level + "   " + wave.bpm + " BPM", 50,
-        touch ? TOUCH_STAT_LEVEL : 220);
+    ctx.fillText((practice ? "PRACTICE   " + practiceLabel() : "Act " + roman(levelAct(level)) + "  Level " + level)
+        + "   " + wave.bpm + " BPM", 50, touch ? TOUCH_STAT_LEVEL : 220);
     for (var j = 0; j < runLivesMax(); j++) { // the lives, when the run has any (none from the level select): lit while
         drawLife(50 + j * (LIFE_W + LIFE_GAP), touch ? TOUCH_LIVES_Y : LIVES_Y, j < runLives); // they last, as the
     } // shields are
+    if (practice) { // in their place in practice, which has none: the hits the shields would have paid for, on LOOP the
+        // round, and the session's best for what is practised (practice.js), in a new best's colour while this attempt
+        // is beating it, as it climbs with the score
+        var parts = [["HITS " + practiceHits, practiceHits ? COLORS.warn : color]];
+        if (practiceLoop()) {
+            parts.push(["ROUND " + practiceRound(), color]);
+        }
+        parts.push(["BEST " + practiceBestText(), practiceNewBest() ? COLORS.good : color]);
+        var lx = 50, ly = touch ? TOUCH_LIVES_Y + 9 : LIVES_Y + 10;
+        parts.forEach(function (part) {
+            ctx.fillStyle = part[1];
+            ctx.fillText(part[0], lx, ly);
+            lx += ctx.measureText(part[0] + "   ").width;
+        });
+    }
     ctx.restore();
 }
 

@@ -4,7 +4,7 @@ Tags: game, rhythm, arcade, html5, embed
 Requires at least: 6.1
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 1.9.0
+Stable tag: 1.10.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -71,6 +71,19 @@ In the game's OPTIONS, CALIBRATE plays a beat to tap along to and suggests the t
 Click the game first so it has the keyboard.
 
 == Changelog ==
+
+= 1.10.0 =
+* PRACTICE on the start screen. LEVELS plays any of the game's 25 levels whole, its preview naming the lasers in each
+  bar. CUSTOM puts a pattern together from the levels' makings: any laser or two, in wave form, laser form or both by
+  turns, with the targets, colours, song, tempo, warning and length you choose, a live preview and a tooltip on
+  everything. Overdrive (off, on or automatic), AUTO TIMING, RESTART ON HIT and LOOP set how it is practised. Nothing
+  can be lost and nothing is recorded; the best score for each setup is kept until the page is closed.
+* The start screen and its menus play the game's own theme song. MUSIC sets its volume, and turns it off.
+* A new startup sound, and new sounds for passing a gate, overdrive starting and running out, absorbing a laser, the
+  multiplier climbing, a boss level's siren, a boss brought down, a new best or FLAWLESS, the game over and the run's
+  finish. SOUND FX sets their volume.
+* Moving lasers wear small blinking triangles pointing the way they are moving, while they can hit.
+* The try again screen shows where your presses landed, as a cleared level's results do.
 
 = 1.9.0 =
 * Lives are icons, a small copy of your piece for each, in the corner and on a death's results, where the life just
