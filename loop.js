@@ -261,6 +261,8 @@ var POINTS = { perfect: 100, great: 75, good: 50, bad: 25 };
 var COMBO_STEP = 8; // hits in a row per step of multiplier, which has no ceiling: a long streak is the run's stake
 var SURVIVE_POINTS = 10; // for every beat of the level lived through
 var combo = 0;
+var runPeakCombo = 0; // the longest the combo has run this run, carried from level to level as it is: a run's or a
+                      // rush's MAX COMBO, the HUD's COMBO at its highest (reset as a run begins, levels.js)
 var streak = 0; // this level's own hits in a row: the combo without what a run carried into it, and counting on through
                 // a boss's later rounds, where the combo holds (earning)
 var bestCombo = 0; // this level's longest streak, which its results set against its beats
@@ -1048,6 +1050,7 @@ function hitBeatAt(b, color) { // a hit in `color` at beat position b, judged ag
     if (grade != "bad" && earns) {
         var multWas = multiplier();
         combo++;
+        runPeakCombo = Math.max(runPeakCombo, combo);
         if (multiplier() > multWas) { // the multiplier stepped up: said at the orb, as a hit's points are
             popText("x" + multiplier(), "MULTIPLIER", COLORS.good, gamePiece.x + gamePiece.width / 2 + 44, gamePiece.y + gamePiece.height / 2 + 26, 1.3); // under
             // the judgement, which sits over the orb

@@ -214,8 +214,9 @@ function lazer_wave_scores_min_seconds( $board, $reached ) {
 }
 
 /**
- * The longest combo a board's play could have had: twice the beats of the longest level it played, as a boss level's
- * streak can run on into a round after the first. The combo isn't ranked, so one over it is held to it, not refused.
+ * The longest combo a board's play could have had: twice the beats of the levels it played, as a run's or a rush's
+ * combo carries from level to level (and a level's own streak can run on into a boss's round after the first). The
+ * combo isn't ranked, so one over it is held to it, not refused.
  *
  * @param string $board   The board.
  * @param int    $reached Levels cleared.
@@ -227,11 +228,11 @@ function lazer_wave_scores_combo_cap( $board, $reached ) {
 	if ( 0 !== strpos( $board, 'level-' ) ) {
 		$levels = array_slice( $levels, 0, min( count( $levels ), max( 0, (int) $reached ) + 1 ) );
 	}
-	$most = 0;
+	$beats = 0;
 	foreach ( $levels as $n ) {
-		$most = max( $most, (int) $limits['levels'][ $n ]['bars'] * (int) $limits['beats_per_bar'] );
+		$beats += (int) $limits['levels'][ $n ]['bars'] * (int) $limits['beats_per_bar'];
 	}
-	return 2 * $most;
+	return 2 * $beats;
 }
 
 /**

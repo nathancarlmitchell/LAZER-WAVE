@@ -4,7 +4,7 @@ Tags: game, rhythm, arcade, html5, embed
 Requires at least: 6.1
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 1.13.1
+Stable tag: 1.13.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -107,6 +107,22 @@ one place apart; the address itself is not kept). Deleting the plugin leaves the
 reinstall keeps the boards.
 
 == Changelog ==
+
+= 1.13.4 =
+* Sweepers and pendulums show where they are going, not just where they start: from their warning on, a lighter
+  hatch with dashed edges covers all the ground they will still burn across, the sweeper's whole path with its safe
+  lane left clear and the pendulum's whole swing, and it shrinks as they cross it.
+
+= 1.13.3 =
+* Every level warns 2 beats ahead, times the difficulty's rate, as the first twelve always did: the warnings no
+  longer drop to 1.5 beats at level 13 and to 1 at level 22. Only the climbing tempo shortens them, so the shortest
+  anywhere, TRUE on level 25, is 636 ms where it was 318.
+
+= 1.13.2 =
+* A full run's or a boss rush's MAX COMBO is now its combo at its longest, carried from level to level as the combo
+  in the corner counts it, rather than the longest within any one level: on the leaderboards, on the name panel and
+  in HIGH SCORES' LOCAL view. A level played on its own keeps the MAX COMBO its results show. Scores and records from
+  before keep the combo they had.
 
 = 1.13.1 =
 * A new telling of the story. Every act's intro and every level's card tell it, a line or two a level, and none of

@@ -86,17 +86,10 @@ function onlinePlayStarts() { // a level begins (playLevel, levels.js): the play
 }
 
 var onlineRunBest = 0; // the most a run (or a rush) on its difficulty had scored when the one under way began
-var onlineRunCombo = 0; // and the longest combo any of its levels has had: the run's MAX COMBO
 
 function onlineRunBegins() { // a run or a rush begins (startGame, restartRun; levels.js): the best it has to beat for
-    // its total to be offered, and no combo yet
+    // its total to be offered
     onlineRunBest = (bossRush ? rec().rushScore : rec().runScore) || 0;
-    onlineRunCombo = 0;
-}
-
-function onlineLevelEnds() { // a level ended, cleared or not (gameOver, levels.js): its MAX COMBO, as its results show
-    // it (the level's own streak, without what a run carried in), counts toward the run's
-    onlineRunCombo = Math.max(onlineRunCombo, bestCombo);
 }
 
 function onlineOffer(kind) { // a play ended with a score for its board: a run or a rush over ("over") or finished
@@ -116,7 +109,7 @@ function onlineOffer(kind) { // a play ended with a score for its board: a run o
         entry.grade = levelGrade;
     } else {
         entry.score = runScore + score;
-        entry.combo = onlineRunCombo;
+        entry.combo = runPeakCombo; // the run's combo at its longest, carried from level to level (loop.js)
         entry.reached = t.board == "rush" ? (kind == "finish" ? RUSH_LEVELS.length : rushIndex(level) - 1)
             : (kind == "finish" ? RUN_LEVELS : level - 1);
     }

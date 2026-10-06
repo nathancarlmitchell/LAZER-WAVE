@@ -95,7 +95,7 @@ function rec() { // the record set for the difficulty now selected
                        // its total (runScore)
             reached: 0, // furthest level started, so a run that never finishes still leaves a mark
             runFurthest: 0, // the furthest level a full run has started (the level select's plays aside)
-            runCombo: 0, // the longest combo in any level of a full run: its MAX COMBO, as the level's results show it
+            runCombo: 0, // the longest a full run's combo has run, carried from level to level: its MAX COMBO
             reach: {}, // how far through each unbeaten level an attempt has got, 0 to 1; let go once it is beaten
             runScore: 0, // the most a run has scored: its total as each level ends, cleared or not, so a run that never
                          // finishes counts, and one that never clears a level
@@ -214,8 +214,8 @@ function reachedLevel(n) { // a level began: the furthest one reached is a recor
     }
 }
 
-function recordRunCombo(n) { // a level of a full run or a boss rush ended, cleared or not: its MAX COMBO against the
-    // longest either has had on this difficulty, each its own
+function recordRunCombo(n) { // a level of a full run or a boss rush ended, cleared or not: the run's MAX COMBO so far
+    // (runPeakCombo, loop.js) against the longest either has had on this difficulty, each its own
     var key = bossRush ? "rushCombo" : "runCombo";
     if (n > (rec()[key] || 0)) {
         rec()[key] = n;

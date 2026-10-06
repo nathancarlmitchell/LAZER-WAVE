@@ -21,6 +21,7 @@ function startGame(e) { // START, or a level picked on the level select: the run
     startRunLives(); // the difficulty is locked in from here: its buttons are only on the difficulty screen and the
     // level select
     carryHp = carryMeter = carryCombo = null; // a run begins on full shields, an empty meter and no combo
+    runPeakCombo = 0;
     gamePiece = new component(PIECE_SIZE, PIECE_SIZE, COLORS.piece, e.pageX - PIECE_SIZE / 2, e.pageY - PIECE_SIZE / 2); // centered on the cursor
     gamePiece.update = function () { drawPlayer(this); };
     gameStart = true;
@@ -140,6 +141,7 @@ function restartRun() { // after the finish screen, start a fresh run from where
     onlineRunBegins();
     startRunLives();
     carryHp = carryMeter = carryCombo = null;
+    runPeakCombo = 0;
     startTime = Date.now();
     enterLevel();
 }
@@ -929,9 +931,8 @@ function endRun() { // the run ends, unrecorded, from the pause's QUIT or the re
 
 function gameOver() { // the level was cleared or the player died
     var levelCleared = levelComplete();
-    onlineLevelEnds(); // its MAX COMBO, toward the run's for the leaderboards (online.js)
-    if (!practice && !selectRun) {
-        recordRunCombo(bestCombo); // and toward the longest a full run or a rush has had (run.js)
+    if (!practice && !selectRun) { // the run's combo at its longest so far, against the longest a full run or a rush
+        recordRunCombo(runPeakCombo); // has had (run.js)
     }
     var picture = levelCleared ? null : deathPicture(); // the hit as it stands, before the level is cleared away
     stopLevel();

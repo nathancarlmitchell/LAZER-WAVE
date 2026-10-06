@@ -78,10 +78,11 @@ var FILL_SIZE = RIPPLE_SIZE; // a fill's thin beams
 // The curve climbs a step at a time, bringing in one thing at once and letting it settle before the next: the melody's
 // beams, then fallers and a beam on every beat (2), then laser form (3), pincers (4) and the cage (5); colours (6),
 // walls (7), the corridor (8), colours in pairs (9); beams down
-// the screen and their mirrors (11), ripples and the radar (12), marching columns, crossfire and shorter warnings (13),
+// the screen and their mirrors (11), ripples and the radar (12), marching columns and crossfire (13),
 // sweepers (14); colours on every beat, off-beats and segments (16), chords, pendulums and two laser sections (17),
 // double taps, closing walls, two beams at once and a second laser to dodge (18), chasers and stutters (19), rings,
-// diagonals and the spinning X (20); fills (21) and the shortest warnings (22). The tempo climbs from 96 to 132.
+// diagonals and the spinning X (20); and fills (21). The tempo climbs from 96 to 132, and it alone shortens the
+// warnings: every level warns 2 beats ahead (at the difficulty's rate), never under about 640 ms, even on TRUE.
 const LEVELS = [null,
     // Act I, Infrared: the beat, the melody, and laser form
     { name: "Signal",
@@ -136,67 +137,67 @@ const LEVELS = [null,
         laser: [[6, 4]], targets: ["tune", "steps", "zigzag"], dodges: 1 },
     { name: "Oscilloscope",
         lore: ["On the old screen, your shape is drawn in green.", "For the first time, you see what you are."],
-        bpm: 114, bars: 16, warn: 1.5, phrases: ["rain", "cross", "stairs", "crossfire", "crossfire+melody", "mirror", "melody"],
+        bpm: 114, bars: 16, warn: 2, phrases: ["rain", "cross", "stairs", "crossfire", "crossfire+melody", "mirror", "melody"],
         colors: ["solid", "pairs"],
         laser: [[6, 4]], targets: ["tune", "zigzag", "jump"], dodges: 1 },
     { name: "Green Flash", lore: ["At sunset, for one heartbeat, the whole sky turns green.",
             "They say whoever sees it learns where the song began."],
-        bpm: 116, bars: 16, warn: 1.5, phrases: ["sweep+cage", "crossfire", "ripple", "rain", "wall", "cross", "sweep", "stairs"],
+        bpm: 116, bars: 16, warn: 2, phrases: ["sweep+cage", "crossfire", "ripple", "rain", "wall", "cross", "sweep", "stairs"],
         colors: ["solid", "pairs"],
         laser: [[7, 4]], targets: ["tune", "steps", "zigzag"], dodges: 1 },
     { name: "Static Bloom", lore: ["Noise blooms across every band, white and endless.",
             "Somewhere inside it, the Broadcast is still playing."],
-        bpm: 117, bars: 18, warn: 1.5,
+        bpm: 117, bars: 18, warn: 2,
         phrases: ["rain", "sweep+cage", "ripple", "radar", "cross", "crossfire", "mirror", "wall", "crossfire+melody", "cage", "stairs", "sweep"],
         colors: ["solid", "pairs"], laser: [[6, 4]], boss: { name: "STATIC BLOOM", kind: "radar" }, targets: ["tune", "steps", "zigzag", "jump"], dodges: 1 },
     // Act IV, Blueshift: colours on every beat, two laser sections, two beams at once
     { name: "Cherenkov", lore: ["Faster than light in water, you leave a blue glow behind.",
             "Nothing down here has ever moved this fast."],
-        bpm: 119, bars: 16, warn: 1.5, phrases: ["segment", "melody", "offbeat+segment", "rain", "wall", "cross", "stairs", "offbeat"],
+        bpm: 119, bars: 16, warn: 2, phrases: ["segment", "melody", "offbeat+segment", "rain", "wall", "cross", "stairs", "offbeat"],
         colors: ["solid", "pairs", "alt"], laser: [[6, 4]], targets: ["tune", "steps", "zigzag"], dodges: 1 },
     { name: "Deep Water", lore: ["The light thins as you sink.",
             "Down here the Broadcast is only a pulse in the dark."],
-        bpm: 120, bars: 16, warn: 1.5, phrases: ["pendulum+cage", "mirror", "chord", "pendulum", "rain", "wall", "cross"],
+        bpm: 120, bars: 16, warn: 2, phrases: ["pendulum+cage", "mirror", "chord", "pendulum", "rain", "wall", "cross"],
         colors: ["solid", "pairs", "alt"], laser: [[4, 3], [10, 3]], targets: ["tune", "zigzag", "scatter"],
         dodges: 1 },
     { name: "Blueshift", lore: ["Everything ahead of you shifts toward blue.",
             "The faster you go, the nearer the Source."],
-        bpm: 122, bars: 18, warn: 1.5, phrases: ["cross", "stairs", "doubletap", "close", "double", "rain", "close+melody", "wall"],
+        bpm: 122, bars: 18, warn: 2, phrases: ["cross", "stairs", "doubletap", "close", "double", "rain", "close+melody", "wall"],
         colors: ["solid", "pairs", "alt"], laser: [[4, 3], [11, 3]], targets: ["tune", "zigzag", "scatter"],
         dodges: 2 },
     { name: "Cold Fire", lore: ["The hottest flames burn blue, and these burn hottest.",
             "For the first time, the Array is afraid."],
-        bpm: 123, bars: 18, warn: 1.5, phrases: ["wall", "rain", "stutter", "cross", "chase+cage", "stairs", "double", "chase"],
+        bpm: 123, bars: 18, warn: 2, phrases: ["wall", "rain", "stutter", "cross", "chase+cage", "stairs", "double", "chase"],
         colors: ["pairs", "alt"],
         laser: [[4, 3], [11, 3]], targets: ["tune", "zigzag", "scatter"], dodges: 2 },
     { name: "Overdrive", lore: ["The Array's last engine opens, and the whole sky burns.",
             "It is spending everything it has to stop you."],
-        bpm: 125, bars: 18, warn: 1.5, phrases: ["ring+diagonal", "spin", "ring", "stairs", "diagonal", "double", "melody", "wall", "cross", "rain"],
+        bpm: 125, bars: 18, warn: 2, phrases: ["ring+diagonal", "spin", "ring", "stairs", "diagonal", "double", "melody", "wall", "cross", "rain"],
         colors: ["solid", "pairs", "alt"], laser: [[4, 3], [11, 3]], boss: { name: "OVERDRIVE", kind: "chaser" }, targets: ["steps", "zigzag", "scatter"],
         dodges: 2 },
-    // Act V, Ultraviolet: everything, with the shortest warnings
+    // Act V, Ultraviolet: everything, at the fastest tempos
     { name: "Indigo", lore: ["The colour between blue and violet that no one agrees on.",
             "Even the light is unsure of itself here."],
-        bpm: 126, bars: 18, warn: 1.5, phrases: ["cross", "fill", "chase", "chase+cage", "stairs", "rain", "double", "ring+diagonal", "wall", "ring"],
+        bpm: 126, bars: 18, warn: 2, phrases: ["cross", "fill", "chase", "chase+cage", "stairs", "rain", "double", "ring+diagonal", "wall", "ring"],
         colors: ["pairs", "alt"],
         laser: [[5, 4], [11, 3]], targets: ["tune", "zigzag", "scatter"], dodges: 2 },
     { name: "Black Light",
         lore: ["Invisible light, and everything glows under it.", "Even you."],
-        bpm: 128, bars: 20, warn: 1, phrases: ["spin+ring", "rain", "stutter", "sweep+cage", "wall", "spin", "diagonal", "stairs", "double", "cross", "close", "sweep"],
+        bpm: 128, bars: 20, warn: 2, phrases: ["spin+ring", "rain", "stutter", "sweep+cage", "wall", "spin", "diagonal", "stairs", "double", "cross", "close", "sweep"],
         colors: ["pairs", "alt"],
         laser: [[5, 4], [12, 4]], targets: ["tune", "zigzag", "scatter"], dodges: 2 },
     { name: "Fluorescence", lore: ["What you take in, you give back brighter.",
             "Every colour you climbed through shines out of you now."],
-        bpm: 129, bars: 20, warn: 1,
+        bpm: 129, bars: 20, warn: 2,
         phrases: ["stairs", "chord", "melody", "mirror", "double", "pendulum+cage", "wall", "cross", "pendulum", "doubletap", "cage"],
         colors: ["pairs", "alt"], laser: [[5, 4], [12, 4]], targets: ["tune", "zigzag", "scatter"], dodges: 2 },
     { name: "Edge of Sight", lore: ["One more band, and the eye gives up.", "Beyond it there is only the Source."],
-        bpm: 131, bars: 22, warn: 1, phrases: ["spin", "double", "offbeat+segment", "fill", "radar", "ring+diagonal", "cross", "segment", "offbeat", "wall", "stairs", "ring"],
+        bpm: 131, bars: 22, warn: 2, phrases: ["spin", "double", "offbeat+segment", "fill", "radar", "ring+diagonal", "cross", "segment", "offbeat", "wall", "stairs", "ring"],
         colors: ["pairs", "alt"],
         laser: [[5, 4], [13, 4]], targets: ["zigzag", "scatter", "scatter"], dodges: 2 },
     { name: "Lazer Wave", lore: ["At the Source waits the first wave that ever climbed.",
             "It became the Broadcast. It has your shape."],
-        bpm: 132, bars: 22, warn: 1, phrases: ["wall", "corridor", "cross", "diagonal", "close", "ring", "chase", "corridor", "ring+diagonal", "spin+ring", "chase+cage", "fill"],
+        bpm: 132, bars: 22, warn: 2, phrases: ["wall", "corridor", "cross", "diagonal", "close", "ring", "chase", "corridor", "ring+diagonal", "spin+ring", "chase+cage", "fill"],
         colors: ["pairs", "alt"], laser: [[5, 4], [13, 4]], boss: { name: "LAZER WAVE", kind: "mirror" }, targets: ["tune", "zigzag", "scatter", "scatter"],
         dodges: 2 },
 ];
@@ -808,6 +809,56 @@ var GLOW_ALPHA = 0.22; // the glow's alpha round a burning core, the whole band
 var EDGE_ALPHA = 0.9; // the hard edge's, along a burning core
 var hatchCache = {}; // the hatch pattern in each colour, made once
 
+// A laser that moves while it can hit, over ground it did not start on -- a sweeper wiping across, a pendulum on its
+// swing -- also shows that ground, from its warning until its last burn: a faint wash in its colour with dashed edges,
+// under its outline, so where it is going reads as early as where it starts, and shrinking as it is crossed. The radar's
+// ray and the spinning X turn where they stand, and show none
+var PATH_WASH = 0.08; // the wash's alpha over that ground, at full
+var PATH_HATCH = 0.3; // the hatch's over it (pathHatch: sparser than laserHatch's, and leaning the other way)
+var PATH_EDGE = 0.7; // and its dashed edges'
+var PATH_DIM = 0.6; // of full, while the warning is not yet near
+var PATH_DASH = [6, 6];
+var pathHatchCache = {}; // the path's hatch in each colour, made once
+
+function pathLook(fireAt) { // how strongly that ground shows now, a laser due at beat fireAt: from PATH_DIM while its
+    // warning is far to full as it comes near (warnLook's near, without its flicker), and full once it burns
+    var near = Math.max(0, Math.min(1, 1 - (fireAt - beatPos) / WARN_LAST));
+    return PATH_DIM + (1 - PATH_DIM) * near;
+}
+
+function pathHatch(tint) { // the hatch over the ground a moving laser will still cover: sparser than laserHatch's and
+    // leaning the other way, so it reads as ground to come rather than ground about to burn, and where the two meet
+    // they cross
+    if (!pathHatchCache[tint]) {
+        var c = document.createElement("canvas"), g = c.getContext("2d");
+        c.width = c.height = 14;
+        g.strokeStyle = tint;
+        g.lineWidth = 1.5;
+        g.beginPath();
+        g.moveTo(0, 0);
+        g.lineTo(14, 14);
+        g.stroke();
+        pathHatchCache[tint] = ctx.createPattern(c, "repeat");
+    }
+    return pathHatchCache[tint];
+}
+
+function pathFill(tint, strength, rects) { // that ground's wash and hatch, over each [x, y, w, h] of it
+    ctx.globalAlpha = PATH_WASH * strength;
+    ctx.fillStyle = tint;
+    rects.forEach(function (r) { ctx.fillRect(r[0], r[1], r[2], r[3]); });
+    ctx.globalAlpha = PATH_HATCH * strength;
+    ctx.fillStyle = pathHatch(tint);
+    rects.forEach(function (r) { ctx.fillRect(r[0], r[1], r[2], r[3]); });
+}
+
+function pathEdge(x0, y0, x1, y1) { // one of that ground's dashed edges, in the stroke and alpha set by the caller
+    ctx.beginPath();
+    ctx.moveTo(x0, y0);
+    ctx.lineTo(x1, y1);
+    ctx.stroke();
+}
+
 function warnLook(fireAt) { // how a warning due at beat fireAt is drawn now: near, 0 until WARN_LAST beats before it and
     // 1 on its beat; blink, its flicker, once near; alpha, of full; width, of its line, in px; wash, of the faint fill of
     // its footprint; hatch, of the hatch over it, 0 until it is near
@@ -1322,10 +1373,34 @@ function fadeGradient(col, x0, y0, x1, y1) { // a fill that is `col` (a hex colo
     return g;
 }
 
-Sweeper.prototype.update = function () { // draw it: an outline at its edge, then the band wiping across, then fading
+Sweeper.prototype.drawPath = function (strength) { // the ground it will still wipe across: from its leading edge (the
+    // edge it sets out from, through its warning) to the far side, washed faintly in its colour, the hole's lane left
+    // clear and edged in dashes, so the way through reads before the band arrives
+    var W = gameArea.canvas.width, H = gameArea.canvas.height, h = this.holeEdges();
+    var lead = this.dir > 0 ? Math.max(0, this.x + this.width) : Math.min(W, this.x);
+    var x0 = this.dir > 0 ? lead : 0, x1 = this.dir > 0 ? W : lead;
+    if (x1 - x0 < 1) {
+        return;
+    }
+    var tint = this.color ? COLORS[this.color] : COLORS.laser;
+    pathFill(tint, strength, [[x0, 0, x1 - x0, h.top], [x0, h.bottom, x1 - x0, H - h.bottom]]);
+    ctx.globalAlpha = PATH_EDGE * strength;
+    ctx.strokeStyle = tint;
+    ctx.lineWidth = 1;
+    ctx.setLineDash(PATH_DASH);
+    pathEdge(x0, Math.round(h.top) + 0.5, x1, Math.round(h.top) + 0.5);
+    pathEdge(x0, Math.round(h.bottom) - 0.5, x1, Math.round(h.bottom) - 0.5);
+    ctx.setLineDash([]);
+};
+
+Sweeper.prototype.update = function () { // draw it: an outline at its edge, then the band wiping across, then fading,
+    // over the ground it has still to cross
     var tint = this.color ? COLORS[this.color] : COLORS.laser;
     var W = gameArea.canvas.width, H = gameArea.canvas.height;
     ctx.save();
+    if (this.absorbedAt === null && beatPos < this.endAt) {
+        this.drawPath(beatPos < this.fireAt ? pathLook(this.fireAt) : 1);
+    }
     if (this.absorbedAt !== null) { // absorbed: white, narrowing to its middle line as it goes
         var gone = Math.min(1, (beatPos - this.absorbedAt) / BEAM_ABSORB);
         ctx.globalAlpha = 0.9 * (1 - gone);
@@ -1973,9 +2048,47 @@ Pendulum.prototype.absorb = function () {
     this.absorbedAt = beatPos;
 };
 
-Pendulum.prototype.place = function () { // its top now, as a fraction: there and back over its beats from its beat
-    var t = Math.max(0, Math.min(this.beats, beatPos - this.fireAt));
+Pendulum.prototype.placeAt = function (t) { // its top, as a fraction, t beats after its beat: there and back over its
+    // beats
+    t = Math.max(0, Math.min(this.beats, t));
     return this.from + (this.to - this.from) * (0.5 - 0.5 * Math.cos(Math.PI * 2 * t / this.beats));
+};
+
+Pendulum.prototype.place = function () { // its top now, as a fraction
+    return this.placeAt(beatPos - this.fireAt);
+};
+
+Pendulum.prototype.reach = function () { // the span its burns still to come will cover, [top, bottom] in px: each from
+    // where it is on its beat (or now, in one under way) to where it is BEAM_FIRE on, the swing going one way through
+    // any one burn; null once the last is over
+    var now = beatPos - this.fireAt, lo = Infinity, hi = -Infinity;
+    for (var k = Math.max(0, Math.floor(now)); k < this.beats; k++) {
+        var a = Math.max(k, now), b = k + BEAM_FIRE;
+        if (a < b) {
+            var pa = this.placeAt(a), pb = this.placeAt(b);
+            lo = Math.min(lo, pa, pb);
+            hi = Math.max(hi, pa, pb);
+        }
+    }
+    var H = gameArea.canvas.height;
+    return lo <= hi ? [lo * H, (hi + this.size) * H] : null;
+};
+
+Pendulum.prototype.drawPath = function (strength) { // the ground its swing will still burn across, washed faintly in its
+    // colour the whole width, its far edges dashed, so where it swings to reads before it gets there
+    var span = this.reach();
+    if (!span) {
+        return;
+    }
+    var W = gameArea.canvas.width, tint = this.color ? COLORS[this.color] : COLORS.laser;
+    pathFill(tint, strength, [[0, span[0], W, span[1] - span[0]]]);
+    ctx.globalAlpha = PATH_EDGE * strength;
+    ctx.strokeStyle = tint;
+    ctx.lineWidth = 1;
+    ctx.setLineDash(PATH_DASH);
+    pathEdge(0, Math.round(span[0]) + 0.5, W, Math.round(span[0]) + 0.5);
+    pathEdge(0, Math.round(span[1]) - 0.5, W, Math.round(span[1]) - 0.5);
+    ctx.setLineDash([]);
 };
 
 Pendulum.prototype.fit = function () { // its rectangle on this window, where it has swung to
@@ -2016,10 +2129,14 @@ Pendulum.prototype.band = function (inset) { // the band, `inset` px off each lo
     ctx.fillRect(0, this.y + inset, gameArea.canvas.width, Math.max(1, this.height - 2 * inset));
 };
 
-Pendulum.prototype.update = function () { // draw it: its outline swinging, burning on each beat, then fading
+Pendulum.prototype.update = function () { // draw it: its outline swinging, burning on each beat, then fading, over the
+    // ground its swing has still to burn across
     var tint = this.color ? COLORS[this.color] : COLORS.laser;
     var W = gameArea.canvas.width, H = gameArea.canvas.height;
     ctx.save();
+    if (this.absorbedAt === null && beatPos < this.endAt) {
+        this.drawPath(beatPos < this.fireAt ? pathLook(this.fireAt) : 1);
+    }
     if (this.absorbedAt !== null) { // absorbed: white, narrowing to its middle line as it goes
         var gone = Math.min(1, (beatPos - this.absorbedAt) / BEAM_ABSORB);
         ctx.globalAlpha = 0.9 * (1 - gone);
