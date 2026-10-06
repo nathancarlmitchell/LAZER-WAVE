@@ -4,7 +4,7 @@ Tags: game, rhythm, arcade, html5, embed
 Requires at least: 6.1
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 1.13.4
+Stable tag: 1.14.5
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -107,6 +107,39 @@ one place apart; the address itself is not kept). Deleting the plugin leaves the
 reinstall keeps the boards.
 
 == Changelog ==
+
+= 1.14.5 =
+* The rank comes up a moment after the results do: every grade, A down to F as well as the S ranks, stamps in once
+  FLAWLESS has landed (or would have), with the best under it coming up alongside it, and a new best grade's bells
+  ring as it lands rather than before it is shown.
+
+= 1.14.4 =
+* S and S+ shine too, a step under SS: an S stamps in, glows and glints; an S+ adds a sheen drifting across it, a
+  star as its glint leaves and a spark.
+
+= 1.14.3 =
+* An SS rank shines as FLAWLESS does: its face in the waves' two colours meeting in white with a sheen drifting
+  across it, stamped in as FLAWLESS lands, a glint following FLAWLESS's, a star where it leaves, and sparks twinkling
+  round it. Still, with the effects reduced.
+
+= 1.14.2 =
+* The music comes back after switching tabs or apps. When the browser held the sound while the game was away, the
+  menu theme could stay silent after it let go, with only the clicks playing: it now starts again as soon as the
+  sound does, and any click, key or tap wakes the sound where a browser waits for one.
+
+= 1.14.1 =
+* Every level ends cleanly. Once its last laser is done, nothing more is judged: the drums drop out, a press there is
+  free and the combo is safe, and the waves come to rest in one line. On the next bar line the song resolves, each
+  level's melody landing on its key note with a last kick and a crash, a ring going out from the orb, and the results
+  follow two beats later. A boss brought down resolves the same way.
+* Levels whose last beats came after their last laser judge a little fewer beats: Amber Alert's empty last bar is gone.
+
+= 1.14.0 =
+* Every level has its own melody and chorus now, over its act's chords: each act's first level plays the theme it
+  always had, and each level after it builds toward the boss, whose music drives hardest, with sixteenth-note hats,
+  a pumping bass and brighter synths.
+* The lasers follow the music, so levels 2 to 5 of every act have new patterns, and every level deals its bars
+  afresh: each now brings in every laser type and combination it lists, none more than twice. Level 1 is as it was.
 
 = 1.13.4 =
 * Sweepers and pendulums show where they are going, not just where they start: from their warning on, a lighter

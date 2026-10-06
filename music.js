@@ -8,7 +8,9 @@
 // A song follows its level's form. The wave bars play its chords and its melody; each laser section plays a chorus,
 // a lead over chords of its own; overdrive opens every filter; the song dips under each kick and swells back, as a
 // sidechained mix pumps. A pause, a death, a retry or a quit cuts it (musicStop), and the first beat after a pause
-// starts it again. A cleared level's last beat resolves onto the key's own chord, and lets it ring. An act's intro
+// starts it again. A cleared level resolves: the drums drop out once its last laser is done, the song plays on to the
+// bar line after it, and there its lead's end, a note or two onto the key's own, lands over the key's own chord on a
+// last kick and a crash, held and let ring (musicEnd); a boss brought down resolves the same way. An act's intro
 // plays its theme with no beat under it (musicIntro). OPTIONS' MUSIC sets how loud all of it is (musicLevel), down to
 // none at all, while the beat track plays on: the kick is the beat, and a player can play to it alone.
 //
@@ -31,38 +33,164 @@ const CHORDS = {
 // semitones from the key, the bass's from its chord's root, the arpeggio's as which of its chord's notes, 0 the lowest
 // and 3 that one an octave up -- "-" holds the note before, and "." rests. waves: the lead's two oscillators, which
 // give each act a voice of its own. A part a song has no line for doesn't play in it. melody2 and chords2 are a second
-// phrase: the wave bars play four bars of the first and four of the second, turn and turn about (songPhrase)
+// phrase: the wave bars play four bars of the first and four of the second, turn and turn about (songPhrase). end is
+// what the lead resolves on, as the level is cleared (musicEnd): a note or two onto the key's own, counted as the
+// melody's are but with their octave written in, the last held to the line's end, each written to follow on from
+// where its level's melody stops. These are the act's first level's; tunes gives each of its other levels a melody, a
+// melody2, a lead and an end of its own over the same chords, building toward the boss, whose bass pumps eighths
+// between the act's own notes on the beats (levelSong).
+// The lasers are dealt from the lines a level plays (songTune), so a new line is a new level to check (safegap.js)
 const SONGS = [null,
     { key: 69, waves: ["triangle", "sawtooth"], chords: "i VI III VII", chords2: "iv VI i V", leadChords: "i VI III VII", // A minor: Am F C G
         melody: "0 - - - 3 - 7 - 8 - - - 7 - 3 - 7 - - - 10 - 12 - 10 - - - 7 - - -",
         melody2: "12 - - - 10 - 7 - 8 - 10 - 12 - - - 7 - 5 - 3 - 5 - 7 - - - 3 - 0 -",
         lead: "12 - - - 10 - 7 - 8 - - - 7 - 5 - 7 - - - 3 - 5 - 2 - - - - - . .",
         bass: "0 - - 12 0 - 12 -",
-        arp: "0 . 1 . 2 . 1 ." },
+        arp: "0 . 1 . 2 . 1 .",
+        end: "14 - 12 - - - - -", // Signal's: its melody falls F E C, so B, then A
+        tunes: { // its other levels' own lines, by their place in the act (levelSong)
+            2: { // Carrier
+                melody: "7 - - - 12 - 10 7 8 - - - 7 - 5 - 3 - - - 7 - 10 12 10 - - - - - . .",
+                melody2: "17 - - - 15 - 12 - 15 - - - 12 - 8 - 7 - - - 12 - 10 7 11 - - - 14 - 11 -",
+                lead: "12 - 12 - 14 - 15 - 17 - 15 - 12 - - - 15 - 14 - 12 - 10 - 14 - - - - - . .",
+                end: "15 - 12 - - - - -" }, // its melody falls F E D: C, then A
+            3: { // Ember Line
+                melody: "7 - 5 - 7 - 12 - 12 - 10 - 8 - - - 7 - 5 - 7 - 12 - 14 - 12 - 10 - - -",
+                melody2: "17 - 15 - 17 - 20 - 19 - 17 - 15 - - - 12 - 10 - 12 - 15 - 14 - - - 11 - - -",
+                lead: "19 - - - 17 - 15 - 17 - - - 15 - 12 - 15 - - - 14 - 12 - 14 - - - 10 - - -",
+                end: "12 - - - - - - -" }, // its melody stops on G: up to A
+            4: { // Heat Haze
+                melody: "0 - 7 - 12 - 15 - 17 - 15 - 12 - - - 3 - 10 - 15 - 19 - 17 - - - 14 - - -",
+                melody2: "5 - 12 - 17 - 20 - 19 - 17 - 12 - - - 7 - 12 - 15 - 19 - 14 - - - 11 - 7 -",
+                lead: "12 - 15 - 19 - 17 - 15 - - - 12 - 8 - 10 - 15 - 19 - 15 - 14 - - - - - . .",
+                end: "11 12 - - - - - -" }, // its melody stops on B: G# and A, a turn
+            5: { // Red Giant, the boss
+                melody: "12 - 12 - 7 10 - 12 12 - 12 - 8 10 - 12 15 - 15 - 10 12 - 15 14 - - - 10 - 14 -",
+                melody2: "17 - 17 - 12 15 - 17 15 - 15 - 12 - 8 - 12 - 12 - 7 10 - 12 11 - 14 - 11 - 7 -",
+                lead: "19 - 17 - 15 - 12 - 17 - 15 - 12 - 8 - 15 - 14 - 12 - 10 - 14 - - - 7 - - -",
+                end: "7 - 12 - - - - -", // wherever it falls: E, then up to A
+                bass: "0 0 0 12 0 0 12 12" }, // the act's notes on the beats, pumping between them
+        } },
     { key: 64, waves: ["square", "sawtooth"], chords: "i VII VI VII", chords2: "VI VII i V", leadChords: "VI VII i i", // E minor: Em D C D,
         melody: "7 - 5 - 3 - 0 - 2 - - - 5 - 10 - 8 - 7 - 3 - 7 - 5 - - - 2 - - -", // and the lead's C D Em
         melody2: "10 - 12 - 10 - 7 - 8 - - - 7 - 5 - 3 - 5 - 7 - 3 - 2 - - - 0 - - -",
         lead: "12 - 10 - 7 - 3 - 2 - 5 - 10 - 14 - 15 - - - 14 - 12 - 7 - - - - - . .",
         bass: "0 12 0 12 0 12 0 12",
-        arp: "0 1 2 1 0 1 2 1" },
+        arp: "0 1 2 1 0 1 2 1",
+        end: "0 - - - - - - -", // Streetlight's: its melody stops on F#, so down to E
+        tunes: { // its other levels' own lines, by their place in the act (levelSong)
+            2: { // Amber Alert
+                melody: "12 - 7 - 12 - - - 14 - 10 - 14 - - - 15 - 12 - 15 - - - 17 - 14 - 10 - - -",
+                melody2: "15 - 12 - 8 - 12 - 14 - 10 - 5 - 10 - 12 - 7 - 3 - 7 - 11 - - - 7 - - -",
+                lead: "12 - 15 - 20 - 19 - 17 - - - 14 - 10 - 12 - 15 - 19 - 22 - 19 - - - - - . .",
+                end: "14 - 12 - - - - -" }, // its melody stops on G (its last bar, a rest, isn't played): F#, then E
+            3: { // Sodium Rain
+                melody: "19 - 15 - 12 - 15 12 17 - 14 - 10 - 14 10 15 - 12 - 8 - 12 8 14 - - - 10 - - -",
+                melody2: "15 - - - 20 - 15 - 17 - 14 - 10 - 14 - 19 - - - 15 - 12 - 11 - 14 - 19 - - -",
+                lead: "20 - 19 20 - - 19 - 22 - 20 22 - - 17 - 19 - 17 19 - - 15 - 12 - - - 15 - - -",
+                end: "12 - - - - - - -" }, // its melody stops on D: up to E
+            4: { // Afterglow
+                melody: "12 - - 15 - - 19 - 17 - - 14 - - 10 - 15 - - 12 - - 8 - 10 - 14 - 17 - 22 -",
+                melody2: "20 - - 19 - - 15 - 22 - - 17 - - 14 - 19 - 15 - 12 - 15 - 19 - - - 23 - - -",
+                lead: "20 - 22 - 24 - 20 - 22 - - - 17 - 14 - 19 - 22 - 24 - 22 - 24 - - - - - . .",
+                end: "24 - - - - - - -" }, // its melody climbs D's chord to the high D: up to E
+            5: { // Interference, the boss
+                melody: "12 12 15 12 19 - 15 12 14 14 17 14 22 - 17 14 15 15 20 15 24 - 20 15 22 - - - 14 - - -",
+                melody2: "15 15 20 15 24 - 20 15 14 14 17 14 22 - 17 14 12 - - 15 - - 19 - 23 - 19 - 14 - 11 -",
+                lead: "19 - 19 - 15 - 19 - 22 - 22 - 17 - 22 - 24 - - 19 - - 15 - 19 - - - 12 - - -",
+                end: "19 - 24 - - - - -", // wherever it falls: B, then up to the high E
+                bass: "0 12 0 12 0 12 0 7" }, // the act's notes on the beats, pumping between them
+        } },
     { key: 62, waves: ["square", "square"], chords: "i VI iv V", chords2: "VI iv V i", leadChords: "i VI VII V", // D minor: Dm Bb Gm A,
         melody: "7 - 10 - 12 - 10 - 8 - 7 - 5 - 3 - 5 - 8 - 12 - 10 - 11 - - - 7 - - -", // and the lead's Dm Bb C A
         melody2: "15 - 12 - 10 - 12 - 14 - - - 12 - 10 - 8 - 10 - 7 - 5 - 3 - 5 - 7 - - -",
         lead: "12 - 10 - 7 - . 7 8 - 7 - 3 - 5 - 10 - 14 - 12 - 10 - 11 - - - 7 - . .",
         bass: "0 0 12 0 0 12 0 12",
-        arp: "0 1 2 3 4 3 2 1" },
+        arp: "0 1 2 3 4 3 2 1",
+        end: "14 - 12 - - - - -", // Phosphor's: its melody stops on A, so E, then D
+        tunes: { // its other levels' own lines, by their place in the act (levelSong)
+            2: { // Radar Sweep
+                melody: "0 - 3 - 7 - 12 - 15 - 12 - 8 - - - 5 - 8 - 12 - 17 - 19 - - - 11 - - -",
+                melody2: "20 - 15 - 12 - 8 - 12 - - - 17 - 12 - 7 - 11 - 14 - 19 - 15 - - - 12 - - -",
+                lead: "12 - - - 15 - 19 - 20 - - - 15 - 12 - 14 - 17 - 22 - 17 - 19 - - - 23 - - -",
+                end: "12 - - - - - - -" }, // its melody stops on C#: up to D
+            3: { // Oscilloscope
+                melody: "12 - 7 12 - - 15 - 12 - 8 12 - - 15 - 17 - 12 17 - - 20 - 19 - 14 19 - - 23 -",
+                melody2: "20 - 15 20 - - 24 - 20 - 17 20 - - 24 - 19 - 14 19 - - 23 - 24 - - - 19 - 15 -",
+                lead: "24 - 22 - 19 - 15 - 20 - 19 - 15 - 12 - 14 - 17 - 19 - 22 - 19 - - - - - . .",
+                end: "22 - 24 - - - - -" }, // its melody stops on the high D: C, then D
+            4: { // Green Flash
+                melody: "7 - - 12 - - 19 - 20 - 19 - 15 - 12 - 5 - - 12 - - 20 - 19 - 23 - 26 - 23 -",
+                melody2: "24 - - 20 - - 15 - 17 - 20 - 24 - 20 - 19 - - 14 - - 11 - 19 - 15 - 12 - 7 -",
+                lead: "24 - - - 27 - 24 - 27 - - - 24 - 20 - 22 - - - 26 - 22 - 23 - - - 19 - - -",
+                end: "14 - 12 - - - - -" }, // its melody falls to F: E, then D
+            5: { // Static Bloom, the boss
+                melody: "12 12 12 - 15 - 19 - 20 20 20 - 19 - 15 - 17 17 17 - 20 - 24 - 23 - - - 19 - - -",
+                melody2: "24 - 20 - 15 15 20 - 24 - 20 - 17 17 20 - 23 - 19 - 14 14 19 - 24 - - - - - . .",
+                lead: "24 - 24 27 - - 24 - 27 - 27 24 - - 20 - 22 - 22 26 - - 22 - 23 - - - 19 - - -",
+                end: "19 - 24 - - - - -", // wherever it falls: A, then up to the high D
+                bass: "0 0 12 12 0 12 0 12" }, // the act's notes on the beats, pumping between them
+        } },
     { key: 66, waves: ["sawtooth", "sawtooth"], chords: "i VII VI V", chords2: "iv VI V i", leadChords: "VI VII i i", // F# minor: F#m E D
         melody: "12 - 7 - 3 - 7 - 10 - 5 - 2 - 5 - 8 - 3 - 0 - 3 - 7 - - - 11 - - -", // C#, and the lead's D E F#m
         melody2: "14 - 12 - 10 - 7 - 8 - 7 - 5 - 3 - 5 - 7 - 8 - 10 - 7 - - - 2 - - -",
         lead: "12 - 8 - 3 - 8 - 10 - 14 - 17 - 14 - 15 - - - 12 - - - 7 - 10 - 12 - . .",
         bass: "0 0 0 0 0 0 0 12",
-        arp: "0 1 2 0 1 2 0 1 2 0 1 2 3 2 1 0" },
+        arp: "0 1 2 0 1 2 0 1 2 0 1 2 3 2 1 0",
+        end: "2 - 0 - - - - -", // Cherenkov's: its melody falls D C# B A, so G#, then F#
+        tunes: { // its other levels' own lines, by their place in the act (levelSong)
+            2: { // Deep Water
+                melody: "7 - 12 - 15 - 12 - 10 - 14 - 17 - - - 15 - 12 - 8 - - - 11 - - - 7 - - -",
+                melody2: "5 - 8 - 12 - 17 - 15 - - - 12 - 8 - 7 - - - 11 - 14 - 12 - - - - - . .",
+                lead: "20 - - - 15 - 12 - 14 - 17 - 22 - - - 24 - - - 19 - 15 - 12 - - - - - . .",
+                end: "7 - 12 - - - - -" }, // its melody falls to D: C#, then up to F#
+            3: { // Blueshift
+                melody: "12 - - - 15 - - - 14 - - - 17 - 14 - 15 - 12 - 15 - 20 - 19 19 - 14 - 11 14 -",
+                melody2: "17 - - - 20 - - - 20 - - - 24 - 20 - 23 - 19 - 14 - 11 - 12 12 - 15 - 19 - -",
+                lead: "20 - 15 - 12 - 15 - 17 - 14 - 17 - 22 - 24 - 19 - 15 - 19 - 24 - - - - - . .",
+                end: "12 - - - - - - -" }, // its melody stops on G#: down to F#
+            4: { // Cold Fire
+                melody: "12 . 15 . 19 . 15 . 14 . 17 . 22 . 17 . 15 . 20 . 24 - - - 23 - - - 19 - - -",
+                melody2: "17 . 20 . 24 . 20 . 20 . 24 . 20 . 15 . 11 . 14 . 19 - - - 12 - - - - - . .",
+                lead: "20 - - 15 - - 12 - 14 - - 17 - - 22 - 24 - - 19 - - 15 - 19 - 15 - 12 - - -",
+                end: "23 - 24 - - - - -" }, // its melody falls from E# to C#: E#, then up to F#
+            5: { // Overdrive, the boss
+                melody: "12 19 15 19 12 19 15 19 14 22 17 22 14 22 17 22 15 24 20 24 15 24 20 24 19 - - - 23 - - -",
+                melody2: "17 24 20 24 17 24 20 24 15 24 20 24 15 24 20 24 14 19 11 19 14 19 11 19 12 - - - - - . .",
+                lead: "12 - - - 8 - - - 14 - - - 10 - - - 15 - - - 12 - 7 - 12 - 15 - 19 - 24 -",
+                end: "12 - 24 - - - - -", // wherever it falls: F#, then the octave over it
+                bass: "0 12 0 12 0 12 0 12" }, // the act's notes on the beats, pumping between them
+        } },
     { key: 60, waves: ["sawtooth", "square"], chords: "i VI VII V", chords2: "VI VII iv V", leadChords: "i VI III VII", // C minor: Cm Ab Bb G,
         melody: "12 - - 15 - - 19 - 20 - - 19 - - 15 - 17 - - 14 - - 10 - 11 - 14 - 19 - 23 -", // lead's Cm Ab Eb Bb
         melody2: "24 - - 22 - - 19 - 20 - - 17 - - 15 - 14 - - 15 - - 17 - 14 - 12 - 10 - 7 -",
         lead: "19 - - 17 15 - 12 - 15 - - 14 12 - 8 - 10 - - 12 14 - 15 - 17 - - - 14 - 10 -",
         bass: "0 12 0 12 0 12 0 12",
-        arp: "0 2 4 2 1 3 5 3" },
+        arp: "0 2 4 2 1 3 5 3",
+        end: "24 - - - - - - -", // Indigo's: its melody climbs G's chord to B, so up to C
+        tunes: { // its other levels' own lines, by their place in the act (levelSong)
+            2: { // Black Light
+                melody: "19 - - 15 - - 12 - 15 - - 20 - - 15 - 17 - - 22 - - 17 - 19 - 23 - 19 - 14 -",
+                melody2: "15 - - 20 - - 24 - 22 - - 17 - - 14 - 17 - - 20 - - 24 - 23 - - - 19 - - -",
+                lead: "24 - - - 19 - 15 - 20 - - - 15 - 12 - 15 - - - 19 - 22 - 22 - - - 17 - - -",
+                end: "12 - - - - - - -" }, // its melody stops on D: down to C
+            3: { // Fluorescence
+                melody: "12 14 15 - 19 - 15 - 20 - 15 - 12 - - - 14 15 17 - 22 - 17 - 19 - - - 14 - - -",
+                melody2: "15 17 20 - 24 - 20 - 22 24 26 - 22 - 17 - 20 - 17 - 12 - - - 14 - - - 19 - - -",
+                lead: "27 - 26 - 24 - 19 - 20 - - - 24 - 20 - 22 - 19 - 15 - 19 - 22 - - - 26 - - -",
+                end: "15 - 12 - - - - -" }, // its melody stops on D: Eb, then C
+            4: { // Edge of Sight
+                melody: "24 - - - 26 27 - - 27 - - - 24 - 20 - 22 - - - 26 - 22 - 23 - 19 - 23 - 26 -",
+                melody2: "24 - - - 20 - 24 - 26 - - - 22 - 26 - 24 - - - 20 - 17 - 19 - 23 - 26 - 23 -",
+                lead: "19 - - - 24 - 27 - 27 - - - 24 - 20 - 22 - - - 19 - 15 - 17 - 22 - 26 - - -",
+                end: "26 - 24 - - - - -" }, // its melody stops on the high C: D, then C
+            5: { // Lazer Wave, the boss
+                melody: "12 24 15 24 - 24 19 24 12 24 15 24 - 24 20 24 14 26 17 26 - 26 22 26 19 26 23 26 - 26 19 26",
+                melody2: "20 27 24 27 - 27 20 27 22 29 26 29 - 29 22 29 20 29 24 29 - 29 17 29 23 - 19 - 14 - 11 -",
+                lead: "19 - 19 24 - - 22 - 20 - 20 24 - - 27 - 22 - 22 19 - - 15 - 17 - 22 - 26 - - -",
+                end: "19 - 24 - - - - -", // wherever it falls: G, then up to the high C
+                bass: "0 12 0 12 0 12 0 7" }, // the act's notes on the beats, pumping between them
+        } },
 ];
 var ARP_FROM = 2; // an act's arpeggio joins on its second level, so each act builds as it goes
 var BASS_FILL = "0 0 7 7 12 12 7 7"; // the bass's turnaround, in place of its line on every fourth bar of a section, from
@@ -141,6 +269,7 @@ var MUSIC_CUT = 0.12; // s the song takes to go when a pause, a death, a retry o
 var MUSIC_RING = 3; // and when the level is cleared, so its last chord rings out
 var END_RING = 4; // s that chord takes to die away
 var LASER_BRIGHT = 1.4; // how far the laser sections open the filters, as a chorus lifts
+var BOSS_BRIGHT = 1.15; // and a boss level, all through, on top of that
 var OVERDRIVE_BRIGHT = 2.5; // and overdrive
 var ECHO_BEATS = 0.75; // the arpeggio's and the lead's echo: a dotted eighth, each repeat quieter and duller
 var ECHO_FEEDBACK = 0.35;
@@ -156,6 +285,17 @@ function words(line) { // a chord line's or a part's steps, split once
 
 function actSong(n) { // the song of level n's act
     return SONGS[Math.max(1, Math.min(levelAct(n), SONGS.length - 1))];
+}
+
+var levelSongs = {}; // each level's song, made once
+
+function levelSong(n) { // the song level n plays: its act's, with the level's own lines in place of the first level's
+    // (tunes, by its place in the act), the chords, the key and the voices the act's
+    if (!levelSongs[n]) {
+        var song = actSong(n), own = song.tunes && song.tunes[levelInAct(n)];
+        levelSongs[n] = own ? Object.assign({}, song, own) : song;
+    }
+    return levelSongs[n];
 }
 
 function midiHz(note) { // a MIDI note number's pitch: 69 is A, 440 Hz, and each semitone a twelfth of an octave
@@ -200,37 +340,38 @@ function musicSection(def, bar) { // the run of bars, all wave or all laser, tha
     return { laser: on, first: first, end: end };
 }
 
-function musicBeat(n, delay, beatSec, over) { // beat n of the level proper (0 is the first after the count-in) falls
-    // `delay` seconds from now: play the song from it to the next. beatSec: a beat's length; over: overdrive runs on it
+function musicBeat(n, delay, beatSec, over, quiet) { // beat n of the level proper (0 is the first after the count-in)
+    // falls `delay` seconds from now: play the song from it to the next. beatSec: a beat's length; over: overdrive runs
+    // on it; quiet: the drums are out, the level's last laser done, so there is no kick to dip under
     var c = beatAudio();
     if (!c || c.state != "running" || musicLevel <= 0) { // until the browser lets it run, its clock stands still:
         return; // notes handed it now would all sound at once when it starts. And with MUSIC off there is no song
     }
-    var song = actSong(level);
+    var song = levelSong(level);
     var m = music || (music = musicBus(c, beatSec));
     var when = c.currentTime + delay;
     var bar = levelBar(Math.floor(n / BEATS_PER_BAR)), at = bar * BEATS_PER_BAR + n % BEATS_PER_BAR; // the bar as the
     // level's definition has it, and the beat in it: a boss level's loop plays its bars again (levelBar, loop.js)
     var sec = musicSection(wave, bar), next = musicBarAfter(n);
-    duckAt(m, when, beatSec);
+    if (!quiet) {
+        duckAt(m, when, beatSec);
+    }
     if (at < m.lastAt) { // the loop went round: the chord starts over with it
         m.padUntil = at;
     }
     m.lastAt = at;
-    songBeat(c, m, song, sec, at, when, beatSec, { bright: over ? OVERDRIVE_BRIGHT : sec.laser ? LASER_BRIGHT : 1,
+    songBeat(c, m, song, sec, at, when, beatSec, { bright: (over ? OVERDRIVE_BRIGHT : sec.laser ? LASER_BRIGHT : 1)
+        * (wave && wave.boss ? BOSS_BRIGHT : 1),
         arp: levelInAct(level) >= ARP_FROM, arpLevel: levelInAct(level), arpHigh: levelInAct(level) >= ARP_HIGH_FROM, lift: songLift(wave, bar, level),
         breakdown: !sec.laser && next !== null && musicSection(wave, next).laser }); // the bar before a laser
         // section is a breakdown: the bass and the drums alone under the melody, so the chorus lands
-    if (n == totalBeats - levelZeroBeat() - 1) { // the last beat (a boss brought down has musicFinish instead): the next one is
-        // the level cleared
-        musicEnd(c, m, song, when + beatSec, songLift(wave, wave.bars - 1, level));
-    }
 }
 
 function musicBarAfter(n) { // the bar, as the level's definition has it, that follows the bar beat n is in, or null
-    // when the level ends with that bar: past its last bar, a boss level's loop goes round (levelBar, loop.js)
-    var bar = Math.floor(n / BEATS_PER_BAR) + 1;
-    return (COUNT_IN_BARS + bar) * BEATS_PER_BAR < totalBeats ? levelBar(bar) : null;
+    // when the song ends with that bar, resolving on the bar line after the level's last laser (resolveBeat, loop.js):
+    // past its last bar, a boss level's loop goes round (levelBar)
+    var bar = Math.floor(n / BEATS_PER_BAR) + 1, end = resolveBeat();
+    return (COUNT_IN_BARS + bar) * BEATS_PER_BAR < (end === null ? totalBeats : end) ? levelBar(bar) : null;
 }
 
 function songBeat(c, m, song, sec, n, when, beatSec, o) { // o: bright, arp, arpLevel, arpHigh, lift, breakdown // a song's notes from beat n to the next, the beat
@@ -273,7 +414,7 @@ function songTune(def, n, bar) { // what the tune does over bar `bar` of level n
     // started or held, or null in a rest; lo and hi: the line's lowest note and its highest, so a note's height on the
     // screen can be worked out from them (waves.js); bass[i], bassLo and bassHi: the same for the bass under it;
     // chord: the bar's chord's notes, in the tune's octave
-    var song = actSong(n);
+    var song = levelSong(n);
     var sec = musicSection(def, bar);
     var key = song.key + songLift(def, bar, n), phrase = songPhrase(song, sec, bar); // as the song plays it
     var tuneKey = key + (sec.laser ? 0 : phrase.octave); // the tune's notes, up an octave on the first phrase's second time
@@ -372,12 +513,25 @@ function lineNotes(line, per, from, left, play) { // the notes a part's line sta
     }
 }
 
-function musicEnd(c, m, song, when, lift) { // the level cleared: the key's own chord, the bass under it and the lead over,
-    // left to ring
-    var key = song.key + (lift || 0);
-    playPad(c, m, when, voiced(key, "i", PAD_LOW), 0.1, 1, END_RING);
-    playBass(c, m, when, register(key, BASS_LOW), 0.1, 1, END_RING);
-    playLead(c, m, song.waves, when, key + 12, 0.1, 1, END_RING);
+function musicEnd(c, m, song, when, lift, beatSec) { // the level resolved, from `when`, on the last kick: the key's own
+    // chord and the bass on its note, under the lead's end (a note or two onto the key's), all held to the end's last
+    // step and left to ring
+    var key = song.key + (lift || 0), steps = words(song.end || "12");
+    var hold = steps.length * beatSec / 2; // eighths, as the lead's lines are
+    duckAt(m, when, beatSec);
+    playPad(c, m, when, voiced(key, "i", PAD_LOW), hold, 1, END_RING);
+    playBass(c, m, when, register(key, BASS_LOW), hold, 1, END_RING);
+    steps.forEach(function (w, i) {
+        if (w == "-" || w == ".") {
+            return;
+        }
+        var len = 1; // through its holds
+        while (i + len < steps.length && steps[i + len] == "-") {
+            len++;
+        }
+        var last = !steps.slice(i + 1).some(function (v) { return v != "-" && v != "."; }); // the note it lands on
+        playLead(c, m, song.waves, when + i * beatSec / 2, key + Number(w), len * beatSec / 2, 1, last ? END_RING : 0);
+    });
 }
 
 // An act's intro plays its theme under the lore: the chords, the bass and the melody, round and round with no beat
@@ -388,14 +542,15 @@ var intro = null; // the theme playing: { song, beatSec, start (the audio time o
                   // hand over next), timer }
 const INTRO_SECTION = { laser: false, first: 0, end: Infinity }; // the whole intro is one wave section
 
-function musicFinish(delay) { // the level's beats over before its bars are (a boss down, boss.js): the song's last chord
-    // `delay` seconds from now, rung out over the pause, as musicBeat plays it after a level's last beat
+function musicFinish(delay, b) { // the song resolves on beat b (counted from the count-in's first), `delay` seconds
+    // from now (finalHit, loop.js): the bar line after the level's last laser, or the pause's first beat after its boss
+    // falls. Its end, in the key the bar before it played in, lifted or not
     var c = beatAudio();
     if (!c || !music || c.state != "running") {
         return;
     }
-    var bar = levelBar(Math.floor((beatPos - levelZeroBeat()) / BEATS_PER_BAR));
-    musicEnd(c, music, actSong(level), c.currentTime + Math.max(0, delay), songLift(wave, bar, level));
+    var bar = levelBar(Math.floor((b - 1 - levelZeroBeat()) / BEATS_PER_BAR));
+    musicEnd(c, music, levelSong(level), c.currentTime + Math.max(0, delay), songLift(wave, bar, level), msPerBeat() / 1000);
 }
 
 function musicIntro(act, bpm) { // play an act's theme at bpm until musicIntroStop

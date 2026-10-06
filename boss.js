@@ -3,7 +3,8 @@
 // absorbed in overdrive. Its own bars are the level's wave bars, to be survived; yours are its laser bars, to hurt it
 // in. The name and a health bar take the top stripe's slot in place of the level's progress. At no health it breaks
 // up: the lasers stop, the gates go, the form is the wave's, and the bar plays out as a pause, the beat track stopped, the
-// song's last chord ringing and no beat in it to hit or miss (playEnd, loop.js); the level ends there, cleared.
+// song resolving on its first beat with a last kick and a crash, as a level's does on the bar line after its last laser
+// (finalHit, loop.js), and no beat in it to hit or miss (playEnd); the level ends there, cleared.
 // Until then the level does not end: with its end in view and the boss still up, its loop, the bars from the one
 // before its last laser section to its last, is dealt again (loopFrom, waves.js; extendLevel, loop.js), a round
 // more, as many as it takes; the health bar counts the rounds, and the rank counts every beat of every one. Brought
@@ -85,7 +86,8 @@ function bossHit(n, port) { // a target struck (port), or n lasers absorbed: hea
 }
 
 function bossDown() { // the boss breaks up, the bar plays out, and the level ends there, cleared: its end is brought in
-    // to the end of this bar, or of the next when the break-up would not be over by then
+    // to the end of this bar, or of the next when the break-up would not be over by then, and never before the song's
+    // resolution has rung OUTRO_BEATS (loop.js)
     boss.downAt = beatPos;
     var last = -1; // the beats stop after the last one judged, or after this one, whichever is later: a press that
     for (var j in judged) { // fell early on the beat ahead and brought the boss down has that beat count
@@ -98,7 +100,7 @@ function bossDown() { // the boss breaks up, the bar plays out, and the level en
     if (barEnd < beatPos + BOSS_BREAK) {
         barEnd += BEATS_PER_BAR;
     }
-    totalBeats = Math.min(totalBeats, Math.max(barEnd, boss.playEnd));
+    totalBeats = Math.min(totalBeats, Math.max(barEnd, boss.playEnd + OUTRO_BEATS));
     nextSpawn = spawnQueue.length; // nothing more comes on
     clearObjects(); // and what is on goes
     gateTo = {}; // no gate left to pass or miss
@@ -110,7 +112,10 @@ function bossDown() { // the boss breaks up, the bar plays out, and the level en
     }
     switchForm("wave");
     playSfx(sfxBossDown, 0, SFX_LEVELS.bossDown, actSong(level).key); // its stab (sfx.js)
-    musicFinish((boss.playEnd * msPerBeat() - simNowMs()) / 1000); // the song's last chord, on the pause's first beat
+    if (scheduledBeat >= boss.playEnd) { // the song resolves on the pause's first beat (resolveBeat, loop.js): handed to
+        // the audio clock already, kick and all, it is resolved on here; and if not, scheduleBeats does it as it gets there
+        finalHit(boss.playEnd, (boss.playEnd * msPerBeat() - simNowMs()) / 1000, true);
+    }
     var W = gameArea.canvas.width, H = gameArea.canvas.height, from = bossSparkFrom();
     popPoints(bossBonusWon, from.x, from.y, "BOSS"); // said where it breaks up, as a hit's points are
     for (var i = 0; i < BOSS_PARTICLES; i++) { // its sparks, flying off

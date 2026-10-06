@@ -6,6 +6,8 @@
 // overdrive, and in laser form, the piece is a laser: a white beam runs down the middle of the trail, back to where it
 // became one, and the waves snap in tight round it -- still opening and meeting on the beat, just small -- so the
 // trail pinches into one beam there. In laser form it also fires its beam ahead, across the screen at the targets.
+// Once the level is done, its last laser over or its boss down, there is no beat left to meet on: the waves come to
+// rest, met in one line, the core settles to a steady white, and as the song resolves a ring goes out from it.
 // index.html loads this with a plain <script src>, as globals rather than modules, so the game still opens straight
 // off disk.
 //
@@ -28,6 +30,10 @@ var DRIVE_RING_R = 14; // px: the ring round the head that says overdrive is rea
 var DRIVE_RING_W = 2.5; // px: its line
 var FLASH_STEPS = 18; // how long a good hit lights the head up
 var WAVE_UNLIT = 0.3; // how bright the wave of the other colour stays while a coloured beat is coming
+var CALM_GLOW = 1.3; // how much wider the core's glow stands once the level is done, in CORE_Rs, and how much brighter:
+var CALM_LIGHT = 0.3; // settled over half a beat
+var CALM_RING_R = 90; // px: how far the ring the song's resolution sends out from the core goes
+var CALM_RING_BEATS = 1.5; // and how long it takes, fading as it goes
 
 var trail = { samples: [], next: 0, count: 0 }; // a ring of reused { x, y, beat, gap, laser } records
 while (trail.samples.length < TRAIL_STEPS) {
@@ -44,7 +50,10 @@ function isLaser() { // is the piece a laser: in overdrive, or in laser form
 var WAVE_FULL_STEPS = 3; // steps of multiplier (COMBO_STEP hits each, loop.js) over which the waves widen to their most
 
 function waveTarget() { // the size the combo calls for: a little more for every hit in a row, up to the max; while
-    // the piece is a laser, tight round the beam
+    // the piece is a laser, tight round the beam; and the level done, none (calmed, loop.js): the waves at rest
+    if (calmed()) {
+        return 0;
+    }
     if (isLaser()) {
         return WAVE_DRIVE;
     }
@@ -221,11 +230,13 @@ function drawPlayer(o) { // the two waves and the core, flickering while a hit h
     strokeWave(-1, COLORS.cyan, dim * (want == "magenta" ? WAVE_UNLIT : 1));
     strokeWave(1, COLORS.magenta, dim * (want == "cyan" ? WAVE_UNLIT : 1));
     var flash = (playerFlash.age < FLASH_STEPS ? 1 - playerFlash.age / FLASH_STEPS : 0) * playerFlash.strength;
-    ctx.globalAlpha = (0.25 + 0.5 * flash) * dim; // the core's glow, and a burst of it on a press, most on a clean hit
-    ctx.fillStyle = flash > 0 ? playerFlash.color : laser ? COLORS.laserCore : want ? COLORS[want] || COLORS.laserCore
-        : COLORS.cyan;
+    var rest = calmed() ? Math.min(1, (beatPos - levelCalm()) * 2) : 0; // the level done: settling to a steady white
+    ctx.globalAlpha = (0.25 + 0.5 * flash + CALM_LIGHT * rest) * dim; // the core's glow, and a burst of it on a press,
+    // most on a clean hit
+    ctx.fillStyle = flash > 0 ? playerFlash.color : laser || rest > 0 ? COLORS.laserCore
+        : want ? COLORS[want] || COLORS.laserCore : COLORS.cyan;
     ctx.beginPath();
-    ctx.arc(head.x, head.y, CORE_R * (2.2 + 2.5 * flash + (laser ? 1.5 : 0)), 0, Math.PI * 2);
+    ctx.arc(head.x, head.y, CORE_R * (2.2 + 2.5 * flash + (laser ? 1.5 : 0) + CALM_GLOW * rest), 0, Math.PI * 2);
     ctx.fill();
     ctx.globalAlpha = dim;
     ctx.fillStyle = COLORS.laserCore;
@@ -236,7 +247,23 @@ function drawPlayer(o) { // the two waves and the core, flickering while a hit h
         drawBeatRing(head, dim, want);
     }
     drawDriveRing(head, dim);
+    drawCalmRing(head, dim);
     ctx.restore();
+}
+
+function drawCalmRing(head, dim) { // the level done and its song resolving (resolveBeat, loop.js): a ring going out from
+    // the core as the last kick lands, thinning and fading as it goes
+    var at = resolveBeat();
+    if (at === null || beatPos < at || beatPos >= at + CALM_RING_BEATS) {
+        return;
+    }
+    var u = (beatPos - at) / CALM_RING_BEATS;
+    ctx.globalAlpha = 0.8 * (1 - u) * dim;
+    ctx.strokeStyle = COLORS.laserCore;
+    ctx.lineWidth = 1 + 3 * (1 - u);
+    ctx.beginPath();
+    ctx.arc(head.x, head.y, CORE_R + CALM_RING_R * (1 - Math.pow(1 - u, 3)), 0, Math.PI * 2); // fast, then slowing
+    ctx.stroke();
 }
 
 var BEAT_RING_R = 34; // px: where the beat ring starts each beat, closing on the core as the next beat comes: the cue
@@ -262,7 +289,8 @@ function drawDriveRing(head, dim) { // overdrive, on the orb: with the meter ful
     }
     var left = running ? driveMeter() : 1; // the meter runs down with it
     var throb = grace ? (driveGraceUntil - beatPos) / OVERDRIVE_GRACE // the grace after it: the ring fading out over
-        : driveReady() ? 0.55 + 0.45 * Math.max(0, 1 - beatFrac() * 3) : 1; // the beat it lasts
+        : driveReady() && !calmed() ? 0.55 + 0.45 * Math.max(0, 1 - beatFrac() * 3) : 1; // the beat it lasts; and
+        // the level done, steady, with no beat left to spend it on
     ctx.globalAlpha = throb * dim;
     ctx.strokeStyle = COLORS.laserCore;
     ctx.lineWidth = DRIVE_RING_W;

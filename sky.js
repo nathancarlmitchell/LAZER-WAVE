@@ -11,6 +11,7 @@ var SKY_TINT = 0.16; // how strongly the level's colour lights the bottom of the
 var SKY_PULSE = 0.35; // how much brighter the backdrop flashes on a beat, and twice that on a bar line
 var SKY_BEHIND = 0.55; // how much of it the screens between levels show behind their words
 var SKY_RESULTS = 0.2; // and the results, less again: they are read, and the backdrop moves on behind them
+var SKY_CLEAR = 0.7; // how much more strongly the level's colour lights the screen once its song resolves on a clear
 
 function levelWavelength(n) { // the level's colour, as a wavelength in nm: its act's band (ACTS, story.js), from the
     // band's first end at the act's first level to its other at the act's last
@@ -65,22 +66,24 @@ function beatPulse(beat) { // 1 on a beat falling to 0 a third of the way to the
     return kick * (Math.floor(beat) % BEATS_PER_BAR == 0 ? 1 : 0.5);
 }
 
-function drawSky(n, t, beat, dim) { // the level's backdrop, over the whole screen, so nothing need clear it first: t,
-    // seconds, moves it; beat, the beat position, pulses it; dim, if given, how much of it to draw (the screens between
-    // levels keep it behind their text)
+function drawSky(n, t, beat, dim, lit) { // the level's backdrop, over the whole screen, so nothing need clear it first:
+    // t, seconds, moves it; beat, the beat position, pulses it (null holds it still); dim, if given, how much of it to
+    // draw (the screens between levels keep it behind their text); lit, 0 to 1, how far a cleared level's song has
+    // resolved, its colour rising the brighter by SKY_CLEAR
     var look = fxLook();
     var W = gameArea.canvas.width, H = gameArea.canvas.height;
     var col = levelColor(n);
     var still = look != "full";
     var pulse = still || beat === null ? 0 : beatPulse(beat);
     var k = dim === undefined ? 1 : dim;
+    var tint = k * SKY_TINT * (1 + SKY_CLEAR * (lit || 0));
     ctx.save();
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.globalAlpha = 1;
     var glow = ctx.createLinearGradient(0, 0, 0, H); // the colour rising from the bottom of the screen
     glow.addColorStop(0, skyGround(col, 0));
-    glow.addColorStop(0.55, skyGround(col, k * SKY_TINT * 0.25));
-    glow.addColorStop(1, skyGround(col, k * SKY_TINT * (1 + SKY_PULSE * pulse)));
+    glow.addColorStop(0.55, skyGround(col, tint * 0.25));
+    glow.addColorStop(1, skyGround(col, tint * (1 + SKY_PULSE * pulse)));
     ctx.fillStyle = glow;
     ctx.fillRect(0, 0, W, H);
     ctx.globalAlpha = k;

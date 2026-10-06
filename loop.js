@@ -149,7 +149,13 @@ function warnBeats() { // how many beats ahead of its beat a laser shows itself 
 var timeline = []; // its beams, targets and gates, in beat order
 var spawnQueue = []; // the same, in the order they come on screen (a gate shows a bar ahead), and the next not yet up
 var nextSpawn = 0;
-var totalBeats = 0; // count-in and bars together: the level is cleared when beatPos reaches this
+var totalBeats = 0; // where the level is cleared, when beatPos reaches it: its count-in and bars together on a level that
+// can go round (a boss's, practice on LOOP), and on one that ends on its bars, OUTRO_BEATS past the bar line after its
+// last laser (resolveBeat)
+var calmAt = null; // on a level that ends on its bars, the moment its last laser is done, in beats: from there nothing is
+// judged, the drums drop out and the waves come to rest (player.js), and the song plays on to the bar line and resolves
+// there. null on a level that can go round, which ends where its boss falls (bossDown, boss.js)
+var OUTRO_BEATS = 2; // beats the song's resolution rings, the level done, before its results come up
 var LOOP_LEAD = 2 * BEATS_PER_BAR; // beats before its end a boss level goes round again at: enough for everything in
 // the next round to come on screen with its full warning (eventLead, waves.js)
 var loopLen = 0; // beats a boss level's loop runs (loopFrom, waves.js), or 0 for a level that ends on its last bar
@@ -594,13 +600,50 @@ function firstPlayBeat() { // the first beat after the count-in: the first one t
     return levelZeroBeat() + fromBar * BEATS_PER_BAR;
 }
 
-function playEnd() { // the beat the player's beats stop at: the level's end, or, its boss down, the beat after the last
-    // one before that: the bar plays out as a pause, nothing in it to hit or miss (bossDown, boss.js)
-    return boss && boss.downAt !== null ? boss.playEnd : totalBeats;
+function playEnd() { // the beat the player's beats stop at: the one after the level's last laser is done, every beat
+    // a laser fires or burns on judged (calmAt); or, its boss down, the beat after the last one before that, the bar
+    // playing out as a pause (bossDown, boss.js). Nothing after it is there to hit or miss. While a boss stands, the
+    // level's end, which goes round again before it comes
+    return boss && boss.downAt !== null ? boss.playEnd : calmAt !== null ? Math.ceil(calmAt) : totalBeats;
 }
 
 function playBeats() { // how many beats the level judges: every one after the count-in, up to where they stop
     return playEnd() - firstPlayBeat();
+}
+
+function levelCalm() { // the moment nothing is left to dodge or to hit: the level's last laser done, or its boss down;
+    // null while a boss stands
+    return boss && boss.downAt !== null ? boss.downAt : calmAt;
+}
+
+function calmed() { // has the level come to that moment: the waves come to rest (player.js), and the stripes and the
+    // backdrop stop pulsing
+    var at = levelCalm();
+    return at !== null && beatPos >= at;
+}
+
+function resolveBeat() { // the beat the song resolves on, with a last kick and a crash (finalHit): the bar line after
+    // the level's last laser, or the pause's first beat after its boss falls; null while a boss stands
+    if (boss && boss.downAt !== null) {
+        return boss.playEnd;
+    }
+    return calmAt === null ? null : Math.ceil(playEnd() / BEATS_PER_BAR) * BEATS_PER_BAR;
+}
+
+function resolved() { // 0..1: how far the resolution has landed, over its first half beat, for what lights up with it
+    var at = resolveBeat();
+    return at === null ? 0 : Math.max(0, Math.min(1, (beatPos - at) * 2));
+}
+
+function finalHit(b, delay, kicked) { // the song resolves on beat b, `delay` seconds from now: its end over the key's
+    // own chord (musicFinish, music.js), on a last kick, unless that beat's own is on its way already (kicked), and a
+    // crash
+    delay = Math.max(0, delay);
+    if (!kicked) {
+        synthKick(delay, true);
+    }
+    synthCrash(delay);
+    musicFinish(delay, b);
 }
 
 function msPerBeat() {
@@ -651,7 +694,8 @@ function timingColor() { // the average's colour: early, late, or on the beat
 // S+ is an S with nothing missed at all: every beat hit, no press off one, no shield lost; and SS, over it, is an S+
 // with every beat PERFECT
 var RANKS = [
-    { grade: "S", min: 0.90 }, // an S or S+ is printed as the title is, and needs no colour
+    { grade: "S", min: 0.90 }, // an S, S+ or SS is printed as the title is and shines (SHINES, levels.js), and needs
+                               // no colour
     { grade: "A", min: 0.80, color: COLORS.good },
     { grade: "B", min: 0.65, color: COLORS.early },
     { grade: "C", min: 0.50, color: COLORS.late },
@@ -736,8 +780,8 @@ function levelComplete() { // every bar survived
     return !!wave && beatPos >= totalBeats;
 }
 
-function levelProgress() { // 0..1 through the level, count-in included; on a boss level, through the boss's health,
-    // as the level runs until that is gone
+function levelProgress() { // 0..1 through the level, count-in included, to its last laser done; on a boss level,
+    // through the boss's health, as the level runs until that is gone
     if (!wave) {
         return 0;
     }
@@ -748,7 +792,7 @@ function levelProgress() { // 0..1 through the level, count-in included; on a bo
         var first = loopStartBeat();
         return beatPos < first ? 0 : ((beatPos - first) % loopLen) / loopLen;
     }
-    return Math.max(0, Math.min(1, beatPos / totalBeats));
+    return Math.max(0, Math.min(1, beatPos / (calmAt !== null ? calmAt : totalBeats)));
 }
 
 function loopStartBeat() { // the beat the level's loop starts at, in its first round: its own bars' end, less a round
@@ -832,7 +876,6 @@ function startLevel() { // a level is about to be played: from the start, or aga
         }
     });
     pops = [];
-    totalBeats = (COUNT_IN_BARS + wave.bars) * BEATS_PER_BAR;
     latchLatency(false); // the audio's delay, for the clock
     bossStart(wave, ahead); // its boss, if it has one (boss.js), with a point of health for every target still to come
     var from = practiceLoop() ? Math.max(1, fromBar) : loopFrom(wave); // and its loop: the bars dealt again while the
@@ -840,6 +883,10 @@ function startLevel() { // a level is about to be played: from the start, or aga
     loopLen = from === null ? 0 : (wave.bars - from) * BEATS_PER_BAR;
     loopEvents = timeline.filter(function (ev) { return loopLen > 0 && ev.fire >= (COUNT_IN_BARS + from) * BEATS_PER_BAR; });
     passes = 0;
+    var bars = (COUNT_IN_BARS + wave.bars) * BEATS_PER_BAR; // the count-in and the bars: where a level that can go round
+    // comes to its end, and goes round again (extendLevel), and where one with nothing in it is done
+    calmAt = loopLen > 0 ? null : timelineEnd(timeline, bars); // one that can't is done once its last laser is (waves.js)
+    totalBeats = calmAt === null ? bars : resolveBeat() + OUTRO_BEATS;
     gameArea.frameNo = Math.round(startBeat * msPerBeat() / STEP_MS); // the clock, from the count-in (gameArea.start
     beatPos = startBeat; // has just set it going from 0)
     lastBeat = startBeat - 1;
@@ -895,10 +942,17 @@ function scheduleBeats() { // hand the audio clock every beat due within the loo
     }
     while (scheduledBeat + 1 < totalBeats && (scheduledBeat + 1) * mpb - now < AUDIO_LOOKAHEAD_MS) {
         var b = ++scheduledBeat;
-        if (b >= playEnd()) {
-            continue; // the pause after a boss falls: nothing to play to, the song's last chord ringing (musicFinish)
-        }
         var delay = Math.max(0, (b * mpb - now) / 1000);
+        if (b >= playEnd()) { // the level's beats are over, and the drums with them: after its last laser the song plays
+            // on to the bar line after it and resolves there, on a last kick and a crash; after its boss's fall it
+            // resolves on the pause's first beat (bossDown, boss.js), and nothing plays after
+            if (b == resolveBeat()) {
+                finalHit(b, delay, false);
+            } else if (calmAt !== null && b < resolveBeat()) {
+                musicBeat(b - levelZeroBeat(), delay, mpb / 1000, driveOver(b), true);
+            }
+            continue;
+        }
         if (b < firstPlayBeat()) {
             synthTick(delay, b % BEATS_PER_BAR == 0); // the count-in
             continue;
@@ -910,7 +964,8 @@ function scheduleBeats() { // hand the audio clock every beat due within the loo
         }
         synthHat(delay + mpb / 2000, played >= 0 && inBar == BEATS_PER_BAR - 1); // and the off-beat, the bar's last
         // one open
-        if (played >= 0 && levelAct(level) >= HATS_16_FROM_ACT) { // the later acts drive on in sixteenths
+        if (played >= 0 && (levelAct(level) >= HATS_16_FROM_ACT || wave.boss)) { // the later acts drive on in
+            // sixteenths, and every act's boss
             synthHat(delay + mpb / 4000, false, true);
             synthHat(delay + 3 * mpb / 4000, false, true);
         }
@@ -989,7 +1044,7 @@ function hitBeatAt(b, color) { // a hit in `color` at beat position b, judged ag
     playerHitFlash("miss", color); // every press shows on the head, in the count-in too, whatever it comes to; a hit
     // lights it fully below
     if (n < firstPlayBeat() || n >= playEnd()) {
-        return; // the count-in, and after the last beat (or the boss's fall): tap along freely
+        return; // the count-in, and once the level's last laser is done (or its boss is down): tap along freely
     }
     var signed = (b - n) * msPerBeat(); // negative early, positive late
     var off = Math.abs(signed);
@@ -1141,9 +1196,15 @@ function beatFrac() { // how far through the current beat, 0 on it: the beat as 
     return j - Math.floor(j);
 }
 
-function drawBeatPulse() { // a stripe under each banner flashes on every beat, harder on the bar, white in overdrive
+function drawBeatPulse() { // a stripe under each banner flashes on every beat, harder on the bar, white in overdrive;
+    // once the level is done, only on the last kick, as the song resolves
     var kick = Math.max(0, 1 - beatFrac() * 4);
     var bar = Math.floor(judgePos()) % BEATS_PER_BAR == 0 ? 1 : 0.5;
+    if (calmed()) {
+        var at = resolveBeat();
+        kick = at !== null && beatPos >= at ? Math.max(0, 1 - (beatPos - at) * 4) : 0;
+        bar = 1;
+    }
     ctx.save();
     ctx.globalAlpha = 0.2 + 0.6 * kick * bar;
     ctx.fillStyle = driveOn() ? COLORS.laserCore : COLORS.magenta;
@@ -1288,8 +1349,9 @@ function drawJudgment() { // the last grade, rising off the piece and fading
 
 function drawLevel(forDeath) { // draw the level as it stands, without moving anything (also used while paused). For
     // the death animation's picture (death.js): without the piece and without the CRT, which it draws live itself
-    drawSky(level, beatPos * msPerBeat() / 1000, judgePos()); // the ground: its act's backdrop, its colour, and the
-    // beat as the player plays it to pulse on
+    drawSky(level, beatPos * msPerBeat() / 1000, calmed() ? null : judgePos(), 1, resolved()); // the ground: its act's
+    // backdrop, its colour, and the beat as the player plays it to pulse on; the level done, still, and lit up as the
+    // song resolves
     drawBeatPulse();
     drawStrikeLine();
     drawBoss(); // the boss's node, on a boss level, behind the lasers and the targets

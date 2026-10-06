@@ -92,7 +92,11 @@ old scores unfair: the site then starts fresh boards, the old scores kept but no
    Overdrive makes you untouchable and widens your beam. Another gate switches you back. On a gate's beat, and through
    the glide after the switch, nothing can hit you: the piece goes where the cursor is, through anything, so when the
    next bar opens on a corridor, put the cursor in its gap before the gate and the piece lands there.
- - Survive every bar to clear the level. There are **five acts of five levels**, climbing the visible spectrum from
+ - Survive every bar to clear the level. Once its last laser is done (a radar or a spinning X still turning is still
+   there), nothing more is judged: the drums drop out, so a press there is free and the combo is safe, the waves come to
+   rest, met in one line, and the core settles to a steady white; on the bar line after it the song resolves, with a
+   last kick and a crash, a ring going out from the orb and the backdrop lighting up, and the results come up two beats
+   later. There are **five acts of five levels**, climbing the visible spectrum from
    Infrared to Ultraviolet at 96 to 132 BPM, each level the same every attempt. New things come in one at a time: the
    melody's lasers, the fallers, laser form, the pincers and the cage in Act I, colours, walls and the corridor in Act II, beams down the screen, mirrors, ripples, the radar, crossfire, sweepers and marching columns in Act III, colours on every beat, off-beats and segments, chords and pendulums, double taps and
    closing walls, chasers and stutters, rings, diagonals and the spinning X, two laser sections and two beams at once in
@@ -106,8 +110,8 @@ old scores unfair: the site then starts fresh boards, the old scores kept but no
  - **Boss fights.** Each act's fifth level is a fight with the Array. In Red Giant its node stands at the right edge, where the
    targets come from, with a health bar in the progress stripe's slot. Every target struck lined up takes a point of
    its health, and so does every laser absorbed in overdrive: its own bars are the wave bars, to survive, and yours
-   are the laser bars. At none it breaks up and the bar plays out as a pause, the beat stopped, the song's last chord
-   ringing and nothing left in it to hit or miss, and the level ends there, cleared. It does not end
+   are the laser bars. At none it breaks up and the bar plays out as a pause, the beat stopped, the song resolving on
+   its first beat as a cleared level's does and nothing left in it to hit or miss, and the level ends there, cleared. It does not end
    before that: at its last bar with the boss still up, the level goes round again from the bar before its last laser
    section, as many times as it takes, the health bar counting the rounds, and every beat of every round counts in
    the rank; a death's results count how far the boss was worn down as how far the attempt got, so a boss at full
@@ -215,15 +219,26 @@ old scores unfair: the site then starts fresh boards, the old scores kept but no
    posts nothing, and without the plugin passing the site's address (the game off disk, or served on its own) nothing
    is posted at all.
  - Every act has a backdrop and a song of its own, and every level a colour of the spectrum, from red at the first to
-   violet at the last. The lasers follow the song: they fire on the melody's notes, as high on the screen as each note
-   is high in the tune, laser form's targets trace the chorus, and each laser sounds the note it fires on. The song
-   builds through its act, overdrive brightens it, and a clear resolves it on its last chord.
+   violet at the last. The song's chords are the act's, and every level plays its own melody and chorus over them,
+   the act's first level its theme and each after it a step further toward the boss: more movement, then off-beat
+   pushes, a higher, wider line, and at the boss a driving one, over sixteenth-note hats, a bass pumping eighths
+   between its notes on the beats, and brighter filters. The lasers follow the song: they fire on the melody's notes,
+   as high on the screen as each note is high in the tune, laser form's targets trace the chorus, and each laser
+   sounds the note it fires on. The song builds through its act, overdrive brightens it, and a clear resolves it: on
+   the bar line after the last laser, every level's melody lands on the key's own note over the key's chord, a note or
+   two written to follow on from where that level's melody stops.
  - A cleared level is ranked F, D, C, B, A, S, S+ or SS on how its beats were hit: a PERFECT counts the beat, a GREAT
    three quarters of it, a GOOD half and a BAD a quarter, a press off the beat or in the wrong colour takes half back,
    and a lost shield costs 5%. S+ needs every beat hit clean (no BAD), nothing off the beat or WRONG, and no shield
    lost, and SS all of that with every beat PERFECT. That much (no miss, one combo through every beat, no hit) is
    **FLAWLESS**, and the results flare it under the title: the word in the waves' two colours meeting in white, a streak
-   of light through it, stamped in and glinting. It is worth no points. Beside the rank, the level's
+   of light through it, stamped in and glinting. It is worth no points. The rank comes up a moment after the results
+   do, so there is a beat of not knowing: every grade stamps in as FLAWLESS lands (or would), the best under it coming
+   with it, and when the grade is a new best its bells ring as it lands. The S ranks also shine, the higher the more:
+   each printed as an S always was, lit by a glow and glinting just after FLAWLESS does; an S+ also has a white sheen
+   drifting across its face, a star where its glint leaves it and a spark; an SS has its face in the waves' colours
+   meeting in white, edged dark, a larger star, and three sparks twinkling round it in turn. With the effects reduced,
+   the rank is there at once, still. Beside the rank, the level's
    beats are broken down: how many were PERFECT, GREAT, GOOD, BAD and MISS (gone by
    unhit, WRONG or OFF TARGET) and each one's share of them, under the longest combo against the beats (MAX COMBO
    26 / 72: the level's own, not the run's carried in), coloured as the rank it would be on the same scale, so a combo
@@ -280,7 +295,8 @@ old scores unfair: the site then starts fresh boards, the old scores kept but no
    octaves on the third, galloping in pairs on the fourth and an octave up on the fifth, and each act has a drum kit
    of its own, deep and soft in the infrared and tight and bright in the ultraviolet, with a clap on the snare from
    Act III. The pad's filter drifts, the lead doubles an octave up in a chorus, and the bass opens up through its
-   turnaround.
+   turnaround. Once the level's last laser is done the drums drop out, and the song plays on to the bar line, where it
+   resolves on a last kick and a crash.
  - **Music and sound:** OPTIONS → **MUSIC** sets how loud the song plays under the beat, and **SOUND FX** how loud the
    sound effects are (the lasers' zaps, your shots, the gates, the menus' clicks and the rest): 100%, 75%, 50%, 25% or
    OFF each. The beat track (the kick, the hat and the count-in) stays as it is under both, so there is always a beat
@@ -289,7 +305,10 @@ old scores unfair: the site then starts fresh boards, the old scores kept but no
    with its startup sequence as the title's laser comes up: the game's gun charging and firing, a whine climbing three
    octaves over a throbbing hum and crackles of static, two lock-on pips, and the shot landing as the laser reaches the
    title, a crack and a boom with the key's chord humming on after it; a browser that holds sound until the page has
-   had a click, a key or a tap plays it at the first of those, with the laser starting over to match.
+   had a click, a key or a tap plays it at the first of those, with the laser starting over to match. A browser can
+   stop the sound while the page is away, too (Chrome holds it while another app has the audio, and a phone when the
+   browser is put away): it comes back with the page, or at the first press where the browser waits for one, the
+   menu theme from the start of its section and a paused level's song with its first beat after the pause.
  - **Sound effects:** besides the beat, the lasers' zaps and your shots, the game's moments have sounds of their own,
    synthesized as the startup is and, where they have a pitch, in the act's key: a gate passed (two tones meeting in
    the beam the waves become, or parting again back to the wave), overdrive coming on (a shot, and the power surging
@@ -305,8 +324,9 @@ old scores unfair: the site then starts fresh boards, the old scores kept but no
    arpeggio plays once; then the verse with the hook, the chorus with the lead doubled an octave up, and a breakdown
    that rolls back in, round and round, about 48 seconds a time. MUSIC sets how loud it is, live, so a press on MUSIC
    from the start screen is heard in the theme itself, and MUSIC OFF stops it. It gives way to the timing test, whose
-   beat is the point, and stops while the page is out of sight, coming back at the start of the section it was in; a
-   run fades it out under the story, and the menus start it again from the top.
+   beat is the point, and stops while the page is out of sight, coming back at the start of the section it was in as
+   soon as the browser lets sound play again; a run fades it out under the story, and the menus start it again from
+   the top.
  - **Timing:** OPTIONS → **CALIBRATE** plays a steady beat to tap along to by ear, with whatever you play with. After
    4 warm-up taps it counts 16, shows where each landed, early or late, and suggests the TIMING OFFSET that puts them
    on the beat, with how steady they were; **USE** sets it. It measures what the game judges, so it takes in what the
@@ -349,21 +369,21 @@ old scores unfair: the site then starts fresh boards, the old scores kept but no
 
 | File | What it holds |
 |---|---|
-| `audio.js` | The synthesized beat track (kick, hat, count-in tick, laser zap, the piece's shot, the overdrive meter's chime when it fills, on Web Audio; the drums can play into a node and on a kit of their own, as the menu theme's do), when the startup sequence plays (its sound is `sfx.js`'s), the playlist (`TRACKS`, for recorded songs: empty, as the levels' songs are synthesized, `music.js`), sound effects, all but the beat track at the SOUND FX setting's level (`sfxLevel`) |
+| `audio.js` | The synthesized beat track (kick, hat, the crash a cleared level's song resolves on, count-in tick, laser zap, the piece's shot, the overdrive meter's chime when it fills, on Web Audio; the drums can play into a node and on a kit of their own, as the menu theme's do), the audio woken whenever the browser has it asleep (`beatAudio`, and in any press `wakeAudio`), the menu theme told when it runs again, when the startup sequence plays (its sound is `sfx.js`'s), the playlist (`TRACKS`, for recorded songs: empty, as the levels' songs are synthesized, `music.js`), sound effects, all but the beat track at the SOUND FX setting's level (`sfxLevel`) |
 | `layout.js` | The palette (`COLORS`), the 1280x800 layout frame, band fitting for phones, the HUD transform, banners, resize handling |
-| `waves.js` | `LEVELS` (the 25 levels: name and lore, bpm, bars, warning lead, phrases, colours, laser sections, and the curve they climb), the `PHRASES` that fill a bar, placing their beams on the tune's notes, the `COLOR_PATTERNS` that paint one, laser form's `TARGET_PHRASES` (`tune` traces the chorus), the seeded timeline, and what goes on screen: `Beam`, `Target`, `Gate` |
+| `waves.js` | `LEVELS` (the 25 levels: name and lore, bpm, bars, warning lead, phrases, colours, laser sections, and the curve they climb), the `PHRASES` that fill a bar, placing their beams on the tune's notes, the `COLOR_PATTERNS` that paint one, laser form's `TARGET_PHRASES` (`tune` traces the chorus), the seeded timeline (which phrase each bar gets from a stream of its own, `DEAL_SEEDS`), and what goes on screen: `Beam`, `Target`, `Gate` |
 | `story.js` | The acts (`ACTS`: name, their band of the spectrum, backdrop and lore; five levels each) and the epilogue, and the story screens between levels: an act's intro, typed over its backdrop to its theme, a level's card, the epilogue before the finish |
-| `music.js` | Each act's song as MIDI notes (`SONGS`: a key, the `CHORDS` of its bars, its melody, the laser sections' lead, bass and arpeggio lines, and its lead's voice), and the Web Audio synths that play it on the beat track's clock: bass, pad, arpeggio and lead, an echo, and a dip under every kick. It builds through its act, the laser sections play the chorus, overdrive opens the filters, a pause or a death cuts it, a clear rings out on the key's chord, and an act's intro plays its theme. The MUSIC setting (`musicLevel`) scales all of it, or at OFF plays none, and a change over a paused level plays a moment of Act I's theme to be heard (on the menus, the menu theme is playing to hear it in: `theme.js`). `songTune` tells the timeline where the tune's notes are, and `zapNote` which one a laser sounds |
+| `music.js` | Each act's song as MIDI notes (`SONGS`: a key, the `CHORDS` of its bars, its melody, the laser sections' lead, bass and arpeggio lines, and its lead's voice, with each of its other levels' own melody, lead and end in `tunes`, laid over it by `levelSong`), and the Web Audio synths that play it on the beat track's clock: bass, pad, arpeggio and lead, an echo, and a dip under every kick. It builds through its act, the laser sections play the chorus, overdrive opens the filters, a pause or a death cuts it, a clear resolves on the level's own `end` (a note or two onto the key's) over the key's chord, held and let ring (`musicEnd`), and an act's intro plays its theme. The MUSIC setting (`musicLevel`) scales all of it, or at OFF plays none, and a change over a paused level plays a moment of Act I's theme to be heard (on the menus, the menu theme is playing to hear it in: `theme.js`). `songTune` tells the timeline where the tune's notes are, and `zapNote` which one a laser sounds |
 | `sfx.js` | The synthesized sound effects, each a function of (context, time, output, argument) built from a small kit (`sfxKit`: enveloped gains, oscillators, noise, filters, panners, a ping-pong echo, a room, pulse waves) so it can be rendered offline as well as played (`playSfx`), at its own level (`SFX_LEVELS`, set by measurement against the sounds around it) times SOUND FX's: the startup sequence, the gate, overdrive's start and end, the absorb, the multiplier, the boss's siren and fall, the new best's bells, the game over and the finale |
 | `theme.js` | The menu theme: its song (`THEME`, in the acts' songs' notation: sections of bars with their chords and their bass, arpeggio and lead lines, how bright and which drums), played on music.js's synths and audio.js's drums (on a kit and into a bus of its own) by a timer of its own, the intro once and the rest round and round; when it plays (`themeWanted`: the start screen and its menus, not the timing test, MUSIC on, the page in sight) and the hand-over from the startup sequence (`themeSync`, `themeStart`, `themeStop`) |
 | `run.js` | Difficulties (lives, shields, warning times, points, the performance meter's rates, and the blurb the difficulty screen says them in), records per difficulty in localStorage (v3, for the 25 levels): best run and the most a run has scored, each level's best rank and the best score it has been cleared with on its own, furthest level (and apart, the furthest a full run has started, `runFurthest`), the longest a full run's combo has run across its levels (`runCombo`), how far through each unbeaten level an attempt has got; which levels are beaten, and so open on the level select; and the boss rush's (`RUSH_LEVELS`, `rushNext`): its best time and what it cost, the most it has scored, its longest combo, each boss's best rank in it, apart from the rest (`recordRush`, `recordRushScore`, `recordRushLevel`) |
 | `world.js` | `component`, the player piece's stepped movement, the `hazards` list and hit testing |
-| `player.js` | The player's look: two sine waves drawn off its position history, drifting into a glowing trail, meeting on each beat, the coming beat's colour lit |
+| `player.js` | The player's look: two sine waves drawn off its position history, drifting into a glowing trail, meeting on each beat, the coming beat's colour lit; once the level is done, at rest in one line, the core a steady white, and a ring going out from it as the song resolves |
 | `death.js` | The death animation: the picture of the hit, taken as the level stops, worked over for 1.3 s before the results in three overlapping movements (the prism split, burn-through, decoherence); it plays out whatever is pressed, and reduced effects skip it |
 | `boss.js` | The bosses: the Array's node at the right edge, its health (a point a target), the health bar in the progress stripe's slot, the break-up and the level's end at the bar it falls in, the loop that deals the level's last bars again while it stands, and the bonus it pays brought down, less the longer the fight ran; a level's `boss` in `LEVELS` names its fight |
 | `hud.js` | Score / deaths / act and level readout, the overdrive meter and the progress stripe |
 | `fx.js` | The effects setting (auto / full / reduced / off, honouring reduced motion), `fxHash`, the CRT overlay |
-| `sky.js` | Each level's colour, from its act's band of the spectrum, and each act's backdrop in it (`SKY_STYLES`: rising embers, a sun over a grid, an oscilloscope, a warp, an aurora), pulsing on the beat under the level and the story screens, still under the screens between levels. Moving at full effects, still when reduced, only the colour when off |
+| `sky.js` | Each level's colour, from its act's band of the spectrum, and each act's backdrop in it (`SKY_STYLES`: rising embers, a sun over a grid, an oscilloscope, a warp, an aurora), pulsing on the beat under the level and the story screens (still once a level is done, and lit up as its song resolves), still under the screens between levels. Moving at full effects, still when reduced, only the colour when off |
 | `menu.js` | Start, mode (`playMode`), difficulty, options, help and level select screens (the select: an act a row, a tile a level, locked until the one before is beaten on the difficulty chosen), settings persistence, hover flash, slogans, start-screen glitches |
 | `practice.js` | The practice screen, in two sections: LEVELS, a tile for each of the game's levels, played whole (`practiceWave`); CUSTOM, a tile a laser type, the boxes for the rest, the level they describe (`practiceDef`, dealt in the song and seeds of the chosen act's middle level), the live preview (the game's own lasers and backdrop drawn onto a canvas of its own the size of the layout, the game's state swapped for the preview's while they step and draw, and put back), the aids (OVERDRIVE, AUTO TIMING, RESTART ON HIT, LOOP), the session's bests (in memory only, per setup: `practiceKey`), and PLAY. The rules of a practice level (counted hits, no lives, no records) live with the rest of the game's, under `practice` (loop.js, levels.js) |
 | `online.js` | The HIGH SCORES screen (`drawScoresScreen`), LOCAL (this browser's bests, `localRunBests`, `localLevelBests`) and GLOBAL, and the online leaderboards behind GLOBAL, where the WordPress plugin passes the site's scores address on the game's URL (`api=`): a ticket from the site as a play starts (`onlinePlayStarts`), a run's MAX COMBO (its combo at its longest, `runPeakCombo`, loop.js), the name asked for over the results when a new best would make its board's top ten (`onlineOffer`; a panel of the page's own, which keeps the keys and presses to itself while it is up), posting it, and GLOBAL's boards, a board at a time, by kind, level and difficulty, fetched as it is picked. `SCORE_VERSION` is the scoring the boards are kept under |
@@ -372,7 +392,7 @@ old scores unfair: the site then starts fresh boards, the old scores kept but no
 | `calibrate.js` | The timing test (OPTIONS → CALIBRATE): a 100 BPM beat handed to the audio clock as a level's beats are, taps from every input timed by the input's own moment, each measured against its nearest beat less the audio delay the browser reports, and the offset they ask for (their mean once slips are left out, in 5 ms steps, within 300 ms), offered only when they are steady enough. Nothing on its screen moves on the beat |
 | `levels.js` | Level start / end flow (a full run, a boss rush or a level from the level select, or a practice level, a new level through its act's story and its card, a death or a retry straight back), the death message, a cleared level's results (the beat breakdown, the rank, the score against its best, and the run's total) and their CONTINUE and RETRY, the pause's RETRY and QUIT, the epilogue and the finish screen |
 | `input.js` | `ACTIONS` (key / mouse / touch / controller bindings), mouse & multi-touch steering, touch buttons, the controller (Gamepad API polling, stick steering, moving between a screen's buttons), the pause panel and the touch resume countdown |
-| `loop.js` | Game state, the fixed 10ms step loop, the beat clock (`beatPos`): the step count less the audio's delay and the timing offset, the beat as it is heard, which every laser, target, gate, pulse and judgment keeps to (`judgePos` is the same clock; `beatOpen` says whether a beat can still be hit), the audio's delay followed as the browser reports it once its estimate has settled (`trackLatency`: jumped to over a count-in and after a resume, eased into in mid-play), and the beat track scheduled 150 ms ahead from a steady timer as well as from the steps, held while the browser has the audio asleep, hit judging, combo, shields, overdrive, and wave / laser form |
+| `loop.js` | Game state, the fixed 10ms step loop, the beat clock (`beatPos`): the step count less the audio's delay and the timing offset, the beat as it is heard, which every laser, target, gate, pulse and judgment keeps to (`judgePos` is the same clock; `beatOpen` says whether a beat can still be hit), the audio's delay followed as the browser reports it once its estimate has settled (`trackLatency`: jumped to over a count-in and after a resume, eased into in mid-play), and the beat track scheduled 150 ms ahead from a steady timer as well as from the steps, held while the browser has the audio asleep, hit judging, combo, shields, overdrive, and wave / laser form; and how a level ends: judged to its last laser (`calmAt`, from `timelineEnd` in waves.js), the drums out after it, the song resolving on the bar line after (`resolveBeat`, `finalHit`) and the results `OUTRO_BEATS` later |
 
 ### Adding gameplay
 
@@ -386,7 +406,11 @@ old scores unfair: the site then starts fresh boards, the old scores kept but no
   for a faller); list its name in a level's `phrases`, alone or in a combination ("a+b" deals both into one bar). It is handed the bar's `tune` too (`songTune`, music.js):
   `onset[i]`, the note the tune starts on beat i, or null, `hold[i]`, how many beats it is held, `sound[i]`, the note
   sounding on it, and `bass[i]`, the bass's note under it; `tuneBeam` and `tuneAt` put a note at its height on the
-  screen, and `bassAt` the bass's across it, so the lasers follow the song.
+  screen, and `bassAt` the bass's across it, so the lasers follow the song. Which phrase each bar gets is drawn from
+  a seeded stream of its own (`DEAL_SEEDS`, one seed a level), apart from the phrases' own draws, so changing a
+  phrase or the music never deals a level's bars another way; adding, removing or reordering an entry in a level's
+  `phrases` does, so pick its seed again (one whose wave bars deal every type and combination the list holds) and
+  run `.claude/safegap.js` over it.
 - A level is an entry in `LEVELS` with its `name` and `lore` (a line or two of the story for its card, never how to
   play it); every five of them are an
   act. An act is an entry in `ACTS` (story.js): its `name`, `jp`, the `band` of the spectrum its levels' colours run
@@ -414,7 +438,11 @@ old scores unfair: the site then starts fresh boards, the old scores kept but no
   `bass` and `arp`, all lines of steps, the arpeggio in sixteenths and the rest in eighths: a number is a note (the
   melody's and the lead's in semitones from the key, the bass's from the chord's root, the arpeggio's which of the
   chord's notes), `-` holds it and `.` rests; `waves` are its lead's two oscillators. The arpeggio joins on an act's
-  `ARP_FROM`th level. A new part is a line and a synth beside `playArp`.
+  `ARP_FROM`th level. Those lines are the act's first level's; `tunes` gives each of its other levels its own
+  `melody`, `melody2` and `lead` over the same chords (and the boss its own `bass`, the act's notes on the beats with
+  eighths pumping between), which `levelSong` lays over the act's song. The lasers are dealt from the lines a level
+  plays, so a changed line changes its level: check it with `.claude/safegap.js`. A new part is a line and a synth
+  beside `playArp`.
 
 ### Ideas flagged for later
 

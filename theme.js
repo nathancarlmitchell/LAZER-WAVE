@@ -52,7 +52,6 @@ var theme = null; // playing: { bus, beatSec, start (the audio time of its first
                   // next (beats handed over since), timer }
 var themePlace = 0; // the beat it plays from when it next starts: 0, or the start of the section it gave way in
 var themeOn = false; // the page is up and the startup sequence started or waiting for its press (themeBegin)
-var themeArmed = false; // a press is being waited for, to wake the audio in
 
 function themeBegin() { // the page is up (onLoad, loop.js): from now the theme plays whenever it is wanted
     themeOn = true;
@@ -64,37 +63,16 @@ function themeWanted() { // the start screen or a menu over it, but not the timi
 }
 
 function themeSync() { // start it or stop it, as themeWanted says. Called wherever that may have changed: a menu opening
-    // or closing, a run ending, MUSIC, the page hidden or shown
+    // or closing, a run ending, MUSIC, the page hidden or shown, and the audio starting to run, at the first press the
+    // browser lets it or after the browser stopped it (beatAudio, audio.js)
     if (!themeWanted()) {
         themeStop(true, THEME_CUT);
         return;
     }
-    var c = beatAudio();
-    if (theme || !c) {
-        return;
-    }
-    if (c.state == "running") {
+    var c = beatAudio(); // woken if it is asleep, and if it can't be yet, this is called again when it runs
+    if (!theme && c && c.state == "running") {
         themeStart(c);
-    } else { // the browser hasn't let sound start yet: at the first press it does
-        themeArm();
-        c.resume().then(themeSync).catch(function () {});
     }
-}
-
-function themeArm() { // listen for the first press a browser lets sound start from, and wake the audio in it. The startup
-    // sequence listens for its own (startupArm, audio.js), but not with SOUND FX off
-    if (themeArmed) {
-        return;
-    }
-    themeArmed = true;
-    var wake = function () {
-        var c = beatAudio(); // resumed in the press, which is what lets it; running by the next, if not this
-        if (c && c.state == "running") {
-            STARTUP_PRESSES.forEach(function (type) { window.removeEventListener(type, wake, true); });
-            themeArmed = false;
-        }
-    };
-    STARTUP_PRESSES.forEach(function (type) { window.addEventListener(type, wake, true); });
 }
 
 function themeStart(c) { // from themePlace, as soon as it can begin: at once, or as the startup sequence rings

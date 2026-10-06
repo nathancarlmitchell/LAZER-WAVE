@@ -436,7 +436,8 @@ function sfxFinale(c, at, out) {
 // A new best on the results: three bells climbing the key's chord, quick; for a FLAWLESS, the octave over them as its
 // stamp lands (FLAWLESS_STAMP, levels.js), ringing on in a haze; all echoing side to side
 var REWARD_STEP = 0.07; // s from one bell to the next
-var REWARD_DELAY = 0.35; // s after the results come up that a new best's bells ring, after the results' own sound
+var REWARD_DELAY = 0.35; // s after the results come up that a new best's bells ring, after the results' own sound;
+                         // a best grade's ring as the grade lands instead, so as not to tell it first (RANK_IN, levels.js)
 
 function sfxReward(c, at, out, o) { // o: { key, flawless }
     var k = sfxKit(c, out), echo = k.pingpong(0.3, 0.35, 0.45, 3000), base = o.key + 12;

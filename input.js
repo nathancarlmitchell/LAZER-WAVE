@@ -185,6 +185,15 @@ function releaseAll() { // the player went away (window blur, app switch, a syst
     setPause(true); // this also stops a resume countdown
 }
 
+function pageBack() { // the page is in sight and in hand again: the audio woken, if the browser put it to sleep
+    // meanwhile, and the menu theme back if it is wanted (theme.js), as soon as the audio runs. A level stays paused
+    // until the player resumes it, its song starting again with its next beat
+    if (audioCtx) {
+        beatAudio();
+    }
+    themeSync();
+}
+
 function cancelResume() { // stop a touch resume countdown
     if (resumeTimer) {
         clearTimeout(resumeTimer);
@@ -1050,12 +1059,16 @@ function bindInput() { // the touch, mouse, keyboard, controller and page listen
     document.addEventListener("visibilitychange", function () {
         if (document.hidden) {
             releaseAll();
-        } else if (audioCtx) {
-            beatAudio(); // back: the audio woken, if the browser put it to sleep meanwhile
+            themeSync(); // the menu theme stops out of sight (theme.js)
+        } else {
+            pageBack();
         }
-        themeSync(); // the menu theme stops out of sight, and comes back with the page (theme.js)
     });
+    window.addEventListener("focus", pageBack); // back from another window or app, the page never out of sight
+    window.addEventListener("pageshow", pageBack); // or out of the back-forward cache
     window.addEventListener("pagehide", releaseAll);
+    STARTUP_PRESSES.forEach(function (type) { window.addEventListener(type, wakeAudio, true); }); // and any press wakes
+    // the audio, if it is still asleep: some browsers only let it start again in one (audio.js)
     window.addEventListener('click', function (e) {
         if (touchEcho(e)) {
             return;

@@ -405,20 +405,151 @@ function drawFlawless(cx, ay) { // the flare, the word's baseline at ay, centred
     }
     var star = moving ? Math.max(0, 1 - Math.abs(sweep - 1.05) * 3) : 0.6; // and a star where it leaves them
     if (star > 0) {
-        var sx = cx + w / 2 + 4, sy = ay - 42, r = 16 * star;
         ctx.globalAlpha = ease * star;
-        ctx.fillStyle = COLORS.laserCore;
-        ctx.beginPath(); // four points, thin
-        ctx.moveTo(sx, sy - r);
-        ctx.lineTo(sx + r * 0.18, sy - r * 0.18);
-        ctx.lineTo(sx + r, sy);
-        ctx.lineTo(sx + r * 0.18, sy + r * 0.18);
-        ctx.lineTo(sx, sy + r);
-        ctx.lineTo(sx - r * 0.18, sy + r * 0.18);
-        ctx.lineTo(sx - r, sy);
-        ctx.lineTo(sx - r * 0.18, sy - r * 0.18);
-        ctx.closePath();
-        ctx.fill();
+        drawSparkle(cx + w / 2 + 4, ay - 42, 16 * star);
+    }
+    ctx.restore();
+}
+
+function drawSparkle(sx, sy, r) { // a star of light, white as the glints are, reaching r from its middle: four points,
+    // thin
+    ctx.fillStyle = COLORS.laserCore;
+    ctx.beginPath();
+    ctx.moveTo(sx, sy - r);
+    ctx.lineTo(sx + r * 0.18, sy - r * 0.18);
+    ctx.lineTo(sx + r, sy);
+    ctx.lineTo(sx + r * 0.18, sy + r * 0.18);
+    ctx.lineTo(sx, sy + r);
+    ctx.lineTo(sx - r * 0.18, sy + r * 0.18);
+    ctx.lineTo(sx - r, sy);
+    ctx.lineTo(sx - r * 0.18, sy - r * 0.18);
+    ctx.closePath();
+    ctx.fill();
+}
+
+// The rank comes up a moment after the results do, so there is a beat of not knowing: every grade stamps in as
+// FLAWLESS does, from bigger, coming up to full, once FLAWLESS has landed (or would have: a level can be cleared FLAWLESS
+// short of an S+, and an S or less without it), the best under it coming up with it. A plain grade (A down to F) stamps
+// in its own colour and is still from there. The S ranks shine as FLAWLESS does, and the higher the more (SHINES): each
+// printed as an S always was, lit by a glow, and glinting just after FLAWLESS does, as if the one light ran down the
+// screen to it. An S+ has a white sheen drifting across its face, a star where its glint leaves it and a spark; an SS
+// (every beat PERFECT and nothing lost: levelRank, loop.js) its face in the waves' two colours meeting in white, the
+// white drifting, a larger star and three sparks, twinkling in turn, so it never quite settles. With less motion, the
+// rank is there with the results, still
+var RANK_IN = FLAWLESS_IN + FLAWLESS_STAMP + 0.1; // seconds after the results come up that the rank stamps in
+var RANK_STAMP = 0.2; // how much bigger than full a plain grade stamps in from,
+var RANK_PASSES = 3; // and its copies a pixel apart, that make it bold (as centerText's passes)
+var SHINE_GLINT_LAG = 0.45; // seconds an S rank's glint follows FLAWLESS's
+var SHINE_SHEEN = 3.5; // seconds a sheen takes to drift across and back,
+var SHINE_SHEEN_REACH = 0.2, SHINE_SHEEN_W = 0.25; // how far either way of the middle it goes, and how far either side
+// of it the colours come back, as shares of the width
+var SHINE_EDGE = 5; // px: the dark edge round a face in the waves' colours, so its cyan end stands off the print's
+var SHINE_TWINKLE = 0.5; // seconds a spark takes to come up and go
+var SHINE_SPARKS = [[-0.56, 1.06, 1.0], [0.62, 0.5, 1.6], [-0.32, -0.08, 2.2]]; // the sparks, in the order a rank gets
+// them: across, from its middle as a share of its half width; up, from its baseline as a share of its letters' height;
+// and when in each round of the glint each twinkles, in seconds
+var SHINE_SPARK_R = 14; // px: a spark at its brightest
+const SHINES = { // by grade: face, its front ("print", magenta as printText's; "sheen", that with a white band drifting
+    // across it; "prism", the waves' two colours meeting in white, the white drifting, edged dark); glow, px of white
+    // light round it; stamp, how much bigger than full it stamps in from; star, px the star where its glint leaves it
+    // reaches, or none; sparks, how many of SHINE_SPARKS twinkle round it
+    S: { face: "print", glow: 8, stamp: 0.25, star: 0, sparks: 0 },
+    "S+": { face: "sheen", glow: 12, stamp: 0.4, star: 14, sparks: 1 },
+    SS: { face: "prism", glow: 18, stamp: 0.5, star: 18, sparks: 3 },
+};
+
+function rankIn() { // 0..1: how far the rank has stamped in, eased; with less motion, in at once
+    if (fxLook() != "full") {
+        return 1;
+    }
+    var k = Math.max(0, Math.min(1, ((Date.now() - resultsAt) / 1000 - RANK_IN) / FLAWLESS_STAMP));
+    return 1 - Math.pow(1 - k, 3);
+}
+
+function showGrade(rank, dy, x) { // queue the rank's grade in the font set now: a drawing, measured by its print and
+    // its sparks
+    var m = ctx.measureText(rank.grade), font = ctx.font;
+    msgBlock.push({ drawing: function (cx, ay) { drawGrade(rank, font, cx, ay); }, x: x, dy: dy,
+        w: m.width + 2 * (PRINT_TRAIL + SHINE_SPARK_R + 8), above: m.actualBoundingBoxAscent + PRINT_TRAIL + 2 * SHINE_SPARK_R,
+        below: m.actualBoundingBoxDescent + SHINE_SPARK_R });
+}
+
+function drawGrade(rank, font, cx, ay) { // the grade, its baseline at ay, centred on cx: stamping in, and shining if it
+    // is an S (SHINES)
+    var ease = rankIn();
+    if (ease <= 0) {
+        return; // not in yet
+    }
+    var text = rank.grade, shine = SHINES[text];
+    var moving = fxLook() == "full", since = (Date.now() - resultsAt) / 1000, t = since - RANK_IN;
+    ctx.save();
+    ctx.font = font;
+    ctx.textAlign = "center";
+    var m = ctx.measureText(text), w = m.width, h = m.actualBoundingBoxAscent, my = ay - h / 2;
+    var grow = 1 + (shine ? shine.stamp : RANK_STAMP) * (1 - ease); // stamped: from bigger, coming up to full
+    ctx.translate(cx, my);
+    ctx.scale(grow, grow);
+    ctx.translate(-cx, -my);
+    ctx.globalAlpha = ease;
+    if (!shine) { // a plain grade: in its own colour, bold, and nothing more
+        ctx.fillStyle = rank.color;
+        for (var p = 0; p < RANK_PASSES; p++) {
+            ctx.fillText(text, cx + p, ay + p);
+        }
+        ctx.restore();
+        return;
+    }
+    ctx.fillStyle = COLORS.cyan; // the print: its copies trailing up and left, as printText's
+    for (var q = PRINT_TRAIL; q > 0; q--) {
+        ctx.fillText(text, cx - q, ay - q);
+    }
+    var face = COLORS.magenta;
+    if (shine.face != "print") { // the sheen: where the white is, drifting, and the colours either side of it
+        var white = moving ? 0.5 + SHINE_SHEEN_REACH * Math.sin(2 * Math.PI * t / SHINE_SHEEN) : 0.5;
+        var from = shine.face == "prism" ? COLORS.cyan : COLORS.magenta;
+        face = ctx.createLinearGradient(cx - w / 2, 0, cx + w / 2, 0);
+        face.addColorStop(0, from);
+        face.addColorStop(white - SHINE_SHEEN_W, from);
+        face.addColorStop(white, COLORS.laserCore);
+        face.addColorStop(white + SHINE_SHEEN_W, COLORS.magenta);
+        face.addColorStop(1, COLORS.magenta);
+    }
+    if (shine.face == "prism") {
+        ctx.lineJoin = "round";
+        ctx.lineWidth = SHINE_EDGE;
+        ctx.strokeStyle = COLORS.bg;
+        ctx.strokeText(text, cx, ay);
+    }
+    ctx.shadowColor = COLORS.laserCore + "99";
+    ctx.shadowBlur = shine.glow;
+    ctx.fillStyle = face;
+    ctx.fillText(text, cx, ay);
+    ctx.shadowBlur = 0;
+    var round = since - FLAWLESS_IN - SHINE_GLINT_LAG; // FLAWLESS's glints' clock, a little behind
+    var sweep = moving && round >= 0 ? (round % FLAWLESS_GLINT) / FLAWLESS_SWEEP : 2;
+    if (sweep < 1) { // the glint, leaning as it crosses
+        var gx = cx - w / 2 - 40 + sweep * (w + 80);
+        var glint = ctx.createLinearGradient(gx - 22, ay, gx + 22, ay - h * 0.45);
+        glint.addColorStop(0, "#ffffff00");
+        glint.addColorStop(0.5, "#ffffffee");
+        glint.addColorStop(1, "#ffffff00");
+        ctx.fillStyle = glint;
+        ctx.fillText(text, cx, ay);
+    }
+    var star = moving ? Math.max(0, 1 - Math.abs(sweep - 1.05) * 3) : 0.6; // a star where it leaves them
+    if (shine.star && star > 0) {
+        ctx.globalAlpha = ease * star;
+        drawSparkle(cx + w / 2 + 6, ay - h - 4, shine.star * star);
+    }
+    if (moving) { // and the sparks, each twinkling once a round, in turn
+        SHINE_SPARKS.slice(0, shine.sparks).forEach(function (s) {
+            var at = round >= 0 ? (round + FLAWLESS_GLINT - s[2]) % FLAWLESS_GLINT : -1;
+            var lit = at >= 0 ? Math.max(0, 1 - Math.abs(at - SHINE_TWINKLE / 2) * 2 / SHINE_TWINKLE) : 0;
+            if (lit > 0) {
+                ctx.globalAlpha = ease * lit;
+                drawSparkle(cx + s[0] * w / 2, ay - s[1] * h, SHINE_SPARK_R * lit);
+            }
+        });
     }
     ctx.restore();
 }
@@ -486,20 +617,16 @@ function showBreakdown(dy, judged) { // how the level's beats went, which is wha
     });
 }
 
-function showRank(dy) { // the cleared level's rank, large: an S is printed as the title is, the rest in their own
-    // colour. Under it, the best this level has had (recordLevel has taken this one)
+function showRank(dy) { // the cleared level's rank, large, stamping in a moment after the results come up: an S, an S+
+    // or an SS printed as the title is and shining over that, the rest in their own colour (drawGrade). Under it, coming
+    // up with it, the best this level has had (recordLevel has taken this one)
     var rank = levelRank();
     var best = bossRush ? rec().rushRank[level] : rec().rank[level]; // the boss rush's own, in the rush
     ctx.font = "30px Arial";
     ctx.fillStyle = COLORS.dim;
     centerText("RANK ランク", dy + RESULTS_TOP, 1, RESULTS_RANK_X);
     ctx.font = "100px Arial";
-    if (rank.grade.charAt(0) == "S") {
-        printText(rank.grade, dy, RESULTS_RANK_X);
-    } else {
-        ctx.fillStyle = rank.color;
-        centerText(rank.grade, dy, 3, RESULTS_RANK_X);
-    }
+    showGrade(rank, dy, RESULTS_RANK_X);
     if (practice) { // nothing kept: what was practised, in its place, made smaller to keep clear of the columns
         var said = practiceTitle(), room = RESULTS_SCORE_X - RESULTS_SHARE_X - 40; // either side ("LEVEL 14  GREEN
         ctx.font = "22px Arial"; // FLASH  FROM BAR 8" is too long for them at full size)
@@ -512,8 +639,16 @@ function showRank(dy) { // the cleared level's rank, large: an S is printed as t
         return;
     }
     ctx.font = "30px Arial";
-    ctx.fillStyle = gradeRecord ? COLORS.good : COLORS.text;
-    centerText(gradeRecord ? "NEW BEST" : "best " + best, dy + RESULTS_BOTTOM, 1, RESULTS_RANK_X);
+    var bestLine = gradeRecord ? "NEW BEST" : "best " + best, tone = gradeRecord ? COLORS.good : COLORS.text;
+    msgBlock.push({ drawing: function (cx, ay) { // as the rank lands: nothing told of it before it is shown
+        ctx.save();
+        ctx.font = "30px Arial";
+        ctx.textAlign = "center";
+        ctx.globalAlpha = rankIn();
+        ctx.fillStyle = tone;
+        ctx.fillText(bestLine, cx, ay);
+        ctx.restore();
+    }, x: RESULTS_RANK_X, dy: dy + RESULTS_BOTTOM, w: ctx.measureText(bestLine).width, above: 24, below: 8 });
 }
 
 function showScore(dy, dead) { // what the level scored, the breakdown's mirror: its points (on a boss level, what the
@@ -692,8 +827,9 @@ function raiseResults(kind) { // the level ended: its results come up, of the ki
         var flawless = levelFlawless(); // a new best, or a FLAWLESS, rings as it is said (sfx.js): a run's, the level
         if (flawless || gradeRecord || scoreRecord || runRecord // select's, or practice's when it beat one it had
             || practice && practiceRun.from > 0 && practiceNewBest()) {
-            playSfx(sfxReward, flawless ? FLAWLESS_IN : REWARD_DELAY, SFX_LEVELS.reward,
-                { key: actSong(level).key, flawless: flawless });
+            var ring = flawless ? FLAWLESS_IN : gradeRecord && fxLook() == "full" ? RANK_IN + FLAWLESS_STAMP // a best
+                : REWARD_DELAY; // grade's as it lands, not before it is shown
+            playSfx(sfxReward, ring, SFX_LEVELS.reward, { key: actSong(level).key, flawless: flawless });
         }
     } else if (kind == "over") { // and the game over, as the tube goes off
         playSfx(sfxGameOver, 0, SFX_LEVELS.gameOver);

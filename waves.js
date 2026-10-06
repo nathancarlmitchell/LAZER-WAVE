@@ -60,7 +60,8 @@ var FILL_SIZE = RIPPLE_SIZE; // a fill's thin beams
 
 // The levels: five acts of five (ACTS, story.js), each act a band of the spectrum and a song (SONGS, music.js). name
 // and lore: what its card says before it is played, a line or two of the story (never how to play it). bpm is the
-// tempo; bars is how long the level runs after the count-in; warn is how many beats ahead a beam shows its outline;
+// tempo; bars is how many bars the level deals after the count-in (it is done with its last laser, and its song resolves
+// on the bar line after: calmAt, loop.js); warn is how many beats ahead a beam shows its outline;
 // phrases is what the level's bars are drawn from (a repeat makes that one more common, and the draw being seeded, the
 // order decides which bars get which; an entry "a+b" is a combination, both phrases dealt into one bar, which is how
 // the later levels make patterns of their own out of the types before them: a box from a pincer and a cage, a crosshair
@@ -674,12 +675,20 @@ function loopFrom(def) { // the bar a boss level goes back to when its end comes
     return Math.max(1, last[0] - 1); // never the opening rest bar
 }
 
+// The deal: which phrase each bar of a level gets, drawn from a seeded stream of its own, apart from the phrases' own
+// draws (rnd), so a change to a phrase, or to the music the lasers follow (songTune, music.js), never deals the bars
+// another way. Each level's seed was picked so that its wave bars deal every type its phrases list holds, and every
+// combination, none of them more than twice, with no more rests than the list's share of them (level 1's keeps the
+// deal it always had); safegap.js's checks were run over the result
+var DEAL_SEEDS = [null, 8, 31, 34, 14, 0, 28, 27, 8, 42, 162, 0, 12, 43, 28, 45, 7, 4, 5, 40, 0, 21, 161, 37, 54, 58];
+
 function buildTimeline(n, given) { // everything the level holds, in beat order: beams { fire, axis, pos, size, color,
     // and a held note's hold or a faller's kind }, targets (axis "target", pos their height) and gates (axis "gate", to
     // the form they switch to, color "gate"). Level n's, or given a definition, that one's in level n's song and seeds
     // (a practice level, practice.js)
     var def = given || levelDef(n);
-    var rnd = seededRandom(n * 9973 + 17);
+    var rnd = seededRandom(n * 9973 + 17); // the phrases' own draws: heights, sides, which way
+    var deal = seededRandom(n * 4507 + (DEAL_SEEDS[n] || 0)); // which phrase each bar gets (DEAL_SEEDS)
     var paint = seededRandom(n * 7919 + 101); // the colours' own stream, so painting a level never moves its beams
     var aim = seededRandom(n * 6151 + 29); // and laser form's, so the wave bars around it keep the beams they had
     var laser = laserBars(def);
@@ -697,7 +706,7 @@ function buildTimeline(n, given) { // everything the level holds, in beat order:
         var name = "rest"; // the first bar is always a rest: the level opens on the beat, not on a laser
         if (bar > 0) {
             do {
-                name = def.phrases[Math.floor(rnd() * def.phrases.length)];
+                name = def.phrases[Math.floor(deal() * def.phrases.length)];
             } while (name == "rest" && previous == "rest"); // never two rests running
         }
         previous = name;
@@ -775,6 +784,18 @@ function dodgeLasers(events, def, n) { // laser form's lasers: in each laser bar
 
 function eventLead(ev, warn) { // how many beats ahead of its beat an event comes on screen: its own, if it has one
     return ev.lead !== undefined ? ev.lead : ev.axis == "gate" ? GATE_LEAD : ev.axis == "target" ? warn + TARGET_LEAD : warn;
+}
+
+function timelineEnd(events, none) { // the moment the last of a timeline's events is done with, in beats: a laser's
+    // burn over (its endAt, as it will be on screen: a held note's, a sweeper's or a radar's bar, a spinning X's), a
+    // target's or a gate's beat gone by; `none` for a timeline with nothing in it
+    var end = null;
+    events.forEach(function (ev) {
+        var at = ev.axis == "target" ? ev.fire + TARGET_GONE : ev.axis == "gate" ? ev.fire + GATE_GONE
+            : makeHazard(ev, 0).endAt;
+        end = end === null ? at : Math.max(end, at);
+    });
+    return end === null ? none : end;
 }
 
 function makeHazard(ev, warn) { // the thing on screen for a timeline event

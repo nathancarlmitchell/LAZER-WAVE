@@ -108,15 +108,16 @@ function drawLife(x, y, lit) { // a life: the piece in small, its left end at x 
 }
 
 function drawDriveMeter(touch) { // overdrive's meter: charging, then full and throbbing on the beat with what to do,
-    // then running down while it runs
-    var waiting = driveReady() || driveArmed();
+    // then running down while it runs. Once the level is done (calmed, loop.js) a full one holds still, saying nothing:
+    // there is no beat left to spend it on, and it carries into the next level as it is
+    var waiting = (driveReady() || driveArmed()) && !calmed();
     ctx.fillStyle = COLORS.laserCore;
     ctx.globalAlpha = 0.18;
     ctx.fillRect(meterX(), METER_Y, METER_W, METER_H);
     ctx.globalAlpha = waiting ? 0.55 + 0.45 * Math.max(0, 1 - beatFrac() * 3) : 0.9;
     ctx.fillRect(meterX(), METER_Y, METER_W * driveMeter(), METER_H);
-    var label = driveOn() ? "OVERDRIVE" : driveArmed() ? "NEXT BEAT"
-        : driveReady() ? (touch ? "READY" : actionKey("gate")) : "";
+    var label = driveOn() ? "OVERDRIVE" : !waiting ? "" : driveArmed() ? "NEXT BEAT"
+        : touch ? "READY" : actionKey("gate");
     if (label) { // steady, whatever the bar is doing
         ctx.globalAlpha = 1;
         ctx.font = "bold 16px Arial";

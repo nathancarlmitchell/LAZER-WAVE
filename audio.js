@@ -143,7 +143,10 @@ function drumKit() { // the kit of the level playing, or Act I's on the screens 
     return (typeof wave != "undefined" && wave && DRUM_KITS[levelAct(level)]) || DRUM_KITS[1];
 }
 
-function beatAudio() { // the audio context, made on first use and woken if the browser put it to sleep
+function beatAudio() { // the audio context, made on first use and woken if it is asleep: "suspended", until the page
+    // has had a press or after the browser stopped it, or "interrupted", the browser holding it while the page is put
+    // away or something else has the sound. A browser can refuse to wake it: it wakes by itself when the interruption
+    // ends, or at the next press (wakeAudio)
     if (!audioCtx) {
         var Ctx = window.AudioContext || window.webkitAudioContext;
         if (!Ctx) {
@@ -155,16 +158,26 @@ function beatAudio() { // the audio context, made on first use and woken if the 
             return null;
         }
         audioRunningAt = performance.now();
-        audioCtx.onstatechange = function () { // started, or resumed: its delay's estimate starts over
+        audioCtx.onstatechange = function () { // started, or woken however it was: its delay's estimate starts over,
+            // and the menu theme, if it is wanted, starts again (theme.js), after whatever waited on the waking itself
+            // (the startup sequence, which the theme comes in under)
             if (audioCtx.state == "running") {
                 audioRunningAt = performance.now();
+                setTimeout(themeSync, 0);
             }
         };
     }
-    if (audioCtx.state == "suspended") {
+    if (audioCtx.state == "suspended" || audioCtx.state == "interrupted") {
         audioCtx.resume().catch(function () {});
     }
     return audioCtx;
+}
+
+function wakeAudio() { // a press of a kind a browser lets sound start from (STARTUP_PRESSES): the audio woken in it if
+    // it is asleep, as some browsers only let it start again in a press
+    if (audioCtx && audioCtx.state != "running") {
+        beatAudio();
+    }
 }
 
 function audioLatencyMs() { // how long after it is scheduled a sound actually leaves the speakers
@@ -269,6 +282,34 @@ function synthSnare(delay, soft, via) { // the backbeat, on a bar's second and f
     o.connect(envelope(c, when, soft ? 0.15 : 0.3, 0.1, out));
     o.start(when);
     o.stop(when + 0.12);
+}
+
+var CRASH_SEC = 1.6; // how long the crash takes to die away
+var crashBuffer = null; // noise long enough for it to ring out, made once
+
+function synthCrash(delay, via) { // a cymbal struck once, with the last kick as a level's song resolves (finalHit,
+    // loop.js): noise high-passed lower than a hat's, a wider plate's shimmer, washing out
+    var c = drumContext(via);
+    if (!c) {
+        return;
+    }
+    var when = c.currentTime + delay, kit = via && via.kit || drumKit();
+    if (!crashBuffer) {
+        crashBuffer = c.createBuffer(1, Math.floor(c.sampleRate * CRASH_SEC), c.sampleRate);
+        var d = crashBuffer.getChannelData(0);
+        for (var i = 0; i < d.length; i++) {
+            d[i] = Math.random() * 2 - 1; // audio only, as the hats' noise is
+        }
+    }
+    var n = c.createBufferSource();
+    n.buffer = crashBuffer;
+    var hp = c.createBiquadFilter();
+    hp.type = "highpass";
+    hp.frequency.value = kit.hat / 2;
+    n.connect(hp);
+    hp.connect(envelope(c, when, 0.3, CRASH_SEC, via && via.out));
+    n.start(when);
+    n.stop(when + CRASH_SEC);
 }
 
 function synthTick(delay, high) { // the count-in's click
