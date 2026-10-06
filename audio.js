@@ -127,6 +127,18 @@ var LATENCY_SETTLE_MS = 400; // how long that takes: Chrome reports no delay at 
                              // before a pause or a hidden tab
 var BEAT_VOLUME = 0.6;
 var noiseBuffer = null; // a quarter second of white noise, made once, for the hats
+// Audio a browser has stopped and won't start again is made afresh, as reloading the page would make it (audioRemake):
+// Chrome and Edge hold it "interrupted" while something else has the sound, refuse to wake it, and can leave it so
+// after, with the sound effects that play from files still heard and the song and the drums not
+var AUDIO_STUCK_MS = 1500; // how long it may stay asleep after the page tried to wake it (a press, or coming back to
+                           // the page), or its clock stand still while it says it runs, before it is given up on
+var AUDIO_RETRY_MS = 4000; // the least time between two fresh starts, so audio held for good isn't remade on end
+var AUDIO_STALL = 0.25; // a clock running at less than this share of the page's time is standing still
+var audioAsleepSince = 0; // performance.now() when the page first tried to wake it, while it stays asleep; else 0
+var audioRemadeAt = -Infinity; // when it was last made afresh
+var audioClockAt = 0, audioClockTime = 0; // its clock as last watched: the page's time then, and its own
+var audioPressed = false; // the page has had a press (where the browser can't say: navigator.userActivation)
+var audioWatchTimer = null;
 
 // Each act's drum kit, indexed as ACTS is (story.js): kick, the pitch its sine drops from and to and its decay; snare,
 // the band its noise is in and its decay; clap, whether a clap doubles the snare; hat, the edge its noise is cut at.
@@ -146,26 +158,32 @@ function drumKit() { // the kit of the level playing, or Act I's on the screens 
 function beatAudio() { // the audio context, made on first use and woken if it is asleep: "suspended", until the page
     // has had a press or after the browser stopped it, or "interrupted", the browser holding it while the page is put
     // away or something else has the sound. A browser can refuse to wake it: it wakes by itself when the interruption
-    // ends, or at the next press (wakeAudio)
+    // ends, or at the next press (wakeAudio), or it is made afresh (audioRemake)
     if (!audioCtx) {
         var Ctx = window.AudioContext || window.webkitAudioContext;
         if (!Ctx) {
             return null;
         }
+        var made;
         try {
-            audioCtx = new Ctx();
+            made = new Ctx();
         } catch (e) {
             return null;
         }
+        audioCtx = made;
         audioRunningAt = performance.now();
-        audioCtx.onstatechange = function () { // started, or woken however it was: its delay's estimate starts over,
-            // and the menu theme, if it is wanted, starts again (theme.js), after whatever waited on the waking itself
-            // (the startup sequence, which the theme comes in under)
-            if (audioCtx.state == "running") {
+        made.onstatechange = function () { // started, or woken however it was: its delay's estimate starts over, and
+            // the menu theme, if it is wanted, starts again (theme.js), after whatever waited on the waking itself (the
+            // startup sequence, which the theme comes in under)
+            if (made.state == "running") {
                 audioRunningAt = performance.now();
+                audioAsleepSince = 0;
                 setTimeout(themeSync, 0);
             }
         };
+        if (audioWatchTimer === null) {
+            audioWatchTimer = setInterval(audioWatch, 1000);
+        }
     }
     if (audioCtx.state == "suspended" || audioCtx.state == "interrupted") {
         audioCtx.resume().catch(function () {});
@@ -174,10 +192,77 @@ function beatAudio() { // the audio context, made on first use and woken if it i
 }
 
 function wakeAudio() { // a press of a kind a browser lets sound start from (STARTUP_PRESSES): the audio woken in it if
-    // it is asleep, as some browsers only let it start again in a press
-    if (audioCtx && audioCtx.state != "running") {
+    // it is asleep, as some browsers only let it start again in a press, or made afresh in it if it has stayed asleep
+    // since the page last tried
+    audioPressed = true;
+    if (!audioCtx || audioCtx.state == "running") {
+        return;
+    }
+    if (audioStuck()) {
+        audioRemake();
+    } else {
+        audioTried();
         beatAudio();
     }
+}
+
+function audioTried() { // the page has tried to wake the audio: the time it has to wake starts, if it hasn't. Not before
+    // the page has had a press, until which no browser lets it run
+    var pressed = navigator.userActivation ? navigator.userActivation.hasBeenActive : audioPressed;
+    if (pressed && !audioAsleepSince && audioCtx && audioCtx.state != "running") {
+        audioAsleepSince = performance.now();
+    }
+}
+
+function audioStuck() { // has the audio stayed asleep AUDIO_STUCK_MS since the page tried to wake it, and not been made
+    // afresh lately
+    var now = performance.now();
+    return audioAsleepSince > 0 && now - audioAsleepSince >= AUDIO_STUCK_MS && now - audioRemadeAt >= AUDIO_RETRY_MS;
+}
+
+function audioWatch() { // every second, while the page is in sight: audio that stayed asleep after the page tried to wake
+    // it is made afresh, and so is audio that says it runs while its clock stands still
+    if (!audioCtx || document.hidden) {
+        audioClockAt = 0;
+        return;
+    }
+    var now = performance.now();
+    if (audioCtx.state != "running") {
+        audioClockAt = 0;
+        if (audioStuck()) {
+            audioRemake();
+        }
+        return;
+    }
+    var real = now - audioClockAt, moved = 1000 * (audioCtx.currentTime - audioClockTime);
+    if (audioClockAt && real >= AUDIO_STUCK_MS && moved < AUDIO_STALL * real && now - audioRemadeAt >= AUDIO_RETRY_MS) {
+        audioRemake();
+        return;
+    }
+    if (!audioClockAt || real >= AUDIO_STUCK_MS) {
+        audioClockAt = now;
+        audioClockTime = audioCtx.currentTime;
+    }
+}
+
+function audioRemake() { // the audio given up on: closed, and made afresh, as reloading the page would make it. What
+    // played on the old goes with it, to start again on the new: a level's song with its next beat (music.js), the menu
+    // theme where its section began once the new one runs (theme.js), an act's theme where it was (introTick)
+    var old = audioCtx, state = old.state;
+    audioRemadeAt = performance.now();
+    audioAsleepSince = 0;
+    audioClockAt = 0;
+    musicStop(0);
+    themeStop(true, 0);
+    startupGain = null; // the startup sequence, if it was still ringing, and its moment, which the theme comes in by
+    startupAt = null;
+    audioCtx = null;
+    old.onstatechange = null;
+    old.close().catch(function () {});
+    // said in the console, as nothing else in the game is: a browser holding the sound is what to look for if it stays
+    console.info("Lazer Wave: the audio was " + state + " and wouldn't start again, so it was made afresh");
+    beatAudio(); // the new one: in the press that asked for it, where there was one
+    audioTried(); // given its own time to wake
 }
 
 function audioLatencyMs() { // how long after it is scheduled a sound actually leaves the speakers

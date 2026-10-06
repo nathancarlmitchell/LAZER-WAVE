@@ -4,7 +4,7 @@ Tags: game, rhythm, arcade, html5, embed
 Requires at least: 6.1
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 1.14.5
+Stable tag: 1.15.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -107,6 +107,36 @@ one place apart; the address itself is not kept). Deleting the plugin leaves the
 reinstall keeps the boards.
 
 == Changelog ==
+
+= 1.15.1 =
+* By touch, a tap on a results or pause button no longer presses the screen it opens as well: QUIT after failing a
+  level from the level select no longer changes its difficulty, CONTINUE after clearing one no longer goes back past
+  the select, and QUIT at a game over no longer opens the mode screen.
+
+= 1.15.0 =
+* The performance meter warns before it fails you: under 25%, on a difficulty where it can, the screen's edges glow
+  red, beating with the music and stronger the emptier it gets, and the meter flashes DANGER beside its figure.
+* A track failed by the meter says so: PERFORMANCE FAILED across the screen as it ends, and PERFORMANCE METER EMPTY
+  under FAIL on its results, so it isn't mistaken for a laser hit.
+
+= 1.14.9 =
+* GREAT is magenta and GOOD is white now, wherever the grades are coloured: a hit target's burst and its word, the
+  results' breakdown and their timing scale.
+* A hit target's burst is its ring, its flash and the grade's word alone: no star for a PERFECT, no crack for a BAD.
+
+= 1.14.8 =
+* In laser form, a target you hit says how well you timed it, right where you are looking: it bursts in the grade's
+  colour (PERFECT cyan, GREAT white, GOOD magenta, BAD amber), bigger and brighter the better the hit, with the grade
+  rising off it. A PERFECT throws a star of light; a BAD cracks apart.
+
+= 1.14.7 =
+* The NEW HIGH SCORE name panel on a phone held upright now turns with the game instead of showing sideways, fits on
+  small screens, and waits for a tap on its field before bringing up the keyboard.
+
+= 1.14.6 =
+* The music no longer stays silent until the page is reloaded. When the browser holds the game's sound and won't
+  give it back (Edge can, after something else has had the sound, leaving only the sound effects that play from
+  files), the game now starts its audio afresh a moment after you come back or press anything, as a reload would.
 
 = 1.14.5 =
 * The rank comes up a moment after the results do: every grade, A down to F as well as the S ranks, stamps in once

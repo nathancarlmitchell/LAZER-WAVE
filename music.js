@@ -539,7 +539,7 @@ function musicEnd(c, m, song, when, lift, beatSec) { // the level resolved, from
 // clock the beats coming up within INTRO_AHEAD, as scheduleBeats does in a level
 var INTRO_AHEAD = 0.2; // s
 var intro = null; // the theme playing: { song, beatSec, start (the audio time of its first beat), next (the beat to
-                  // hand over next), timer }
+                  // hand over next), timer, ctx (the audio it plays on, whose clock start is on) }
 const INTRO_SECTION = { laser: false, first: 0, end: Infinity }; // the whole intro is one wave section
 
 function musicFinish(delay, b) { // the song resolves on beat b (counted from the count-in's first), `delay` seconds
@@ -559,7 +559,7 @@ function musicIntro(act, bpm) { // play an act's theme at bpm until musicIntroSt
     if (!c || musicLevel <= 0) {
         return;
     }
-    intro = { song: SONGS[act], beatSec: 60 / bpm, start: c.currentTime + 0.1, next: 0, timer: 0 };
+    intro = { song: SONGS[act], beatSec: 60 / bpm, start: c.currentTime + 0.1, next: 0, timer: 0, ctx: c };
     intro.timer = setInterval(introTick, 50);
     introTick();
 }
@@ -570,6 +570,10 @@ function introTick() { // hand the audio clock the theme's beats coming up
         return;
     }
     var now = c.currentTime;
+    if (c !== intro.ctx) { // the audio was made afresh (audioRemake, audio.js): its clock starts over, and the theme
+        intro.ctx = c; // goes on from where it was on it
+        intro.start = now + 0.1 - intro.next * intro.beatSec;
+    }
     var late = Math.ceil((now - intro.start) / intro.beatSec); // beats whose moment went by while the clock stood
     intro.next = Math.max(intro.next, late); // still or the timer was held back: skipped, not played all at once
     var m = music || (music = musicBus(c, intro.beatSec));

@@ -278,7 +278,7 @@ function drawTimingScale(cx, ay) { // the scale, as the calibration's: a line fr
     var k = TIMING_SCALE_W / TIMING_SCALE_MS; // px a ms
     var at = function (ms) { return cx + Math.max(-TIMING_SCALE_MS, Math.min(TIMING_SCALE_MS, ms)) * k; };
     var grade = function (off) { // the colour of what a press this far off earns
-        return off <= perfectMs() ? COLORS.cyan : off <= greatMs() ? COLORS.text : off <= goodMs() ? COLORS.magenta
+        return off <= perfectMs() ? COLORS.cyan : off <= greatMs() ? COLORS.magenta : off <= goodMs() ? COLORS.text
             : COLORS.late;
     };
     [badMs(), goodMs(), greatMs(), perfectMs()].forEach(function (w) { // the windows, widest first, each over the last
@@ -588,7 +588,7 @@ function showBreakdown(dy, judged) { // how the level's beats went, which is wha
     if (beats <= 0) {
         return; // nothing judged, nothing to break down
     }
-    var rows = [["PERFECT", perfects, COLORS.cyan], ["GREAT", greats, COLORS.text], ["GOOD", goods, COLORS.magenta],
+    var rows = [["PERFECT", perfects, COLORS.cyan], ["GREAT", greats, COLORS.magenta], ["GOOD", goods, COLORS.text],
         ["BAD", bads, COLORS.late], ["MISS", beats - perfects - greats - goods - bads, COLORS.dim]]; // every other
         // beat: gone by unhit, or spent WRONG or OFF TARGET
     var shares = shareTexts(rows.map(function (row) { return row[1]; }));
@@ -1116,6 +1116,11 @@ function drawDeathResults() { // a death's results, over the level's backdrop, s
     var close = !over && deathProgress >= 0.9;
     ctx.font = "72px Arial";
     printText(close ? "So Close  再試行する" : "FAIL  失敗", -80);
+    if (perfFailed) { // the performance meter failed the track, not a laser: said, as it was over the death
+        ctx.font = "bold 26px Arial";
+        ctx.fillStyle = COLORS.warn;
+        centerText("PERFORMANCE METER EMPTY", -36);
+    }
     if (timingText()) {
         ctx.font = "30px Arial";
         ctx.fillStyle = timingColor();

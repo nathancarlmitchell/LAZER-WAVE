@@ -157,6 +157,7 @@ function windowResize() {
     if (menuUp() || !gameStart) {
         drawStartScreen(); // which is whichever menu screen is up, if one is
     }
+    onlineEntryFit(); // and a name being asked for, turned as the game now is (online.js)
 }
 
 function drawBanners(top, thickness, scale) { // matching stripes across the top and bottom of the window, in the current fill style

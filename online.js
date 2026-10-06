@@ -147,7 +147,7 @@ function onlineDetail(board, row) { // what a score's play got to: a run's level
 var ONLINE_CSS = ".lw-entry{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;"
     + "background:rgba(10,0,20,.72);z-index:10;font-family:Arial,sans-serif;touch-action:auto;-webkit-user-select:text;"
     + "user-select:text}.lw-entry__panel{background:#0a0014;border:2px solid #00ffff;padding:22px 26px;min-width:300px;"
-    + "max-width:90vw;text-align:center;color:#f2e9ff;box-shadow:0 0 24px rgba(0,255,255,.35)}"
+    + "text-align:center;color:#f2e9ff;box-shadow:0 0 24px rgba(0,255,255,.35)}"
     + ".lw-entry__head{font-size:34px;color:#ff00ff;text-shadow:-3px -3px 0 #00ffff;margin-bottom:6px}"
     + ".lw-entry__board{font-size:15px;color:#8a7a9e;letter-spacing:1px}.lw-entry__score{font-size:30px;margin:8px 0 2px}"
     + ".lw-entry__combo{font-size:14px;color:#8a7a9e;letter-spacing:1px;margin-bottom:14px}"
@@ -206,8 +206,33 @@ function onlineAskName(entry) { // the panel: what the score is for, the place i
     box.querySelector(".lw-entry__skip").addEventListener("click", onlineSkip);
     document.body.appendChild(box);
     onlineEntry = { box: box, input: input, note: box.querySelector(".lw-entry__note"), entry: entry, busy: false };
-    input.focus();
-    input.select();
+    onlineEntryFit();
+    if (inputMode != "touch") { // typed into at once; by touch the field is tapped first, so a phone's keyboard doesn't
+        input.focus(); // come up over the panel before it is read (and a name kept from before needs none)
+        input.select();
+    }
+}
+
+var ONLINE_ENTRY_ROOM = 0.94; // of the window, either way, the panel may fill: it is made smaller to keep inside it
+
+function onlineEntryFit() { // the panel the way up the game is: on a phone held upright, where the game is drawn turned
+    // a quarter (rotated, loop.js), turned with it, over the window as the canvas is; else over the window as it stands.
+    // Made smaller where the window is too short or narrow for it (a phone on its side is short), never larger. Again
+    // on a resize (windowResize, layout.js), as the phone may be turned while it is up
+    if (!onlineEntry) {
+        return;
+    }
+    var s = onlineEntry.box.style;
+    s.top = s.left = rotated ? "0" : "";
+    s.right = s.bottom = rotated ? "auto" : "";
+    s.width = rotated ? window.innerHeight + "px" : "";
+    s.height = rotated ? window.innerWidth + "px" : "";
+    s.transformOrigin = rotated ? "0 0" : "";
+    s.transform = rotated ? "rotate(90deg) translateY(-100%)" : "";
+    var panel = onlineEntry.box.firstChild; // its own size, which a transform leaves alone
+    var w = rotated ? window.innerHeight : window.innerWidth, h = rotated ? window.innerWidth : window.innerHeight;
+    var k = Math.min(1, ONLINE_ENTRY_ROOM * w / panel.offsetWidth, ONLINE_ENTRY_ROOM * h / panel.offsetHeight);
+    panel.style.transform = k < 1 ? "scale(" + k.toFixed(3) + ")" : "";
 }
 
 function onlineNote(text, color) { // a line on the panel: what is happening, or what went wrong

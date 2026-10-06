@@ -210,6 +210,15 @@ var TARGET_R = 0.035; // a target's size, as a fraction of the height
 var TARGET_LEAD = 1; // beats more warning than a beam gets: a target has to be lined up with, not just stepped out of
 var TARGET_GONE = 0.5; // beats a missed target takes to slide on out; it stays, unseen, while its beat can still be hit
 var TARGET_BURST = 0.4; // beats a hit target's burst lasts
+var TARGET_GRADE_SHOW = 0.75; // and the grade the hit got, rising off it: the beam is where the player is looking, and
+                              // the judgement over the piece, across the screen, is not
+const TARGET_GRADES = { // how a hit target bursts, by its grade: in the grade's colour, as the results' breakdown and
+    // its timing scale have it; its ring reaching this many of its sizes; its flash this bright; and the word
+    perfect: { color: COLORS.cyan, ring: 3.5, flash: 0.9, label: "PERFECT" },
+    great: { color: COLORS.magenta, ring: 3, flash: 0.7, label: "GREAT" },
+    good: { color: COLORS.text, ring: 2.4, flash: 0.4, label: "GOOD" },
+    bad: { color: COLORS.late, ring: 1.8, flash: 0, label: "BAD" },
+};
 var GATE_LEAD = BEATS_PER_BAR; // a gate shows a bar ahead
 var GATE_GONE = 0.5; // beats a gate takes to go after its beat; unpassed, it too stays while its beat can still be hit
 // A laser to dodge in laser form fires on a target's beat, across the path to the next one: it burns while the piece
@@ -1692,6 +1701,7 @@ function Target(ev, lead) {
     this.warnAt = ev.fire - lead;
     this.hitAt = null; // the beat it was hit on, and where
     this.hitX = 0;
+    this.grade = null; // and the grade the hit got (hitBeatAt, loop.js)
     this.x = this.y = this.width = this.height = 0; // nothing to run into
 }
 
@@ -1699,10 +1709,10 @@ Target.prototype.hits = function () {
     return false;
 };
 
-Target.prototype.step = function () { // false once its burst is over, or, missed, once it has slid out and its beat
-    // is closed
+Target.prototype.step = function () { // false once its burst and its grade are over, or, missed, once it has slid out
+    // and its beat is closed
     if (this.hitAt !== null) {
-        return beatPos < this.hitAt + TARGET_BURST;
+        return beatPos < this.hitAt + Math.max(TARGET_BURST, TARGET_GRADE_SHOW);
     }
     return beatPos < this.fireAt + TARGET_GONE || beatOpen(this.fireAt);
 };
@@ -1715,23 +1725,12 @@ Target.prototype.center = function () { // where it is now: { x, y, r }
 };
 
 Target.prototype.update = function () { // a diamond sharpening as it comes (cyan solid, magenta dashed, as a beam's
-    // warning is), lit up while the beam is on it; a hit bursts white
+    // warning is), lit up while the beam is on it; hit, it bursts as its grade says (drawHit)
     var c = this.center();
     var tint = this.color ? COLORS[this.color] : COLORS.laserCore;
     ctx.save();
     if (this.hitAt !== null) {
-        var b = Math.min(1, (beatPos - this.hitAt) / TARGET_BURST);
-        ctx.globalAlpha = 1 - b;
-        ctx.strokeStyle = tint;
-        ctx.lineWidth = 1 + 4 * (1 - b);
-        ctx.beginPath();
-        ctx.arc(this.hitX, c.y, c.r * (1 + 2.5 * b), 0, Math.PI * 2);
-        ctx.stroke();
-        ctx.globalAlpha = 0.8 * (1 - b) * (1 - b);
-        ctx.fillStyle = COLORS.laserCore;
-        ctx.beginPath();
-        ctx.arc(this.hitX, c.y, c.r * (1 - b), 0, Math.PI * 2);
-        ctx.fill();
+        this.drawHit(c);
         ctx.restore();
         return;
     }
@@ -1754,6 +1753,41 @@ Target.prototype.update = function () { // a diamond sharpening as it comes (cya
     ctx.setLineDash(this.color == "magenta" ? [7, 5] : []);
     ctx.stroke();
     ctx.restore();
+};
+
+Target.prototype.drawHit = function (c) { // struck, where the beam met it: a ring going out in its grade's colour (TARGET_
+    // GRADES), further and with a brighter flash the better the hit was; and over it the grade, rising off it and fading
+    var g = TARGET_GRADES[this.grade] || TARGET_GRADES.good;
+    var since = beatPos - this.hitAt, b = Math.min(1, since / TARGET_BURST);
+    var x = this.hitX, y = c.y, r = c.r;
+    if (b < 1) {
+        ctx.globalAlpha = 1 - b;
+        ctx.strokeStyle = g.color;
+        ctx.lineWidth = 1 + 4 * (1 - b);
+        ctx.beginPath();
+        ctx.arc(x, y, r * (1 + (g.ring - 1) * b), 0, Math.PI * 2);
+        ctx.stroke();
+        if (g.flash) {
+            ctx.globalAlpha = g.flash * (1 - b) * (1 - b);
+            ctx.fillStyle = COLORS.laserCore;
+            ctx.beginPath();
+            ctx.arc(x, y, r * (1 - b), 0, Math.PI * 2);
+            ctx.fill();
+        }
+    }
+    var u = since / TARGET_GRADE_SHOW;
+    if (u < 1) { // the word, edged dark so it reads over the lasers, as the judgement over the piece is
+        var size = Math.max(12, Math.round(0.7 * r)), ly = y - r - 0.4 * size - 1.2 * size * u;
+        ctx.globalAlpha = 1 - u * u;
+        ctx.font = "bold " + size + "px Arial";
+        ctx.textAlign = "center";
+        ctx.lineJoin = "round";
+        ctx.lineWidth = 4;
+        ctx.strokeStyle = COLORS.bg;
+        ctx.strokeText(g.label, x, ly);
+        ctx.fillStyle = g.color;
+        ctx.fillText(g.label, x, ly);
+    }
 };
 
 // A radar: a ray from the middle of the screen, reaching past its corners, that comes round once in its beats,

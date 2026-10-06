@@ -186,10 +186,12 @@ function releaseAll() { // the player went away (window blur, app switch, a syst
 }
 
 function pageBack() { // the page is in sight and in hand again: the audio woken, if the browser put it to sleep
-    // meanwhile, and the menu theme back if it is wanted (theme.js), as soon as the audio runs. A level stays paused
-    // until the player resumes it, its song starting again with its next beat
+    // meanwhile (and if it won't wake, made afresh a moment later: audioWatch, audio.js), and the menu theme back if it
+    // is wanted (theme.js), as soon as the audio runs. A level stays paused until the player resumes it, its song
+    // starting again with its next beat
     if (audioCtx) {
         beatAudio();
+        audioTried();
     }
     themeSync();
 }
@@ -541,7 +543,8 @@ function onTouchStart(e) {
     for (var i = 0; i < e.changedTouches.length; i++) {
         var t = e.changedTouches[i];
         var p = toGame(t.clientX, t.clientY);
-        var info = { id: t.identifier, x: p.x, y: p.y, order: ++touch.order, role: "none", pausedAt: pause ? pauseNo : -1, switched: !wasTouch };
+        var info = { id: t.identifier, x: p.x, y: p.y, order: ++touch.order, role: "none", pausedAt: pause ? pauseNo : -1, switched: !wasTouch,
+            onMenu: menuUp() || !gameStart }; // it came down on a menu or the start screen, whose buttons its lift presses
         if (menuUp() || !gameStart) {
             setHovered(buttonAt(p.x, p.y)); // press feedback, on whichever screen is up
             if (calTaking() && !buttonAt(p.x, p.y)) { // the timing test: a finger taps as it comes down, anywhere but
@@ -623,12 +626,16 @@ function onTouchEnd(e) { // touchend and touchcancel
     lastTouchTime = Date.now();
     var last = null;
     var switched = false; // the lifted finger switched the start screen from the mouse layout
+    var onMenu = false; // and it came down on a menu or the start screen: a finger lifted off a results button or the
+    // pause panel has had its press, and must not press as well whatever screen that press put up under it (a level
+    // from the select ends back on the select, whose DIFFICULTY and BACK sit where QUIT and CONTINUE were)
     for (var i = 0; i < e.changedTouches.length; i++) {
         var t = e.changedTouches[i];
         var p = toGame(t.clientX, t.clientY);
         last = p;
         var info = forgetTouch(t.identifier);
         switched = !!(info && info.switched);
+        onMenu = !!(info && info.onMenu);
         if (!info || e.type == "touchcancel") {
             continue;
         }
@@ -665,7 +672,9 @@ function onTouchEnd(e) { // touchend and touchcancel
         return;
     }
     if (e.touches.length === 0 && last) {
-        if (menuUp()) { // up over the start screen or over a paused level: either way it owns the tap
+        if (!onMenu && (menuUp() || !gameStart)) {
+            // a menu or the start screen this finger's own press put up: it has pressed already
+        } else if (menuUp()) { // up over the start screen or over a paused level: either way it owns the tap
             setHovered("");
             menuPress(buttonAt(last.x, last.y), last); // a tap on nothing does nothing: it must not start or resume
         } else if (!gameStart) {

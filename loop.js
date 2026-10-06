@@ -709,11 +709,14 @@ var RANK_SHIELD_COST = 0.05;
 // The performance meter: 0..1, PERF_START at the start of every attempt. Every beat hit adds by its grade, twice over
 // in overdrive; every beat missed -- gone by unhit, WRONG, OFF TARGET, or a gate not passed -- takes PERF_MISS. Empty,
 // the track is failed: a death, as a laser's is. The difficulty scales the gain and the drain (perfGain and perfDrain,
-// DIFFICULTIES, run.js), and one that says perfFail: false never fails for it, however empty it runs.
+// DIFFICULTIES, run.js), and one that says perfFail: false never fails for it, however empty it runs. Below PERF_DANGER,
+// where it can fail, it is in danger, and says so: the screen's edges glow red (drawPerfDanger, hud.js) and the meter
+// flashes DANGER; and a track failed says so too, over the death (death.js) and on its results (levels.js)
 var PERF_START = 0.75;
 var PERF_GAIN = { perfect: 0.03, great: 0.02, good: 0.01, bad: 0 };
 var PERF_MISS = 0.04;
 var PERF_DRIVE = 2; // what a hit in overdrive fills it by, against a plain hit's 1
+var PERF_DANGER = 0.25; // the share of it under which it is in danger, a handful of misses from empty
 var perf = PERF_START;
 var perfFailed = false; // it ran empty on a difficulty that fails for it: the step ends the attempt
 
@@ -721,12 +724,20 @@ function perfHit(grade) { // a beat hit: the meter fills by the grade, at the di
     perf = Math.min(1, perf + PERF_GAIN[grade] * mode().perfGain * (driveOn() ? PERF_DRIVE : 1));
 }
 
-function perfMiss() { // a beat missed: the meter drains at the difficulty's rate, and empty, the track is failed (never
-    // in practice)
+function perfMiss() { // a beat missed: the meter drains at the difficulty's rate, and empty, the track is failed
     perf = Math.max(0, perf - PERF_MISS * mode().perfDrain);
-    if (perf <= 0 && mode().perfFail !== false && !practice) {
+    if (perf <= 0 && perfCanFail()) {
         perfFailed = true;
     }
+}
+
+function perfCanFail() { // can the meter fail this attempt: never in practice, nor on a difficulty that says it can't
+    return mode().perfFail !== false && !practice;
+}
+
+function perfDanger() { // 0..1: how near the meter is to failing the track, from its danger line (PERF_DANGER) down to
+    // empty; 0 above the line, and where it can't fail
+    return perfCanFail() && perf < PERF_DANGER ? 1 - perf / PERF_DANGER : 0;
 }
 
 function rankValue(grade) { // where a grade stands, F lowest; -1 for anything that isn't one (nothing recorded yet)
@@ -1118,9 +1129,10 @@ function hitBeatAt(b, color) { // a hit in `color` at beat position b, judged ag
     perfHit(grade);
     judge(grade, signed, color);
     playerHitFlash(grade, color); // the full burst for a clean hit, half for a BAD
-    if (target) { // the beam strikes it
+    if (target) { // the beam strikes it, and it bursts as the grade says (Target.drawHit, waves.js)
         target.hitX = target.center().x;
         target.hitAt = beatPos;
+        target.grade = grade;
         synthShot(0);
         bossHit(1, true); // and the boss, on a boss level, whose port it was, if its ports are open
     }
@@ -1356,6 +1368,7 @@ function drawLevel(forDeath) { // draw the level as it stands, without moving an
     drawStrikeLine();
     drawBoss(); // the boss's node, on a boss level, behind the lasers and the targets
     drawWorld();
+    drawPerfDanger(); // the performance meter in danger: the screen's edges red, under the HUD (hud.js)
     if (boss) {
         drawBossBar(); // its health, in the progress stripe's slot
     } else {

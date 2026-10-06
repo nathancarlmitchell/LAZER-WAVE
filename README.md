@@ -85,7 +85,10 @@ old scores unfair: the site then starts fresh boards, the old scores kept but no
  - **Wave / laser:** from level 3 on, every level switches to laser form for a few bars. A **gate** (a white line)
    sweeps in: press SPACE, or either colour's key, as it reaches you, on the beat, to switch; one gone by unpassed switches anyway and costs a
    shield. In laser form you lock to the left third of the screen, steer only up and down, and fire across it: each
-   beat brings a target, and a hit counts only lined up with it (OFF TARGET otherwise) and in its colour. Lasers fire
+   beat brings a target, and a hit counts only lined up with it (OFF TARGET otherwise) and in its colour. A target hit
+   bursts in its grade's colour, as the results' breakdown has them (PERFECT cyan, GREAT magenta, GOOD white, BAD
+   amber), its ring going further and its flash brighter the better the hit, with the grade rising off it where your
+   eyes are. Lasers fire
    across your path, on a target's beat, between it and the next: hit it, hold the quarter beat the laser burns, then
    cross. In laser form, and in overdrive, a ring closes on your orb as each beat comes, in the coming beat's colour,
    and arrives on it: the cue the waves give in wave form, where they meet on the beat.
@@ -215,7 +218,8 @@ old scores unfair: the site then starts fresh boards, the old scores kept but no
    level select cleared with its results saying NEW BEST, or a run or a rush over or finished with a total above the
    most one had scored when it began), a panel over the results asks for a name, up to 20 characters and remembered
    for next time, and posts it, saying the place it took, or what the site refused it for; SKIP, Esc or a
-   controller's B lets it go. A play that isn't a new best asks nothing, and keeps its ticket for the next. Practice
+   controller's B lets it go. On a phone held upright it is turned with the game, made smaller where the screen is too
+   short for it, and by touch its field is tapped to type (a name kept from before needs none). A play that isn't a new best asks nothing, and keeps its ticket for the next. Practice
    posts nothing, and without the plugin passing the site's address (the game off disk, or served on its own) nothing
    is posted at all.
  - Every act has a backdrop and a song of its own, and every level a colour of the spectrum, from red at the first to
@@ -272,6 +276,10 @@ old scores unfair: the site then starts fresh boards, the old scores kept but no
  - **Performance:** a meter under your shields starts each attempt at 75%. Every beat hit fills it, a PERFECT by 3%, a
    GREAT by 2%, a GOOD by 1% and a BAD not at all, twice that in overdrive; every beat missed, gone by unhit, WRONG,
    OFF TARGET or a gate not passed, drains it by 4%. Empty, the track is failed, which costs what a death costs.
+   Under 25%, where it can fail you, it is in danger and says so: the screen's edges glow red, beating on the beat and
+   the stronger the emptier it runs, and the meter flashes DANGER beside its figure. A track it fails says so too:
+   PERFORMANCE FAILED across the death, and PERFORMANCE METER EMPTY under FAIL on its results, so it isn't taken for
+   a laser's doing.
  - **Difficulty** decides what a run is. Each mode opens the difficulty screen, a button a difficulty, each saying what
    it gives, and pressing one starts the run or the rush on it, or opens the level select on it, which has a
    difficulty button of its own too. The numbers are
@@ -308,7 +316,10 @@ old scores unfair: the site then starts fresh boards, the old scores kept but no
    had a click, a key or a tap plays it at the first of those, with the laser starting over to match. A browser can
    stop the sound while the page is away, too (Chrome holds it while another app has the audio, and a phone when the
    browser is put away): it comes back with the page, or at the first press where the browser waits for one, the
-   menu theme from the start of its section and a paused level's song with its first beat after the pause.
+   menu theme from the start of its section and a paused level's song with its first beat after the pause. Where the
+   browser won't give it back (Edge can keep it held, the sound effects that play from files still heard and the song
+   and the drums gone), or keeps it running with its clock standing still, the game starts its audio afresh a moment
+   later, as reloading the page would.
  - **Sound effects:** besides the beat, the lasers' zaps and your shots, the game's moments have sounds of their own,
    synthesized as the startup is and, where they have a pitch, in the act's key: a gate passed (two tones meeting in
    the beam the waves become, or parting again back to the wave), overdrive coming on (a shot, and the power surging
@@ -369,7 +380,7 @@ old scores unfair: the site then starts fresh boards, the old scores kept but no
 
 | File | What it holds |
 |---|---|
-| `audio.js` | The synthesized beat track (kick, hat, the crash a cleared level's song resolves on, count-in tick, laser zap, the piece's shot, the overdrive meter's chime when it fills, on Web Audio; the drums can play into a node and on a kit of their own, as the menu theme's do), the audio woken whenever the browser has it asleep (`beatAudio`, and in any press `wakeAudio`), the menu theme told when it runs again, when the startup sequence plays (its sound is `sfx.js`'s), the playlist (`TRACKS`, for recorded songs: empty, as the levels' songs are synthesized, `music.js`), sound effects, all but the beat track at the SOUND FX setting's level (`sfxLevel`) |
+| `audio.js` | The synthesized beat track (kick, hat, the crash a cleared level's song resolves on, count-in tick, laser zap, the piece's shot, the overdrive meter's chime when it fills, on Web Audio; the drums can play into a node and on a kit of their own, as the menu theme's do), the audio woken whenever the browser has it asleep (`beatAudio`, and in any press `wakeAudio`), or made afresh when it won't wake or its clock stands still (`audioRemake`, watched by `audioWatch`), the menu theme told when it runs again, when the startup sequence plays (its sound is `sfx.js`'s), the playlist (`TRACKS`, for recorded songs: empty, as the levels' songs are synthesized, `music.js`), sound effects, all but the beat track at the SOUND FX setting's level (`sfxLevel`) |
 | `layout.js` | The palette (`COLORS`), the 1280x800 layout frame, band fitting for phones, the HUD transform, banners, resize handling |
 | `waves.js` | `LEVELS` (the 25 levels: name and lore, bpm, bars, warning lead, phrases, colours, laser sections, and the curve they climb), the `PHRASES` that fill a bar, placing their beams on the tune's notes, the `COLOR_PATTERNS` that paint one, laser form's `TARGET_PHRASES` (`tune` traces the chorus), the seeded timeline (which phrase each bar gets from a stream of its own, `DEAL_SEEDS`), and what goes on screen: `Beam`, `Target`, `Gate` |
 | `story.js` | The acts (`ACTS`: name, their band of the spectrum, backdrop and lore; five levels each) and the epilogue, and the story screens between levels: an act's intro, typed over its backdrop to its theme, a level's card, the epilogue before the finish |

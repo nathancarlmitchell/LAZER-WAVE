@@ -3,7 +3,9 @@
 // the laser's red and a ring of it bursting from the hit, then the core dividing into a cyan copy and a magenta one
 // that fly apart along the laser; burn-through, the laser that took the shield whitening and bleeding its glow while
 // the picture dims and the core blinks red; and decoherence, the core flashing white as it splits, the waves losing
-// phase and fading, their trail scattering as particles. Then it fades to dark for the results. It runs by the frame,
+// phase and fading, their trail scattering as particles. Then it fades to dark for the results. Where it was the
+// performance meter running empty that failed the track (perfFailed, loop.js), PERFORMANCE FAILED is called across the
+// middle as it plays, so the death isn't taken for a laser's, as the results say again. It runs by the frame,
 // as the story screens do (story.js), and plays out whatever is pressed: input.js swallows every press while it runs;
 // with the effects reduced or off (fx.js) it is skipped, and the results come straight up. index.html loads this with a
 // plain <script src>, as globals rather than modules, so the game still opens straight off disk.
@@ -18,8 +20,10 @@ var DEATH_FADE = [0.75, 1]; // and the fade to dark at the end
 var DEATH_PARTICLES = 70; // what the trail scatters as
 var DEATH_BLINK_HZ = 7; // the core's red blink through the burn, until it splits
 var DEATH_SPLIT_PX = 170; // how far each copy flies
+var DEATH_CALL = [0.04, 0.2]; // a track failed by the performance meter: the call saying so coming up, from when to
+                              // when, and held until the fade takes it
 
-var deathAnim = null; // while it runs: { at, frameAt, frame, n, base, killers, head, parts, then }
+var deathAnim = null; // while it runs: { at, frameAt, frame, n, base, killers, head, parts, perf, then }
 
 function deathAnimUp() {
     return deathAnim !== null;
@@ -46,13 +50,14 @@ function deathPicture() { // as the level stops, before its lasers are cleared a
     var along = killers.length && killers[0].width > 0 && killers[0].height > killers[0].width ? { x: 0, y: 1 }
         : { x: 1, y: 0 }; // the way the copies fly: along a laser that is a box (across the screen, unless it stands
                           // up), or across for any other shape
-    return { base: copyCanvas(), head: head, parts: parts, killers: killers, along: along };
+    return { base: copyCanvas(), head: head, parts: parts, killers: killers, along: along,
+        perf: perfFailed }; // and whether it was the performance meter that failed the track, rather than a laser
 }
 
 function startDeathAnim(picture, then) { // the level has stopped: run it over the picture, and call `then` at the end
     var now = performance.now();
     deathAnim = { at: now, frameAt: now, frame: 0, n: 0, base: picture.base, killers: picture.killers,
-        head: picture.head, parts: picture.parts, along: picture.along, then: then };
+        head: picture.head, parts: picture.parts, along: picture.along, perf: picture.perf, then: then };
     deathAnim.frame = requestAnimationFrame(deathFrame);
 }
 
@@ -167,6 +172,9 @@ function drawDeath(t, d) { // one frame, t of the way through
         });
         ctx.globalAlpha = 1;
     }
+    if (d.perf) { // the performance meter failed the track: said across it, so it isn't taken for a laser's doing
+        drawFailCall(deathPhase(t, DEATH_CALL[0], DEATH_CALL[1]), W, H);
+    }
     if (fade > 0) { // to dark, for the results
         ctx.globalAlpha = fade;
         ctx.fillStyle = COLORS.bg;
@@ -174,4 +182,28 @@ function drawDeath(t, d) { // one frame, t of the way through
         ctx.globalAlpha = 1;
     }
     fxDrawScreen(fxLook()); // the CRT over it, as over a level's frame
+}
+
+function drawFailCall(k, W, H) { // PERFORMANCE FAILED across the middle of the screen, red and edged dark, with its
+    // Japanese under it, k of the way in (0 to 1)
+    if (k <= 0) {
+        return;
+    }
+    var s = Math.min(1, W / 900, H / 500), y = H / 2 - 10 * s;
+    ctx.save();
+    ctx.globalAlpha = k;
+    ctx.textAlign = "center";
+    ctx.lineJoin = "round";
+    ctx.strokeStyle = COLORS.bg;
+    ctx.font = "bold " + Math.round(72 * s) + "px Arial";
+    ctx.lineWidth = 10 * s;
+    ctx.strokeText("PERFORMANCE FAILED", W / 2, y);
+    ctx.fillStyle = COLORS.warn;
+    ctx.fillText("PERFORMANCE FAILED", W / 2, y);
+    ctx.font = Math.round(30 * s) + "px Arial";
+    ctx.lineWidth = 6 * s;
+    ctx.strokeText("演奏失敗", W / 2, y + 50 * s);
+    ctx.fillStyle = COLORS.text;
+    ctx.fillText("演奏失敗", W / 2, y + 50 * s);
+    ctx.restore();
 }

@@ -129,18 +129,53 @@ var PERF_Y = 178, PERF_TOUCH_Y = 168, PERF_W = 186, PERF_H = 6; // the performan
                                                                 // shields' row, above the level's line in either layout
 
 function drawPerfMeter(touch) { // from empty, the track failed, to full: green with room to spare, amber below half,
-    // red below a quarter, its figure beside it
-    var y = touch ? PERF_TOUCH_Y : PERF_Y;
-    ctx.globalAlpha = 0.18;
-    ctx.fillStyle = COLORS.laserCore;
+    // red below its danger line (PERF_DANGER, loop.js), its figure beside it. In danger, where it can fail the track,
+    // it flashes on the beat, its figure red, and says DANGER after it
+    var y = touch ? PERF_TOUCH_Y : PERF_Y, danger = perfDanger() > 0;
+    var flash = danger ? Math.max(0, 1 - beatFrac() * 3) : 0; // on the beat, as the stripes are
+    ctx.globalAlpha = 0.18 + 0.3 * flash; // the track, lit red as it flashes
+    ctx.fillStyle = danger ? COLORS.warn : COLORS.laserCore;
     ctx.fillRect(50, y, PERF_W, PERF_H);
     ctx.globalAlpha = 0.9;
-    ctx.fillStyle = perf < 0.25 ? COLORS.warn : perf < 0.5 ? COLORS.late : COLORS.good;
+    ctx.fillStyle = perf < PERF_DANGER ? COLORS.warn : perf < 0.5 ? COLORS.late : COLORS.good;
     ctx.fillRect(50, y, PERF_W * perf, PERF_H);
     ctx.globalAlpha = 1;
     ctx.font = "bold 12px Arial";
-    ctx.fillStyle = COLORS.dim;
-    ctx.fillText(Math.round(perf * 100) + "%", 50 + PERF_W + 8, y + PERF_H);
+    ctx.fillStyle = danger ? COLORS.warn : COLORS.dim;
+    var figure = Math.round(perf * 100) + "%";
+    ctx.fillText(figure, 50 + PERF_W + 8, y + PERF_H);
+    if (danger) {
+        ctx.globalAlpha = 0.6 + 0.4 * flash;
+        ctx.font = "bold " + (touch ? 15 : 13) + "px Arial";
+        ctx.fillText("DANGER", 50 + PERF_W + 8 + ctx.measureText(figure + "  ").width, y + PERF_H + 1);
+        ctx.globalAlpha = 1;
+    }
+}
+
+var DANGER_EDGE = 0.75; // how strongly the screen's edges glow red as the performance meter runs empty
+var DANGER_CLEAR = 0.55, DANGER_REACH = 1.3; // the glow's oval, as shares of the half width and height: clear inside
+                                              // the first, full at the second (out past the corners)
+
+function drawPerfDanger() { // the performance meter in danger (perfDanger, loop.js): the screen's edges glowing red, the
+    // more the emptier it runs, and with the effects full beating on the beat, under the HUD so it stays read. The glow
+    // is an oval the window's shape, so every edge glows alike and the middle, where the play is, stays clear
+    var d = perfDanger();
+    if (d <= 0) {
+        return;
+    }
+    var W = gameArea.canvas.width, H = gameArea.canvas.height;
+    var beat = fxLook() == "full" ? Math.max(0, 1 - beatFrac() * 2.5) : 0;
+    var a = DANGER_EDGE * (0.35 + 0.65 * d) * (0.65 + 0.35 * beat);
+    ctx.save();
+    useWindow();
+    ctx.translate(W / 2, H / 2);
+    ctx.scale(W / 2, H / 2);
+    var edge = ctx.createRadialGradient(0, 0, DANGER_CLEAR, 0, 0, DANGER_REACH);
+    edge.addColorStop(0, COLORS.warn + "00");
+    edge.addColorStop(1, COLORS.warn + ("0" + Math.round(255 * a).toString(16)).slice(-2));
+    ctx.fillStyle = edge;
+    ctx.fillRect(-1, -1, 2, 2);
+    ctx.restore();
 }
 
 function drawProgress() { // the top stripe filling as the level plays through its bars
