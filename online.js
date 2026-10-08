@@ -8,8 +8,10 @@
 // is posted. index.html loads this with a plain <script src>, as globals rather than modules, so the game still opens
 // straight off disk.
 
-var SCORE_VERSION = 1; // the scoring the boards are kept under: raised when a change to the scoring would make the old
-                       // scores unfair, and the site starts new boards (build.js hands it to scores.php)
+var SCORE_VERSION = 3; // the scoring the boards are kept under: raised when a change to the scoring would make the old
+                       // scores unfair, and the site starts new boards (build.js hands it to scores.php). 2: a level's
+                       // points times its number (levelMultiplier, loop.js); 3: a boss level earning up to its par
+                       // (earning, loop.js)
 var ONLINE_TOP = 10; // a board's length, and the place a score must make to be asked a name for
 var ONLINE_NAME_STORE = "lazerwave.name";
 var ONLINE_FRESH_MS = 30000; // how long a board fetched is shown before it is fetched again
@@ -78,11 +80,18 @@ function onlinePlayStarts() { // a level begins (playLevel, levels.js): the play
     }
     var asked = ++onlineAsked, diff = difficulty;
     onlineTicket = null;
-    onlineFetch("POST", "tickets", null, { board: board, difficulty: diff, version: SCORE_VERSION }).then(function (r) {
+    onlineFetch("POST", "tickets", null, { board: board, difficulty: diff, version: SCORE_VERSION,
+        from: onlinePlayFrom(board) }).then(function (r) {
         if (asked == onlineAsked && r && r.ticket) {
             onlineTicket = { board: board, difficulty: diff, ticket: r.ticket, at: Date.now() };
         }
     }).catch(function () {}); // no ticket: this play's score can't go up, and that is all
+}
+
+function onlinePlayFrom(board) { // where on its board the play's score began, as levels before it: a full run's after
+    // a CONTINUE, the level it went on from (its score began again there, and the site times and caps it from there);
+    // else the board's first
+    return board == "run" && runContinued !== null ? runContinued - 1 : 0;
 }
 
 var onlineRunBest = 0; // the most a run (or a rush) on its difficulty had scored when the one under way began
@@ -90,6 +99,14 @@ var onlineRunBest = 0; // the most a run (or a rush) on its difficulty had score
 function onlineRunBegins() { // a run or a rush begins (startGame, restartRun; levels.js): the best it has to beat for
     // its total to be offered
     onlineRunBest = (bossRush ? rec().rushScore : rec().runScore) || 0;
+}
+
+function onlineRunContinues() { // a full run goes on after its game over (continueRun, levels.js): its score begins
+    // again, so a ticket of its own, asked for as the level starts, from the level it goes on from (onlinePlayFrom); and
+    // the best its total has to beat to be offered is the most a run has scored, this one's before it included
+    onlineTicket = null;
+    onlineAsked++; // an answer still coming for the old one is let go
+    onlineRunBegins();
 }
 
 function onlineOffer(kind) { // a play ended with a score for its board: a run or a rush over ("over") or finished
@@ -118,6 +135,9 @@ function onlineOffer(kind) { // a play ended with a score for its board: a run o
     }
     onlineTicket = null; // spoken for
     onlineFetch("GET", "scores", { board: entry.board, difficulty: entry.difficulty, limit: ONLINE_TOP }).then(function (r) {
+        if (!(kind == "finish" ? runFinished : resultsUp)) { // the player has gone on (CONTINUE, PLAY AGAIN) before the
+            return; // board came back: no panel over the play
+        }
         var rows = r && r.scores || [];
         if (rows.length < ONLINE_TOP || entry.score > rows[rows.length - 1].score) {
             entry.place = 1 + rows.filter(function (row) { return row.score >= entry.score; }).length;
@@ -182,8 +202,8 @@ function onlineAskName(entry) { // the panel: what the score is for, the place i
         + "<button type=\"button\" class=\"lw-entry__skip\">SKIP</button></div></div>";
     box.querySelector(".lw-entry__board").textContent = onlineBoardTitle(entry.board, entry.difficulty) + "   ·   #"
         + entry.place;
-    box.querySelector(".lw-entry__score").textContent = String(entry.score);
-    box.querySelector(".lw-entry__combo").textContent = "MAX COMBO " + entry.combo;
+    box.querySelector(".lw-entry__score").textContent = scoreText(entry.score);
+    box.querySelector(".lw-entry__combo").textContent = "MAX COMBO " + scoreText(entry.combo);
     var input = box.querySelector(".lw-entry__name");
     try {
         input.value = window.localStorage.getItem(ONLINE_NAME_STORE) || "";
@@ -496,8 +516,8 @@ function drawGlobalScores() { // GLOBAL: the board's top ten, or what there is i
         ctx.fillText(String(row.place), cx + SC_COL_PLACE, at);
         ctx.fillText(row.name, cx + SC_COL_NAME, at, SC_COL_SCORE - SC_COL_NAME - 130);
         ctx.textAlign = "right";
-        ctx.fillText(String(row.score), cx + SC_COL_SCORE, at);
-        ctx.fillText(row.combo == null ? "-" : String(row.combo), cx + SC_COL_COMBO, at); // none from before 1.12.0
+        ctx.fillText(scoreText(row.score), cx + SC_COL_SCORE, at);
+        ctx.fillText(row.combo == null ? "-" : scoreText(row.combo), cx + SC_COL_COMBO, at); // none from before 1.12.0
         ctx.fillStyle = COLORS.dim;
         ctx.fillText(onlineDetail(board, row), cx + SC_COL_DETAIL, at);
     });
@@ -513,10 +533,10 @@ function localRunBests(name, rush) { // a full run's or the rush's bests on a di
     var best = rush ? r.rushScore : r.runScore, combo = rush ? r.rushCombo : r.runCombo, ms = rush ? r.rush : r.run;
     var bosses = Object.keys(r.rushRank).length, cost = rush ? r.rushDeaths : r.runDeaths;
     if (best) {
-        out.best = String(best);
+        out.best = scoreText(best);
     }
     if (combo) {
-        out.combo = String(combo);
+        out.combo = scoreText(combo);
     }
     if (ms) {
         out.reached = "CLEARED";
@@ -543,7 +563,7 @@ function localLevelBests(name, n) { // level n's bests on a difficulty, this bro
         return out;
     }
     if (r.score[n] !== undefined) {
-        out.best = String(r.score[n]);
+        out.best = scoreText(r.score[n]);
     }
     if (beaten(n)) {
         out.rank = r.rank[n];

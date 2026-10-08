@@ -53,7 +53,7 @@ function difficultyScreen() { // the difficulty screen is up, for whichever mode
 // the BOSS RUSH, each saying what it is and going on to the difficulty screen for it (modePress); BACK leaves
 const MODE_BUTTONS = {
     mode_run: { dx: -320, dy: -150, w: 640, h: 104, mode: "run", label: "FULL RUN フルラン",
-        note: ["all 25 levels from the first, through the five acts", "on lives, the multiplier carried from level to level"] },
+        note: ["all 25 levels, each one's points times its number", "on lives, and CONTINUE after a game over"] },
     mode_levels: { dx: -320, dy: -32, w: 640, h: 104, mode: "levels", label: "LEVELS レベル",
         note: ["any level you have opened, on its own", "as often as it takes, each keeping its best rank and score"] },
     mode_rush: { dx: -320, dy: 86, w: 640, h: 104, mode: "rush", label: "BOSS RUSH ボスラッシュ",
@@ -719,11 +719,18 @@ function helpPages() { // every page: a heading is a line of its own, and the li
                 + keyText("magenta") },
         { t: "HIT ON THE BEAT, IN ITS COLOUR", head: true },
         { t: "PERFECT 100, GREAT 75, GOOD 50, BAD 25, times your multiplier and the difficulty's" },
-        { t: "every " + COMBO_STEP + " in a row raises it, with no ceiling, and a run keeps it from level to level. A missed, BAD or WRONG beat resets it" },
+        { t: "every " + COMBO_STEP + " in a row raises the multiplier, with no ceiling; a run keeps it from level to level" },
+        { t: "and every level multiplies it by its number: level 1 x1, level 10 x10, level " + RUN_LEVELS + " x" + RUN_LEVELS },
+        { t: "A missed, BAD or WRONG beat resets the combo" },
+    ], [
+        { t: "SURVIVAL サバイバル", title: true },
         { t: "SHIELDS", head: true },
         { t: shieldsMax() + " to start on " + modeName() + ", kept from level to level. A laser takes one and breaks your combo" },
         { t: "PERFORMANCE", head: true },
-        { t: "the meter under them starts at 75%: hits fill it, PERFECTs most, misses drain it; empty, the track is failed" },
+        { t: "the meter starts at 75%: hits fill it, PERFECTs most; misses drain it; empty fails the track" },
+        { t: "LIVES", head: true },
+        { t: "a run has lives: a death spends one and plays the level again, its points kept" },
+        { t: "out of lives on a full run, CONTINUE plays on from the level, the score back to 0" },
         { t: "Survive every bar to clear a level: " + RUN_LEVELS + " of them, in " + (ACTS.length - 1) + " acts" },
     ], [
         { t: "OVERDRIVE オーバードライブ", title: true },
@@ -934,7 +941,7 @@ function drawLevelTile(n, next) { // a level's tile: its number and, open, its n
         ctx.fillStyle = COLORS.dim;
         ctx.fillText("BEST", x0 + 12, y0 + 68);
         ctx.fillStyle = COLORS.text;
-        ctx.fillText(String(points), x0 + 12 + ctx.measureText("BEST ").width, y0 + 68, g.w - 70);
+        ctx.fillText(scoreText(points), x0 + 12 + ctx.measureText("BEST ").width, y0 + 68, g.w - 70);
     }
     ctx.textAlign = "right";
     var best = rec().rank[n];

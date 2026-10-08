@@ -25,6 +25,8 @@ var restartArmed = false; // a click began on the finish screen
 var finishTime = 0; // when the finish screen appeared
 var level = 1;
 var runFrom = 1; // the level the run began at: the first, from START, or any the level select opened (menu.js)
+var runContinued = null; // the level a full run last went on from after its game over (CONTINUE, levels.js), or null: its
+                         // score began again from nothing there, and it can't set the best full run
 var selectRun = false; // the run was started from the level select: it ends on its level's results, back at the
                        // select, rather than going on to the next level as a run from START does
 var bossRush = false; // the run is the boss rush (RUSH_LEVELS, run.js): each boss in turn, records of its own
@@ -360,7 +362,8 @@ function driveMeter() { // how full to show it: charging, full while it waits fo
     return driveOn() ? Math.max(0, (drive.end - beatPos) / OVERDRIVE_BEATS) : drive.meter;
 }
 
-function pointsMult() { // what a point is multiplied by: the combo's multiplier, doubled in overdrive
+function pointsMult() { // what a point is multiplied by: the multiplier (the combo's times the level's), doubled in
+    // overdrive
     return multiplier() * (driveOn() ? OVERDRIVE_SCORE : 1);
 }
 
@@ -438,9 +441,8 @@ function absorbHazards() { // in overdrive: every laser the piece is in is absor
             n++;
         }
     });
-    if (n > 0) {
-        bossHit(n); // absorbed lasers hurt a boss too
-        if (earning(Math.floor(beatPos))) { // and pay, in a boss level's first round
+    if (n > 0) { // they don't hurt a boss, whose health only targets take (boss.js)
+        if (earning(Math.floor(beatPos))) { // and pay, in a boss level up to its par
             var points = modePoints(n * ABSORB_POINTS * pointsMult());
             score += points;
             popPoints(points, gamePiece.x + gamePiece.width / 2 + 44, gamePiece.y + gamePiece.height / 2 - 6);
@@ -462,7 +464,7 @@ function popText(text, sub, color, x, y, size) { // a word popping up at (x, y),
 }
 
 function popPoints(points, x, y, sub) { // points won: an absorbed laser's, or, said so, a boss's bonus
-    popText("+" + points, sub || "ABSORBED", COLORS.laserCore, x, y, 1);
+    popText("+" + scoreText(points), sub || "ABSORBED", COLORS.laserCore, x, y, 1);
 }
 
 function agePops() {
@@ -650,8 +652,19 @@ function msPerBeat() {
     return 60000 / wave.bpm;
 }
 
-function multiplier() { // a step for every COMBO_STEP hits in a row, with no ceiling
+function comboMultiplier() { // a step for every COMBO_STEP hits in a row, with no ceiling
     return 1 + Math.floor(combo / COMBO_STEP);
+}
+
+function levelMultiplier() { // the level's own: its number, so each level of a run is worth one more than the last, and
+    // a long combo carried into the later ones the more (the boss rush's bosses are their levels' numbers); practice's
+    // points are as they are
+    return practice ? 1 : level;
+}
+
+function multiplier() { // what a hit's points, an absorb's and a boss's bonus are multiplied by: the combo's multiplier
+    // times the level's
+    return comboMultiplier() * levelMultiplier();
 }
 
 function shownScore() { // the score the HUD shows: a run's total so far, its levels banked and this one's points, or
@@ -819,12 +832,14 @@ function levelBar(bar) { // the bar of the level's definition that bar `bar` of 
     return from + (bar - from) % loopBars;
 }
 
-function earning(b) { // is beat b one that earns: any, but on a boss level only the first round's. Past the level's own
-    // bars, with the boss still up, nothing is earned: no points for a hit, a beat lived through or a laser absorbed, and
-    // the combo holds without climbing (a miss still breaks it), so a fight drawn out gains nothing, and the boss's
-    // bonus, which follows the multiplier, only shrinks with the rounds (bossBonus, boss.js). Practice on LOOP earns
+function earning(b) { // is beat b one that earns: any, but on a boss level only up to the end of its par, the earliest
+    // round it can fall in (bossPar, boss.js): its own bars, and the rounds after them it can't be brought down before.
+    // Past that, with the boss still up, nothing is earned: no points for a hit, a beat lived through or a laser
+    // absorbed, and the combo holds without climbing (a miss still breaks it), so a fight drawn out gains nothing, and
+    // the boss's bonus, which follows the multiplier, only shrinks with the rounds (bossBonus). Practice on LOOP earns
     // every round alike: there is no boss to draw out (and a boss level practised goes by the game's own rule)
-    return loopLen <= 0 || practiceLoop() || b < (COUNT_IN_BARS + wave.bars) * BEATS_PER_BAR;
+    return loopLen <= 0 || practiceLoop() || b < (COUNT_IN_BARS + wave.bars) * BEATS_PER_BAR
+        + (boss ? Math.max(0, boss.par - 1) * loopLen : 0);
 }
 
 function extendLevel() { // a boss level's end in view with its boss still up: the level goes on, its loop dealt again
@@ -888,7 +903,8 @@ function startLevel() { // a level is about to be played: from the start, or aga
     });
     pops = [];
     latchLatency(false); // the audio's delay, for the clock
-    bossStart(wave, ahead); // its boss, if it has one (boss.js), with a point of health for every target still to come
+    bossStart(wave, ahead, timeline); // its boss, if it has one (boss.js), with its health, or from a later bar the share
+    // of it the targets still to come stand for
     var from = practiceLoop() ? Math.max(1, fromBar) : loopFrom(wave); // and its loop: the bars dealt again while the
     // boss stands, or in practice on LOOP, the whole pattern after its opening rest, or from the bar it started at
     loopLen = from === null ? 0 : (wave.bars - from) * BEATS_PER_BAR;
@@ -1106,7 +1122,7 @@ function hitBeatAt(b, color) { // a hit in `color` at beat position b, judged ag
         bads++;
         chargeDrive(n, OVERDRIVE_BAD);
     }
-    var earns = earning(n); // past a boss level's first round, no points, and the combo holds without climbing
+    var earns = earning(n); // past a boss level's par, no points, and the combo holds without climbing
     if (grade == "bad") { // the beat is spent, but not cleanly: the combo goes, as on a miss
         loseCombo();
     } else {
@@ -1120,7 +1136,8 @@ function hitBeatAt(b, color) { // a hit in `color` at beat position b, judged ag
         if (multiplier() > multWas) { // the multiplier stepped up: said at the orb, as a hit's points are
             popText("x" + multiplier(), "MULTIPLIER", COLORS.good, gamePiece.x + gamePiece.width / 2 + 44, gamePiece.y + gamePiece.height / 2 + 26, 1.3); // under
             // the judgement, which sits over the orb
-            playSfx(sfxMultiplier, 0, SFX_LEVELS.multiplier, { key: actSong(level).key, mult: multiplier() });
+            playSfx(sfxMultiplier, 0, SFX_LEVELS.multiplier, { key: actSong(level).key, mult: comboMultiplier() }); // its
+            // pitch climbing with the combo's steps, whatever the level
         }
     }
     if (earns) {
@@ -1134,7 +1151,7 @@ function hitBeatAt(b, color) { // a hit in `color` at beat position b, judged ag
         target.hitAt = beatPos;
         target.grade = grade;
         synthShot(0);
-        bossHit(1, true); // and the boss, on a boss level, whose port it was, if its ports are open
+        bossHit(1); // and the boss, on a boss level, whose port it was
     }
     if (want == "gate") {
         passGate(n);

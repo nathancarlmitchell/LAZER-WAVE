@@ -9,7 +9,9 @@
 // it (the piece can't be hurt, the meter can't drain, nothing is drawn), so reload the page afterwards.
 // Room is not the whole of it: a cage's cell and a pincer's gap are where the player is asked to go, and a combination
 // that fires through one leaves room elsewhere while burning the place everyone heads for. cellConflicts([n, ...])
-// catches that (below).
+// catches that (below), and driftDeals([n, ...]) the same of the drifting lasers, which cross the bars after their own.
+// A boss's level is only played to the end of its own bars here; for a later round, run validateLevel's loop on past
+// it (its `end` plus loopLen), as the drifting lasers late in a round cross into the next.
 gameArea.canvas.width = 880; gameArea.canvas.height = 550; x = 880; y = 550;
 hitHazard = function () { return false; }; steerPiece = function () { return false; }; perfMiss = function () {}; fxOverdrawn = function () { return true; };
 
@@ -69,25 +71,60 @@ function validateAll(levels, speed) { // one line a level
 // dealt with it, whose middle lies inside a cage's cell (across: in its rows, down: in its columns) or a pincer's gap
 // while both burn. Chasers are left out, as they go where the piece is; so are the bars played in laser form. The
 // melody's beam and the mirror's, on the cage's own note, did this in levels 11, 12, 15 and 23 (cage+melody, cage+mirror).
+// The cells and gaps are as wide as each difficulty has them (gapRoom, flankPlace): an easier one's wider cell takes in
+// more, so a beam is reported with the difficulties it lands inside on.
 function cellConflicts(levels) {
-    var lines = [];
+    var lines = [], rooms = {};
+    DIFFICULTIES.forEach(function (d) { var r = d.gap || 1; (rooms[r] = rooms[r] || []).push(d.name.toUpperCase()); });
     levels.forEach(function (n) {
-        var laser = laserBars(levelDef(n)), wrapped = {}, places = [], beams = [];
+        var laser = laserBars(levelDef(n)), wrapped = {}, groups = [], beams = [];
         Object.keys(PHRASES).forEach(function (name) { var f = PHRASES[name]; wrapped[name] = f; PHRASES[name] = function (b0, rnd, add, tune) {
             var bar = b0 / BEATS_PER_BAR - COUNT_IN_BARS, got = [];
-            f(b0, rnd, function (fire, axis, pos, size, more) { if (!laser[bar] && (axis == "h" || axis == "v") && !(more && more.kind == "chase")) { got.push({ fire: fire, axis: axis, pos: pos, size: size, burn: BEAM_FIRE * (more && more.hold || 1), bar: bar, name: name }); } return add.apply(null, arguments); }, tune);
+            f(b0, rnd, function (fire, axis, pos, size, more) { if (!laser[bar] && (axis == "h" || axis == "v") && !(more && more.kind == "chase")) { got.push({ fire: fire, axis: axis, pos: pos, size: size, flank: more && more.flank, burn: BEAM_FIRE * (more && more.hold || 1), bar: bar, name: name }); } return add.apply(null, arguments); }, tune);
             beams = beams.concat(got);
             if (name == "cage" || name == "pincer") { var at = {}; got.forEach(function (e) { (at[e.fire] = at[e.fire] || []).push(e); });
                 Object.keys(at).forEach(function (fire) { var h = at[fire].filter(function (e) { return e.axis == "h"; }).sort(function (a, b) { return a.pos - b.pos; }), v = at[fire].filter(function (e) { return e.axis == "v"; }).sort(function (a, b) { return a.pos - b.pos; });
-                    if (h.length == 2) { places.push({ fire: +fire, burn: h[0].burn, bar: bar, name: name, y0: h[0].pos + h[0].size, y1: h[1].pos, x0: v.length == 2 ? v[0].pos + v[0].size : null, x1: v.length == 2 ? v[1].pos : null }); } }); } }; });
+                    if (h.length == 2) { groups.push({ fire: +fire, burn: h[0].burn, bar: bar, name: name, h: h, v: v.length == 2 ? v : null }); } }); } }; });
         try { buildTimeline(n); } finally { Object.keys(wrapped).forEach(function (name) { PHRASES[name] = wrapped[name]; }); }
-        var hits = {};
-        places.forEach(function (p) { beams.forEach(function (e) {
-            if (e.bar != p.bar || e.name == p.name || e.fire >= p.fire + p.burn || p.fire >= e.fire + e.burn) { return; }
-            var mid = e.pos + e.size / 2, inside = e.axis == "h" ? mid > p.y0 && mid < p.y1 : p.x0 !== null && mid > p.x0 && mid < p.x1;
-            if (inside) { var k = "bar " + p.bar + ", " + e.name + " through the " + p.name + "'s " + (p.name == "cage" ? "cell" : "gap"); hits[k] = (hits[k] || 0) + 1; } }); });
-        var found = Object.keys(hits).map(function (k) { return k + " x" + hits[k]; });
+        var hits = {}, on = {};
+        Object.keys(rooms).forEach(function (room) {
+            var place = function (e) { return e.flank ? flankPlace(e, +room) : e; };
+            groups.forEach(function (g) {
+                var y0 = place(g.h[0]).pos + place(g.h[0]).size, y1 = place(g.h[1]).pos;
+                var x0 = g.v ? place(g.v[0]).pos + place(g.v[0]).size : null, x1 = g.v ? place(g.v[1]).pos : null;
+                beams.forEach(function (e) {
+                    if (e.bar != g.bar || e.name == g.name || e.fire >= g.fire + g.burn || g.fire >= e.fire + e.burn) { return; }
+                    var mid = place(e).pos + place(e).size / 2, inside = e.axis == "h" ? mid > y0 && mid < y1 : x0 !== null && mid > x0 && mid < x1;
+                    if (inside) { var k = "bar " + g.bar + ", " + e.name + " through the " + g.name + "'s " + (g.name == "cage" ? "cell" : "gap");
+                        hits[k] = (hits[k] || 0) + 1; on[k] = (on[k] || []).concat(rooms[room].filter(function (d) { return (on[k] || []).indexOf(d) < 0; })); } }); }); });
+        var found = Object.keys(hits).map(function (k) { return k + " (" + on[k].join(", ") + ")"; });
         lines.push("L" + n + ": " + (found.length ? found.join("; ") : "ok"));
     });
     return lines.join("\n");
+}
+
+// The drifting lasers' places in a chart (LEVELS, waves.js): one is still crossing in the bars after its own, two at
+// TRUE's pace and more at a slower difficulty's (as many as the slowest difficulty's takes), so none
+// should come just before a laser section or the level's end, where it would hardly get across (and a mine would never
+// burst), nor within those bars before a cage, a pincer, a corridor or closing walls, whose place to be it would be
+// drifting through, round into the next round on a boss's level. driftDeals([21, 22, 23, 24, 25]) reports any that do.
+function driftDeals(levels) {
+    var DRIFT = { roll: 1, swarm: 1, mines: 1 }, OWN = { cage: 1, pincer: 1, corridor: 1, close: 1 };
+    var has = function (k, set) { return k.split("+").some(function (q) { return set[q]; }); };
+    var slowest = Math.min.apply(null, DIFFICULTIES.map(function (d) { return d.speed || 1; }));
+    var after = Math.ceil(DRIFT_BEATS / slowest / BEATS_PER_BAR); // the bars it may still be crossing, at its slowest
+    return levels.map(function (n) {
+        var def = levelDef(n), dealt = buildTimeline(n).dealt, laser = laserBars(def), round = loopFrom(def), bad = [];
+        dealt.forEach(function (k, b) {
+            if (b == 0 || laser[b] || !has(k, DRIFT)) { return; }
+            if (laser[b + 1] || (b + 1 >= def.bars && round === null)) { bad.push("bar " + b + " (" + k + ") just before " + (laser[b + 1] ? "laser form" : "the end")); return; }
+            for (var j = 1; j <= after; j++) {
+                var e = b + j;
+                if (e >= def.bars) { if (round === null) { break; } e = round + e - def.bars; }
+                if (laser[e]) { break; }
+                if (has(dealt[e], OWN)) { bad.push("bar " + b + " (" + k + ") drifting into bar " + e + " (" + dealt[e] + ")"); }
+            }
+        });
+        return "L" + n + ": " + (bad.length ? bad.join("; ") : "ok");
+    }).join("\n");
 }

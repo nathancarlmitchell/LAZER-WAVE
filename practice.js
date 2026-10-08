@@ -1,6 +1,7 @@
 // Lazer Wave -- practice. A screen off the start screen in two sections, a tab each. LEVELS: any of the game's own
 // levels, played whole, as a run plays it: its song, its lasers and its boss. CUSTOM: the makings of any level put
-// together: one laser phrase, or two dealt into the same bars, in wave form, in laser form, or switching between them by
+// together: up to three laser phrases dealt into the same bars, or none for the beat alone, in wave form, in laser form,
+// or switching between them by
 // turns, with laser form's targets and dodges, the beats' colours, an act's song, a tempo, a warning, a length and the
 // difficulty. A preview plays the level or the pattern as it is chosen, with the game's own lasers and backdrop, in a
 // panel of its own; the aids under it set how it is practised; PLAY plays it. A practice level can't be lost: a laser
@@ -25,14 +26,14 @@ var PRACTICE_PHRASES = [
     { key: "cross", name: "CROSS", info: "down, across, down, across: the ones across on the tune's notes" },
     { key: "mirror", name: "MIRROR", info: "each note's beam and its mirror image, closing on the middle" },
     { key: "ripple", name: "RIPPLE", info: "four thin beams on a note's sixteenths, running to the next note" },
-    { key: "radar", name: "RADAR", info: "a ray from the middle coming round once a bar: keep ahead of it" },
+    { key: "radar", name: "RADAR", info: "a ray from the middle coming round, once a bar on TRUE: keep ahead of it" },
     { key: "stairs", name: "STAIRS", info: "four columns marching across the screen, one a beat" },
     { key: "crossfire", name: "CROSSFIRE", info: "columns closing in from both sides on the half beats, then opening" },
-    { key: "sweep", name: "SWEEPER", info: "a band wiping across over the bar, with a hole at the note" },
+    { key: "sweep", name: "SWEEPER", info: "a band wiping across, over the bar on TRUE, with a hole at the note" },
     { key: "offbeat", name: "OFF-BEAT", info: "a beam on the \"and\" of every beat, at the note sounding on it" },
     { key: "segment", name: "SEGMENT", info: "the melody's beams across the bass's half of the screen only" },
     { key: "chord", name: "CHORD", info: "the bar's chord, every note a beam, all at once on the bar line" },
-    { key: "pendulum", name: "PENDULUM", info: "a band swinging through the bar between its notes, firing every beat" },
+    { key: "pendulum", name: "PENDULUM", info: "a band swinging between its notes, over the bar on TRUE, firing every beat" },
     { key: "double", name: "DOUBLE", info: "two beams at once on 1 and 3, and a column on 2 and 4" },
     { key: "doubletap", name: "DOUBLE TAP", info: "a short burn on the beat and again on its \"and\", in the same place" },
     { key: "close", name: "CLOSE", info: "walls sliding in from both edges, to fire on the bar's last beat" },
@@ -40,9 +41,13 @@ var PRACTICE_PHRASES = [
     { key: "stutter", name: "STUTTER", info: "the melody's beams flickering on and off in sixteenths for a beat" },
     { key: "ring", name: "RING", info: "a ring growing round each note's point: be inside it, or outside" },
     { key: "diagonal", name: "DIAGONAL", info: "a band leaning through each note's point, the way the melody goes" },
-    { key: "spin", name: "SPINNING X", info: "two lasers crossing, turning half way round over the bar" },
+    { key: "spin", name: "SPINNING X", info: "two lasers crossing, turning half way round, over the bar on TRUE" },
     { key: "fill", name: "FILL", info: "the melody's beams, then thin lasers filling the bar's last beat" },
+    { key: "roll", name: "PIANO ROLL", info: "the melody's notes drifting in as lasers, each as long as it is held" },
+    { key: "swarm", name: "SWARM", info: "small lasers drifting across, a lane through them following the tune" },
+    { key: "mines", name: "MINES", info: "mines drifting in on the notes, each bursting into a cross a bar or so on" },
 ];
+var PRACTICE_PICKS = 3; // the most lasers CUSTOM deals into the same bars, as the last levels deal; none is a pick too
 
 // laser form's targets (TARGET_PHRASES, waves.js), with a line on each
 var PRACTICE_TARGETS = { tune: "as high as the chorus's notes", hold: "four at one height", steps: "a stair, up or down",
@@ -87,10 +92,11 @@ var PRACTICE_TIPS = {
         + "each note, and laser form's targets follow its chorus, so the same lasers fall differently in each song.",
     bpm: "Beats a minute: the levels run from 96 to 132. Slow it down to learn a pattern, then bring it up to speed. The "
         + "song plays at it too.",
-    warn: "How many beats ahead of firing a laser shows its outline: 2 in the first acts, 1.5 from Act III, 1 in Act V. "
-        + "The difficulty scales it: longer on EASY, shorter on HARD and TRUE.",
+    warn: "How many beats ahead of firing a laser shows its outline: 2 in every level. Pick 1.5 or 1 for less time to "
+        + "react. The difficulty scales it: longest on EASY, shortest on TRUE.",
     bars: "How long it runs: this many bars of the pattern, after the count-in and a bar's rest.",
-    difficulty: "The game's own difficulty, so changing it here changes it for the game too. Here it sets the warnings "
+    difficulty: "The game's own difficulty, so changing it here changes it for the game too. Here it sets the warnings, "
+        + "how fast the moving lasers go, how wide the gaps in walls, corridors, pincers, cages and sweepers are, "
         + "and the points; nothing can be lost in practice, so its lives and shields don't count.",
     drive: "Overdrive in practice. OFF: the meter never fills. ON: it fills as hits charge it, and SPACE spends it, "
         + "as in a level. AUTO: it is spent the moment it is full. The OVERDRIVE setting in OPTIONS doesn't count here.",
@@ -106,8 +112,8 @@ var PRACTICE_TIPS = {
         + "that it hasn't dealt before, and of each laser form section, which starts there after the count-in, its song "
         + "as the level has it from that bar. The preview plays from it too. A boss has the health the targets still to "
         + "come can take, and LOOP goes round from it.",
-    custom: "A pattern of your own, put together from the levels' makings: any laser or two, in the form, colours, song, "
-        + "tempo, warning and length you choose.",
+    custom: "A pattern of your own, put together from the levels' makings: up to three lasers at once, or none, for the "
+        + "beat alone, in the form, colours, song, tempo, warning and length you choose.",
 };
 
 var PRACTICE_STORE = "lazerwave.practice";
@@ -137,8 +143,8 @@ function loadPractice() { // what was put together last time, field by field, ea
         });
         if (Array.isArray(got.phrases)) {
             var ok = got.phrases.filter(function (k, i, all) { return practicePhrase(k) && all.indexOf(k) == i; });
-            if (ok.length) {
-                practiceOpts.phrases = ok.slice(0, 2);
+            if (ok.length || !got.phrases.length) { // none picked was a choice; none left of what was is not
+                practiceOpts.phrases = ok.slice(0, PRACTICE_PICKS);
             }
         }
         if (PRACTICE_SECTIONS.indexOf(got.section) >= 0) {
@@ -163,12 +169,16 @@ function savePractice() {
 
 loadPractice();
 
-function practiceDef() { // the level the screen describes, as a LEVELS entry (waves.js): the opening rest, then the
-    // pattern for as many bars as asked, in the form asked
-    var p = practiceOpts, bars = 1 + p.bars;
-    var laser = p.form == "laser" ? [[1, p.bars]] : p.form == "switch" ? practiceSwitches(bars) : [];
-    return { name: "Practice", lore: [], bpm: p.bpm, bars: bars, warn: p.warn, phrases: [p.phrases.join("+")],
-        colors: p.colors == "none" ? [] : [p.colors], laser: laser, targets: [p.targets], dodges: p.dodges };
+function practiceDef() { // the level the screen describes, as a LEVELS entry (waves.js), charted: the opening rest, then
+    // the pattern for as many bars as asked, in the form asked; with no laser picked, rests, the beat alone
+    var p = practiceOpts, bars = 1 + p.bars, wave = p.phrases.length ? p.phrases.join("+") : "rest";
+    var laser = laserBars({ laser: p.form == "laser" ? [[1, p.bars]] : p.form == "switch" ? practiceSwitches(bars) : [] });
+    var chart = ["rest"];
+    for (var b = 1; b < bars; b++) {
+        chart.push(laser[b] ? "laser:" + p.targets : wave);
+    }
+    return chartLevel({ name: "Practice", lore: [], bpm: p.bpm, warn: p.warn, chart: chart,
+        colors: p.colors == "none" ? [] : [p.colors], dodges: p.dodges }, "Practice");
 }
 
 var PRACTICE_SWITCH = [2, 4]; // SWITCH: laser form for the first of these many bars in every second, from bar 2
@@ -268,7 +278,7 @@ function practiceLabel() { // what is being practised, as the HUD says it: "RAIN
     if (practiceLevels()) {
         return "LEVEL " + practiceOpts.level + (practiceFromBar() ? " FROM BAR " + practiceFromBar() : "");
     }
-    return practiceOpts.phrases.map(function (k) { return practicePhrase(k).name; }).join(" + ");
+    return practiceOpts.phrases.map(function (k) { return practicePhrase(k).name; }).join(" + ") || "NO LASERS";
 }
 
 function practiceTitle() { // and as the results say it, with a level's name: "LEVEL 15  STATIC BLOOM  FROM BAR 5"
@@ -320,11 +330,31 @@ function practiceLevelTip(n) { // the same, for a level's tooltip, whose head sa
 }
 
 function practiceFormLine() { // what the form makes of it: "" for wave form, where the lasers picked are the bars
-    var p = practiceOpts, dodge = p.dodges ? p.dodges + " laser" + (p.dodges > 1 ? "s" : "") + " to dodge a bar"
-        : "no lasers to dodge";
+    var p = practiceOpts, none = !p.phrases.length;
+    var dodge = p.dodges ? p.dodges + " laser" + (p.dodges > 1 ? "s" : "") + " to dodge a bar" : "no lasers to dodge";
     var targets = "targets " + p.targets.toUpperCase() + ", " + PRACTICE_TARGETS[p.targets] + "; " + dodge;
-    return p.form == "laser" ? "LASER FORM throughout: " + targets + ". The lasers picked sit out"
-        : p.form == "switch" ? "SWITCH: two bars of the lasers, two of laser form, by turns: " + targets : "";
+    return p.form == "laser" ? "LASER FORM throughout: " + targets + (none ? "" : ". The lasers picked sit out")
+        : p.form == "switch" ? "SWITCH: two bars of " + (none ? "the beat alone" : "the lasers") + ", two of laser form, by"
+        + " turns: " + targets : "";
+}
+
+function practiceLines() { // what CUSTOM says under the preview, as [text, colour] lines: what each laser picked does
+    // (unless the form has them sit out), or that there are none, in wave form, but the beat; then what the form makes
+    // of it, and a word on a pair the levels never deal. With more than fit, the lasers picked share a line
+    var picked = practiceOpts.phrases, form = practiceFormLine(), note = practiceNote();
+    var more = [[form, COLORS.dim], [note, COLORS.late]].filter(function (l) { return l[0]; });
+    var each = practiceTilesOff() ? [] : picked.map(function (k) {
+        var ph = practicePhrase(k);
+        return [ph.name + ": " + ph.info, COLORS.text];
+    });
+    if (!picked.length && practiceOpts.form == "wave") {
+        each = [["NO LASERS: the beat alone, every bar, to hit in time with the song", COLORS.text]];
+    }
+    if (each.length + more.length > PR_LINES_MAX) {
+        each = [[practicePhraseName(picked.join("+")) + ": " + (picked.length > 2 ? "all three" : "both")
+            + " dealt into the same bars", COLORS.text]];
+    }
+    return each.concat(more);
 }
 
 function practiceNote() { // a word on a pair the levels never deal, and why; "" for any other
@@ -337,6 +367,10 @@ function practiceNote() { // a word on a pair the levels never deal, and why; ""
     }
     if (p.indexOf("cage") >= 0 && (p.indexOf("melody") >= 0 || p.indexOf("mirror") >= 0)) {
         return "The levels never deal this pair: the laser on the note burns through the cage's cell";
+    }
+    var drifting = p.some(function (k) { return k == "roll" || k == "swarm" || k == "mines"; });
+    if (drifting && p.some(function (k) { return k == "cage" || k == "pincer" || k == "close"; })) {
+        return "The levels never deal this pair: the drifting lasers cross the place it asks you into";
     }
     return "";
 }
@@ -376,7 +410,7 @@ function practiceNewBest() { // is this attempt beating the best its setup had w
 function practiceBestText(key) { // a setup's best as the HUD and the results show it ("-" before it has scored); the
     // attempt's own, by default
     var best = practiceBests[key === undefined ? practiceRun.key : key];
-    return best === undefined ? "-" : String(best);
+    return best === undefined ? "-" : scoreText(best);
 }
 
 // The screen, in layout coordinates from its middle: the tabs over the left column, and under them the tiles and the
@@ -388,11 +422,12 @@ var PR_HEAD_Y = -226; // the columns' headings' baseline: the hint beside the ta
 var PR_LV_W = 102, PR_LV_H = 54, PR_LV_GX = 10; // LEVELS: a level's tile, five to an act's row
 var PR_LV_ACT = 90, PR_LV_NAME = 15, PR_LV_TILES = 21; // an act's row: from its top, its name's baseline and its tiles'
 var PR_BAR_ARROW = 50, PR_BAR_GAP = 6; // START AT, beside the difficulty: its arrows either side of its box
-var PR_TILE_W = 130, PR_TILE_H = 36, PR_TILE_GX = 10, PR_TILE_GY = 8, PR_TILE_COLS = 4;
+var PR_TILE_W = 130, PR_TILE_H = 32, PR_TILE_GX = 10, PR_TILE_GY = 6, PR_TILE_COLS = 4; // eight rows, over the boxes
 var PR_OPT_TOP = 126, PR_OPT_W = 176, PR_OPT_H = 58, PR_OPT_GX = 11, PR_OPT_GY = 9, PR_OPT_COLS = 3;
 var PR_BOX = { dx: PR_RIGHT, dy: PR_TOP, w: PR_COL_W, h: 344 }; // the preview, as the game is laid out, 16:10
 var PR_AID_TOP = 144, PR_AID_W = 130, PR_AID_H = 44, PR_AID_GX = 10; // the aids' row, under it, the column across
 var PR_LINES_TOP = 208, PR_LINES_PITCH = 19; // the lines on what the lasers picked do: the first's baseline, and apart
+var PR_LINES_MAX = 3; // and how many fit between the aids and PLAY
 var PR_PLAY_TOP = 260, PR_PLAY_H = 58; // PLAY and BACK, level with the boxes' last row
 var PR_TIP_W = 440, PR_TIP_PAD = 12, PR_TIP_LINE = 20; // a tooltip: the most its text runs across, its edge, its lines
 var practiceTables = {}; // each section's buttons, built once: they never move
@@ -605,7 +640,7 @@ function drawPracticeScreen() { // the screen: the tiles, the boxes, the preview
     ctx.font = "16px Arial";
     ctx.fillStyle = COLORS.dim; // beside the tabs, what to do in the section up
     ctx.fillText(practiceLevels() ? "pick a level, and the bar to start at" : practiceTilesOff()
-        ? "lasers: off in LASER form" : "pick a laser, or two together",
+        ? "lasers: off in LASER form" : "pick up to three lasers, or none",
         cx + PR_LEFT + 2 * (PR_TAB_W + PR_TAB_GX) + 6, cy + PR_HEAD_Y, PR_COL_W - 2 * (PR_TAB_W + PR_TAB_GX) - 6);
     ctx.font = "18px Arial";
     ctx.fillText("PREVIEW", cx + PR_RIGHT, cy + PR_HEAD_Y);
@@ -659,19 +694,9 @@ function drawPracticeScreen() { // the screen: the tiles, the boxes, the preview
     ctx.globalAlpha = 1;
     drawMenuButton(table.pr_back, "BACK", "28px Arial");
 
-    var lines = practiceLevels() ? practiceLevelLines(practiceOpts.level) // under the preview: the level picked, or what
-        : practiceTilesOff() ? [] : practiceOpts.phrases.map(function (k) { // each laser picked does (unless they sit
-            var ph = practicePhrase(k); // out), then what the form makes of it, and a word on a pair the levels never deal
-            return [ph.name + ": " + ph.info, COLORS.text];
-        });
-    if (!practiceLevels() && practiceFormLine()) {
-        lines.push([practiceFormLine(), COLORS.dim]);
-    }
-    if (!practiceLevels() && practiceNote()) {
-        lines.push([practiceNote(), COLORS.late]);
-    }
+    var lines = practiceLevels() ? practiceLevelLines(practiceOpts.level) : practiceLines(); // under the preview
     ctx.font = "15px Arial";
-    lines.slice(0, 3).forEach(function (line, i) { // three fit between the aids and PLAY
+    lines.slice(0, PR_LINES_MAX).forEach(function (line, i) {
         ctx.fillStyle = line[1];
         ctx.fillText(line[0], cx + PR_RIGHT, cy + PR_LINES_TOP + i * PR_LINES_PITCH, PR_COL_W);
     });
@@ -771,10 +796,10 @@ function practiceOff(b) { // is a tile or box one the form makes no use of
     return !!(b && b.inactive && b.inactive());
 }
 
-function drawPracticeTile(b) { // a phrase's tile: lit cyan when it is the first picked, magenta the second; greyed out,
-    // its pick still showing, when the form deals no lasers
+function drawPracticeTile(b) { // a phrase's tile: lit cyan when it is the first picked, magenta the second, white the
+    // third; greyed out, its pick still showing, when the form deals no lasers
     var x0 = LAYOUT_W / 2 + b.dx, y0 = LAYOUT_H / 2 + b.dy, at = practiceOpts.phrases.indexOf(b.phrase.key);
-    var tint = at == 0 ? COLORS.cyan : at == 1 ? COLORS.magenta : null, k = practiceOff(b) ? PR_OFF_ALPHA : 1;
+    var tint = [COLORS.cyan, COLORS.magenta, COLORS.text][at] || null, k = practiceOff(b) ? PR_OFF_ALPHA : 1;
     ctx.globalAlpha = k * (tint ? 1 : 0.45);
     ctx.fillStyle = tint || COLORS.cyan;
     ctx.fillRect(x0, y0, b.w, b.h);
@@ -824,16 +849,14 @@ function practicePress(name, p) { // a press on the screen: a tile picks or drop
     } else if (b.barStep) { // START AT: the stop back or on, round from the last to the first
         var stops = practiceBarStops(practiceOpts.level), at = stops.indexOf(practiceBar());
         practiceOpts.bar = stops[(at + b.barStep + stops.length) % stops.length];
-    } else if (b.phrase) {
+    } else if (b.phrase) { // picked, dropped, the last one too, leaving the beat alone (practiceDef)
         var list = practiceOpts.phrases, at = list.indexOf(b.phrase.key);
         if (at >= 0) {
-            if (list.length > 1) { // the last one stays: a level is dealt from something
-                list.splice(at, 1);
-            }
-        } else if (list.length < 2) {
+            list.splice(at, 1);
+        } else if (list.length < PRACTICE_PICKS) {
             list.push(b.phrase.key);
         } else {
-            list[1] = b.phrase.key; // a third: it takes the second's place
+            list[PRACTICE_PICKS - 1] = b.phrase.key; // one more: it takes the last one's place
         }
     } else if (b.option.name == "difficulty") {
         storeSetting("difficulty", SETTINGS.difficulty.next());
@@ -897,11 +920,12 @@ function previewReset() { // build the pattern the screen describes, and play it
     pv.first = first; // opening rest, or the bar START AT starts at
     pv.end = practiceLevels() ? (COUNT_IN_BARS + pv.def.bars) * BEATS_PER_BAR
         : first + (practiceOpts.form == "switch" ? 3 : 2) * BEATS_PER_BAR;
-    var warn = pv.def.warn * mode().warn, lead = 0;
+    var warn = pv.def.warn * mode().warn, shows = first;
     pv.queue = pv.timeline.filter(function (ev) { return ev.fire >= first && ev.fire < pv.end; });
-    pv.queue.forEach(function (ev) { lead = Math.max(lead, eventLead(ev, warn)); });
+    pv.queue.forEach(function (ev) { shows = Math.min(shows, ev.fire - eventLead(ev, warn)); }); // a mine shows itself
+    // bars before it bursts
     pv.queue.sort(function (a, b) { return (a.fire - eventLead(a, warn)) - (b.fire - eventLead(b, warn)); });
-    pv.from = first - lead - 0.25; // round from just before the first of them shows itself
+    pv.from = shows - 0.25; // round from just before the first of them shows itself
     pv.to = pv.end + 1.25; // to just after the last has burned out
     pv.next = 0;
     pv.hazards = [];

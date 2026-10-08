@@ -22,6 +22,7 @@ function startGame(e) { // START, or a level picked on the level select: the run
     // level select
     carryHp = carryMeter = carryCombo = null; // a run begins on full shields, an empty meter and no combo
     runPeakCombo = 0;
+    runContinued = null;
     gamePiece = new component(PIECE_SIZE, PIECE_SIZE, COLORS.piece, e.pageX - PIECE_SIZE / 2, e.pageY - PIECE_SIZE / 2); // centered on the cursor
     gamePiece.update = function () { drawPlayer(this); };
     gameStart = true;
@@ -138,6 +139,7 @@ function restartRun() { // after the finish screen, start a fresh run from where
     deaths = 0;
     score = 0;
     runScore = 0;
+    runContinued = null;
     onlineRunBegins();
     startRunLives();
     carryHp = carryMeter = carryCombo = null;
@@ -656,9 +658,9 @@ function showScore(dy, dead) { // what the level scored, the breakdown's mirror:
     // BEST when that is this one, as the rank's best says under it, after a death too, the run's points being kept), or,
     // from the level select, the most the level has been cleared with on its own (NEW BEST when that is these; after a
     // death it is just shown)
-    var rows = [[practice ? "POINTS" : "LEVEL " + level, score, ""]];
+    var rows = [[practice ? "POINTS" : "LEVEL " + level, scoreText(score), ""]];
     if (!dead && bossBonusWon > 0) { // of the level's points, what the boss paid (bossBonus, boss.js)
-        rows.push(["BOSS", "+" + bossBonusWon, "boss"]);
+        rows.push(["BOSS", "+" + scoreText(bossBonusWon), "boss"]);
     }
     if (practice) { // nothing kept to set them against: the hits shields would have paid for instead, and the most this
         // setup has scored this session (practice.js), NEW BEST when that is these
@@ -666,11 +668,11 @@ function showScore(dy, dead) { // what the level scored, the breakdown's mirror:
         rows.push([practiceNewBest() ? "NEW BEST" : "SESSION BEST", practiceBestText(), practiceNewBest() ? "top" : ""]);
     } else if (selectRun) {
         var best = rec().score[level];
-        rows.push([!dead && scoreRecord ? "NEW BEST" : "BEST", best === undefined ? "-" : best, !dead && scoreRecord ? "top" : ""]);
+        rows.push([!dead && scoreRecord ? "NEW BEST" : "BEST", best === undefined ? "-" : scoreText(best), !dead && scoreRecord ? "top" : ""]);
     } else {
-        rows.push(["TOTAL", runScore + score, "total"]);
+        rows.push(["TOTAL", scoreText(runScore + score), "total"]);
         rows.push([runRecord ? "NEW BEST" : bossRush ? "BEST RUSH" : "BEST RUN", // a rush's against a rush's
-            (bossRush ? rec().rushScore : rec().runScore) || "-", runRecord ? "top" : ""]);
+            scoreText((bossRush ? rec().rushScore : rec().runScore) || "-"), runRecord ? "top" : ""]);
     }
     var pitch = (RESULTS_BOTTOM - RESULTS_TOP) / rows.length;
     ctx.font = "30px Arial";
@@ -782,6 +784,16 @@ const RESULT_BUTTONS = { // by the results' kind, left to right: where each sits
     over: { quit: { side: -1, label: "QUIT", keys: "Q", jp: "終了" },
         again: { side: 1, label: "PLAY AGAIN", keys: "ENTER / R", jp: "もう一度", primary: true } },
 };
+const OVER_CONTINUE_BUTTONS = { // a full run's game over: CONTINUE the way on, the level again with the score from
+    // nothing (continueRun); PLAY AGAIN the run from its first level; QUIT
+    quit: { side: -1, label: "QUIT", keys: "Q", jp: "終了" },
+    again: { side: 0, label: "PLAY AGAIN", keys: "R", jp: "もう一度" },
+    "continue": { side: 1, label: "CONTINUE", keys: "ENTER / SPACE", jp: "コンティニュー", primary: true },
+};
+
+function continueOffered() { // the game over up is a full run's, which can go on (a boss rush's can't)
+    return resultsKind == "over" && !bossRush;
+}
 
 function resultButtons() { // the buttons the results up have: a clear's way on is CONTINUE, or after a level played
     // from the level select, LEVELS, which is where it goes, and after practice PRACTICE, with AGAIN for RETRY
@@ -793,7 +805,7 @@ function resultButtons() { // the buttons the results up have: a clear's way on 
     if (resultsKind == "clear" && selectRun) {
         return { retry: buttons.retry, next: { side: 1, label: "LEVELS", keys: "ENTER / SPACE", jp: "レベル", primary: true } };
     }
-    return buttons;
+    return continueOffered() ? OVER_CONTINUE_BUTTONS : buttons;
 }
 
 function resultPrimary() { // the way on: the button a controller lights first, and START presses
@@ -807,9 +819,13 @@ function resultPrimary() { // the way on: the button a controller lights first, 
 }
 
 function resultForKey(key) { // the button a key presses on the results up, or "": a clear's R is RETRY and its ENTER
-    // or SPACE CONTINUE; a death's or the game over's R, ENTER or SPACE is the way on, and Q is QUIT
+    // or SPACE CONTINUE; a full run's game over's ENTER or SPACE is CONTINUE, its R PLAY AGAIN; a death's or the boss
+    // rush's game over's R, ENTER or SPACE is the way on; and Q is QUIT
     if (resultsKind == "clear") {
         return key == "r" ? "retry" : key == "Enter" || key == " " ? "next" : "";
+    }
+    if (continueOffered()) {
+        return key == "q" ? "quit" : key == "r" ? "again" : key == "Enter" || key == " " ? "continue" : "";
     }
     return key == "q" ? "quit" : key == "r" || key == "Enter" || key == " " ? "again" : "";
 }
@@ -886,15 +902,16 @@ function drawResultsScreen() { // drawn as they come up, and again on a resize, 
     drawBanners(40, 20, bannerScale());
 }
 
-function showResultButtons() { // RETRY and CONTINUE, side by side under the results: finger-sized by touch
+function showResultButtons() { // RETRY and CONTINUE, side by side under the results, or a full run's game over's three
+    // in a row: finger-sized by touch
     var touch = inputMode == "touch";
     var w = touch ? 360 : 300, h = touch ? 100 : 76;
     var top = msgBottom() + 50;
     ctx.font = (touch ? 40 : 30) + "px Arial";
-    var buttons = resultButtons();
+    var buttons = resultButtons(), three = Object.keys(buttons).length > 2;
     for (var name in buttons) {
         var b = buttons[name];
-        buttonText(name, b.label, inputMode == "mouse" ? b.keys : b.jp, b.side * (w / 2 + 20), top, w, h,
+        buttonText(name, b.label, inputMode == "mouse" ? b.keys : b.jp, b.side * (three ? w + 30 : w / 2 + 20), top, w, h,
             resultsHover == name, b.primary);
     }
 }
@@ -915,7 +932,7 @@ function setResultsHover(name) { // light the button under the mouse or a finger
 }
 
 function chooseResult(name) { // a button on the results: a clear's CONTINUE ("next") or RETRY ("retry"), a death's
-    // TRY AGAIN or the game over's PLAY AGAIN ("again"), or QUIT ("quit")
+    // TRY AGAIN or the game over's PLAY AGAIN ("again"), a full run's game over's CONTINUE ("continue"), or QUIT ("quit")
     if (!resultsReady()) {
         return;
     }
@@ -926,6 +943,8 @@ function chooseResult(name) { // a button on the results: a clear's CONTINUE ("n
     startTime += Date.now() - resultsAt; // off the run's clock
     if (name == "quit") {
         endRun();
+    } else if (name == "continue") {
+        continueRun();
     } else if (resultsKind == "death") { // the level again, from full shields: on a run with its points kept, which the
         // life spent paid for; from the level select, which has no lives, from nothing, as the pause's RETRY, so its
         // best score is always one attempt's
@@ -962,9 +981,24 @@ function chooseResult(name) { // a button on the results: a clear's CONTINUE ("n
     }
 }
 
+function continueRun() { // CONTINUE, at a full run's game over: the level it ended on again, on full lives and
+    // shields, the meter empty and the combo gone, and the run's score back to nothing. The total it had stands on its
+    // records, and was offered to its board as the game over came up (online.js); from here its score is a total of its
+    // own, which the site times and caps from this level. Continued, the run can't set the best full run (showFinish)
+    runContinued = level;
+    score = 0;
+    runScore = 0;
+    runPeakCombo = 0; // its MAX COMBO begins again with its score
+    carryHp = carryMeter = carryCombo = null;
+    startRunLives();
+    onlineRunContinues();
+    startNextLevel();
+}
+
 function showFinish() { // the last level continued past: the run's time and its total, until a click or R
     var runMs = Date.now() - startTime;
-    var full = runFrom == 1 || bossRush; // only a run from the first level can set the best run; a rush is always whole
+    var full = runFrom == 1 && runContinued === null || bossRush; // only a run from the first level, never continued
+    // after a game over, can set the best run; a rush is always whole
     var runBest = full && (bossRush ? recordRush(runMs, deaths) : recordRun(runMs, deaths));
     restFrame = null; // a resize copies this screen, not the results under it
     gameArea.clear();
@@ -987,10 +1021,12 @@ function showFinish() { // the last level continued past: the run's time and its
             + "   " + mistakes(bossRush ? rec().rushDeaths : rec().runDeaths), 45);
     } else {
         ctx.fillStyle = COLORS.dim;
-        centerText("from Level " + runFrom + ": the best run is one from Level 1", 45);
+        centerText(runContinued !== null ? "continued from Level " + runContinued + ": the best run is one without a continue"
+            : "from Level " + runFrom + ": the best run is one from Level 1", 45);
     }
     ctx.font = "60px Arial";
-    printText("Total score: " + runScore, msgBottom() + 100);
+    printText((runContinued !== null ? "Score from Level " + runContinued + ": " : "Total score: ") + scoreText(runScore),
+        msgBottom() + 100);
     ctx.fillStyle = COLORS.text;
     var again = bossRush ? "play the boss rush again" : "play again" + (runFrom == 1 ? "" : " from Level " + runFrom); //
     // this run again, from where it began
@@ -1050,6 +1086,7 @@ function endRun() { // the run ends, unrecorded, from the pause's QUIT or the re
     deaths = 0;
     score = 0;
     runScore = 0;
+    runContinued = null;
     bossRush = false;
     carryHp = carryMeter = carryCombo = null;
     restFrame = null;
@@ -1108,14 +1145,14 @@ function gameOver() { // the level was cleared or the player died
 
 function drawDeathResults() { // a death's results, over the level's backdrop, still and dimmed: how far the attempt
     // got, where its presses landed, its beats so far and its points, the lives left (on a run), and TRY AGAIN or QUIT;
-    // or, with none left, the game over, and PLAY AGAIN or QUIT
+    // or, with none left, the game over, and PLAY AGAIN or QUIT, with CONTINUE on a full run
     var over = resultsKind == "over";
     drawSky(level, resultsSkyTime(), null, SKY_RESULTS);
-    ctx.font = "64px Arial"; // the level, by number and name, and under it FAIL with its Japanese, or So Close for an
-    printText("Level " + level + "  " + levelDef(level).name, -175); // attempt that nearly made it
-    var close = !over && deathProgress >= 0.9;
+    ctx.font = "64px Arial"; // the level, by number and name, and under it FAIL with its Japanese, So Close for an
+    printText("Level " + level + "  " + levelDef(level).name, -175); // attempt that nearly made it, or GAME OVER with
+    var close = !over && deathProgress >= 0.9; // no lives left
     ctx.font = "72px Arial";
-    printText(close ? "So Close  再試行する" : "FAIL  失敗", -80);
+    printText(over ? "GAME OVER  ゲームオーバー" : close ? "So Close  再試行する" : "FAIL  失敗", -80);
     if (perfFailed) { // the performance meter failed the track, not a laser: said, as it was over the death
         ctx.font = "bold 26px Arial";
         ctx.fillStyle = COLORS.warn;
@@ -1132,6 +1169,11 @@ function drawDeathResults() { // a death's results, over the level's backdrop, s
     // through: judged by then, and any hit early on top
     showReached(dy, over);
     showScore(dy, true);
+    if (continueOffered()) { // what going on costs
+        ctx.font = "24px Arial";
+        ctx.fillStyle = COLORS.dim;
+        centerText("CONTINUE plays this level again on full lives, the score from 0", msgBottom() + 40);
+    }
     showResultButtons();
     showMessage();
     useWindow();

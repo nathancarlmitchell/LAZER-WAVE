@@ -29,11 +29,12 @@ function drawStats(color, scoreColor) { // the score (a run's total, or the leve
     ctx.shadowBlur = 6;
     ctx.font = "40px Arial"; // the score is drawn at full size in both layouts
     ctx.fillStyle = scoreColor || color;
-    ctx.fillText(shownScore(), 50, 100);
-    if (combo > 0) { // what a point is worth now, which overdrive doubles
+    ctx.fillText(scoreText(shownScore()), 50, 100);
+    if (combo > 0 || multiplier() > 1) { // what a point is worth now, the combo's multiplier times the level's, which
+        // overdrive doubles: from the first beat past level 1, and with the combo once there is one
         ctx.font = "24px Arial";
         ctx.fillStyle = driveOn() ? COLORS.laserCore : COLORS.magenta;
-        ctx.fillText("x" + pointsMult() + "   COMBO " + combo, 50, 132);
+        ctx.fillText("x" + pointsMult() + (combo > 0 ? "   COMBO " + combo : ""), 50, 132);
     }
     for (var i = 0; i < shieldsMax(); i++) { // the shields: filled while they last
         ctx.fillStyle = COLORS.cyan;

@@ -90,12 +90,26 @@ const limits = {
     survive: number("loop.js", "SURVIVE_POINTS"), absorb: number("loop.js", "ABSORB_POINTS"),
     absorbs_per_beat: 8, // more lasers absorbed on a beat than any phrase deals
     overdrive: number("loop.js", "OVERDRIVE_SCORE"), boss_bonus: number("boss.js", "BOSS_BONUS"),
+    level_mult: true, // a level's points are times its number as well (levelMultiplier, loop.js)
     points: {}, lives: {}, levels: {},
 };
 difficulties.forEach(d => { limits.points[d.name] = d.points; limits.lives[d.name] = d.lives; });
+// a boss level earns in its rounds up to its boss's par, the earliest it can fall in (bossPar, boss.js; earning,
+// loop.js): worked out by the game's own code, run on its levels, as `par` and the bars a round after the first deals
+// again (`loop`)
+const sim = require("vm").createContext({ console: console, Math: Math, JSON: JSON });
+["layout.js", "waves.js", "story.js", "music.js", "run.js", "world.js", "boss.js"].forEach(f => {
+    require("vm").runInContext(source(f), sim, { filename: f });
+});
 levelList.forEach((def, n) => {
     if (def) {
-        limits.levels[n] = { name: def.name, bars: def.bars, bpm: def.bpm, act: Math.ceil(n / perAct), boss: !!def.boss };
+        limits.levels[n] = { name: def.name, bars: def.chart.length, bpm: def.bpm, act: Math.ceil(n / perAct), boss: !!def.boss };
+        if (def.boss) {
+            const level = sim.levelDef(n);
+            limits.levels[n].par = sim.bossPar(level, sim.buildTimeline(n), limits.count_in_bars * limits.beats_per_bar,
+                def.boss.hp || 1);
+            limits.levels[n].loop = level.bars - sim.loopFrom(level);
+        }
     }
 });
 fs.writeFileSync(path.join(game, "scores-limits.json"), JSON.stringify(limits, null, 1));

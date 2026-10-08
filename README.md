@@ -12,6 +12,11 @@ For WordPress, `node wordpress-plugin/build.js` copies the game into the plugin 
 `wordpress-plugin/dist/lazer-wave-game.zip` (Plugins > Add New > Upload Plugin; then the Lazer Wave Game block or the
 `[lazer_wave]` shortcode) and `lazer-wave-theme.zip`, a theme to match. Raise the plugin's version in
 `lazer-wave-game.php` for each release: it is what makes sites fetch the new game files rather than cached ones.
+The embed is the game in a frame of its own, with a Fullscreen button (`assets/embed.js`). While a level is being
+played, the game tells the page so (`tellHost`, input.js), and the page holds back its own right-click menu and a
+middle click's scrolling, so a right click (MAGENTA) or a middle click (the GATE) that lands outside the frame, the
+cursor strayed past its edge, opens nothing; it still doesn't reach the game, which only hears what lands on it. The
+game's own page keeps the menu off everywhere but the name field.
 
 The plugin also keeps the online leaderboards (`scores.php`): a table of its own, REST routes under
 `/wp-json/lazer-wave/v1/` (GET `scores` for a board, POST `tickets` as a play starts, POST `scores` with its ticket),
@@ -21,7 +26,9 @@ hide or delete a score. Each score keeps its play's MAX COMBO (`combo`; posted b
 passes the routes' address on the game's URL (`api=`), which is how the game knows to give HIGH SCORES its GLOBAL
 view (LOCAL, the browser's own bests, is there either way). A browser game's score can always be forged, so the site makes it hard to do grossly: a score
 comes back with the signed ticket its play started with, once, no higher than the levels it claims could give and no
-sooner than their songs could have played (both worked out from the game's own levels and scoring by build.js, into
+sooner than their songs could have played, counted from the level the ticket says the score began at (the first, but
+for a full run's CONTINUE, which asks for a ticket of its own at the level it goes on from) (both worked out from the
+game's own levels and scoring, a level's points times its number included, by build.js, into
 `game/scores-limits.json`; a boss level counts only its count-in and a tenth of its bars, as overdrive can bring a
 boss down early), rate-limited by address (kept only as a salted hash), and its name held to the site's Disallowed
 Comment Keys (Settings > Discussion). Raise `SCORE_VERSION` in `online.js` when a change to the scoring would make the
@@ -47,26 +54,37 @@ old scores unfair: the site then starts fresh boards, the old scores kept but no
    above and below, a pincer: the gap between
    them is where the note is, and the place to be. A cage closes four at once, two across at the melody's note and two
    down at the bass's, low on the left and high on the right: get inside it. A corridor scrolls in from the right, a bar
-   long, two walls with a gap between them that rides the melody, and burns the bar through: ride the gap. A mirror
+   long, two walls with a gap between them that rides the melody (slower, and with a wider gap, on the easier
+   difficulties), and burns the bar through: ride the gap. A mirror
    fires a note's laser and its reflection about the middle, and takes the middle on the beats the tune holds. A ripple
    runs four thin lasers on a note's sixteenths from its height to the next note's, quick as a scale. Crossfire's
    columns close in from both sides on the half beats and open out again: slip out before they meet. A sweeper wipes
    across the whole height over a bar with a hole at the note: be at its height as it comes by. A radar is a ray
-   from the middle that comes round once a bar, its pivot burning too: keep ahead of it, round the middle. Later still:
+   from the middle that comes round once a bar (more slowly on the easier difficulties, on into the bars after), its pivot burning too: keep ahead of it, round the middle. Later still:
    lasers on the off-beats; segments, on the bass's half of the screen only; a chord's notes all at once; a pendulum
    swinging the bar through and firing on every beat; double taps, a short burn on the beat and again on its "and";
    walls sliding in from the edges to fire either side of the bass's column; chasers, which hunt your height until
    half a beat before they fire; stutters, on and off in sixteenths for a beat; rings, safe inside or out; diagonals,
    leaning the way the melody goes; the spinning X, two lasers crossing at the melody's point and turning about it the
    bar through, half way round, its outline already turning through its warning to show which way: stay in your wedge
-   and turn with it; and fills of thin lasers on a bar's last beat.
+   and turn with it; and fills of thin lasers on a bar's last beat. Last of all, lasers that drift: each comes in at
+   the right edge, an arrow there warning of it as an outline warns of a beam, and takes two bars to cross the screen
+   (longer on the easier difficulties),
+   burning the whole way, so a way through them is picked out ahead while the rest go on firing. A piano roll plays
+   the melody in as lasers, each note as long as it is held, and the chord on beats 1 and 3 as thinner ones; a swarm
+   of small ones leaves a lane through them that follows the tune; and mines drift in as outlines and burst into
+   a cross wherever they have got to a bar or a bar and a half on, a fuse ring closing in on each. A drifting laser
+   goes at a gate into laser form, and at the level's end.
  - You are two sine waves trailing neon. The gap between them closes as each beat comes, and they meet on it: hit
    **on the beat**, when they meet, **in its colour**. A laser's colour is its beat's: **Z** for cyan, **X** for
    magenta. The wave of the coming beat's colour stays lit (cyan on top, magenta below) and the other dims. A beat with
    no laser takes either key, and the first act has no colours at all. PERFECT 100, GREAT 75, GOOD 50, BAD 25, times
-   your multiplier and the difficulty's.
-   Every 8 in a row raises the multiplier by one, with no ceiling, and on a run the combo carries from each level into
-   the next, so a long streak of perfect play is what a run plays for; x5, x6 and on pop up at the orb as it climbs.
+   your multiplier and the difficulty's. The multiplier is the combo's times the level's number: level 1's points x1,
+   level 10's x10, level 25's x25, so a run's later levels, and a combo carried into them, are worth the most. The HUD
+   shows it under the score from the first beat, and a level's card says what its points are worth (POINTS x8).
+   Every 8 in a row raises the combo's multiplier by one, with no ceiling, and on a run the combo carries from each
+   level into the next, so a long streak of perfect play is what a run plays for; the multiplier pops up at the orb as
+   it climbs.
    A missed or BAD beat, a press off the beat, the wrong colour (WRONG), a gate not passed or a laser that gets you
    resets it. The score in the corner is the run's total so far, or the level's own when it is played from the
    level select.
@@ -80,8 +98,8 @@ old scores unfair: the site then starts fresh boards, the old scores kept but no
    beats, and for one beat more the lasers still can't hurt you, room to come back out of it. OPTIONS → **OVERDRIVE**
    set to AUTO spends it the moment it fills, from the next beat, with no press; MANUAL, the default, leaves it to
    SPACE. You become a laser:
-   lasers can't hurt you, hits score double, and flying through a laser as it fires absorbs it for a bonus. The
-   colours still count.
+   lasers can't hurt you, hits score double, and flying through a laser as it fires absorbs it for a bonus (a
+   drifting laser it only passes through; a mine's burst it absorbs). The colours still count.
  - **Wave / laser:** from level 3 on, every level switches to laser form for a few bars. A **gate** (a white line)
    sweeps in: press SPACE, or either colour's key, as it reaches you, on the beat, to switch; one gone by unpassed switches anyway and costs a
    shield. In laser form you lock to the left third of the screen, steer only up and down, and fire across it: each
@@ -104,31 +122,41 @@ old scores unfair: the site then starts fresh boards, the old scores kept but no
    melody's lasers, the fallers, laser form, the pincers and the cage in Act I, colours, walls and the corridor in Act II, beams down the screen, mirrors, ripples, the radar, crossfire, sweepers and marching columns in Act III, colours on every beat, off-beats and segments, chords and pendulums, double taps and
    closing walls, chasers and stutters, rings, diagonals and the spinning X, two laser sections and two beams at once in
    Act IV, and
-   fills in Act V. Every level warns 2 beats ahead, at the difficulty's rate, so only the tempo, climbing from 96 to
+   fills and the drifting lasers in Act V: the piano roll in level 21, the swarm in 22 and mines in 24, all three in
+   the last fight. Every level warns 2 beats ahead, at the difficulty's rate, so only the tempo, climbing from 96 to
    132 BPM, shortens the warnings: never under about 640 ms, even on TRUE. From the end of Act I the levels also deal combinations, two types in one
    bar, which is where their own patterns come from: a box from a pincer and a cage, a crosshair from a ring and a
-   diagonal, a sweeper through a cage, walls closing round the melody, chasers between columns. A combination never
+   diagonal, a sweeper through a cage, walls closing round the melody, chasers between columns; and from level 24 a
+   few bars deal three, a drifting type with a beam each way on every beat. A combination never
    burns the other's place to be: a corridor comes alone, and a cage never with a laser on its own note, which would
-   run through the middle of its cell. Every type stays in the mix through the levels after the one that introduces it.
+   run through the middle of its cell; and as a drifting laser is still crossing in the bars after its own (two at
+   TRUE's pace, up to five at EASY's), those are never dealt a cage, a pincer, a corridor or closing walls. Not every type stays in the mix after the level that introduces it: each level
+   deals from its own selection of the types so far, so the corridor comes back only in levels 10 and 25, and some
+   drop out early: the fallers after level 9, the pincers after 12, the ripples and crossfire after 15.
  - **Boss fights.** Each act's fifth level is a fight with the Array. In Red Giant its node stands at the right edge, where the
    targets come from, with a health bar in the progress stripe's slot. Every target struck lined up takes a point of
-   its health, and so does every laser absorbed in overdrive: its own bars are the wave bars, to survive, and yours
-   are the laser bars. At none it breaks up and the bar plays out as a pause, the beat stopped, the song resolving on
+   its health (a laser absorbed in overdrive pays, but doesn't hurt it): its own bars are the wave bars, to survive,
+   and yours are the laser bars. Its health is its own, more with each act (`hp` in its `LEVELS` entry): Red Giant 30,
+   Interference 40, Static Bloom 50, Overdrive 60, Lazer Wave 75, more than a round's targets can take (15, 22, 15,
+   22 and 30), so the fight goes round again until its targets have taken it all. The earliest round it can fall in,
+   its par (`bossPar`), is round 2 for Red Giant, 3 for Interference, 4 for Static Bloom and Lazer Wave, and 5 for
+   Overdrive. At none it breaks up and the bar plays out as a pause, the beat stopped, the song resolving on
    its first beat as a cleared level's does and nothing left in it to hit or miss, and the level ends there, cleared. It does not end
    before that: at its last bar with the boss still up, the level goes round again from the bar before its last laser
    section, as many times as it takes, the health bar counting the rounds, and every beat of every round counts in
    the rank; a death's results count how far the boss was worn down as how far the attempt got, so a boss at full
    health reads 0%. Brought down, the boss pays a bonus, 1,000 points an act
    (Red Giant 1,000, Lazer Wave 5,000, at the difficulty's rate) times your multiplier as it stands: the whole of it
-   for a fight finished within the level's own bars, and less the longer it runs on, a round more halving it; the
+   for a fight finished by its par, and less the longer it runs on after that, a round more halving it; the
    health bar says what it pays now,
-   and the results list what it paid. Past the first round nothing is earned: hits, beats lived through and lasers
-   absorbed score nothing, and the streak holds without climbing, though a miss still breaks it, so a fight drawn out
-   gains nothing and its bonus only shrinks. Each fight has a signature:
+   and the results list what it paid. Up to the end of its par every round earns as the first does, the points and
+   the combo climbing; past it nothing is earned: hits, beats lived through and lasers absorbed score nothing, and the
+   streak holds without climbing, though a miss still breaks it, so a fight drawn out gains nothing and its bonus only
+   shrinks. Each fight has a signature:
    Interference has a node at each edge, and its second laser section faces left, the piece locked on the right and
    the targets coming from the left; Static Bloom's node is the radar's pivot in the middle of the screen, and its
-   arm runs slower the more it is hurt; Overdrive's node follows your height, and its ports open only while overdrive
-   runs, so the meter is the way to hurt it; and Lazer Wave is a mirror of you on the right, firing back on every other
+   arm runs slower the more it is hurt; Overdrive's node follows your height; and Lazer Wave is a mirror of you on the
+   right, firing back on every other
    beat of its bars at the height you were at a bar ago.
  - Each act opens with its lore, typed out over its backdrop while its theme plays, and each new level with a card: its
    name and a line or two. A press brings the lore in at once and another goes on; a level's card starts the level by
@@ -167,13 +195,14 @@ old scores unfair: the site then starts fresh boards, the old scores kept but no
    bar of any laser it deals that it hasn't dealt before, or of a laser form section (its arrows step from one to the
    next, so level 1, melody throughout, has only BAR 1, and START AT is greyed out), which it starts at straight after
    the count-in, in laser form if that bar is, its song and lasers as the level has them from there, a boss with the
-   health its targets still to come can take, and LOOP going round from it. While a practice level plays, the top
+   share of its health its targets still to come are of the level's, and LOOP going round from it. While a practice level plays, the top
    right says what the bar playing deals, as the preview does: BAR 3   RADAR. Its preview plays the level from that bar (the first after its rest,
    for BAR 1) to its end, round and round, naming the lasers each bar deals as it goes (and the bar and the beat),
    and under it go the level's name and place, its tempo, length, warnings and laser form, and every laser it deals,
    in order; a tile's tooltip says the same.
-   **CUSTOM** puts the makings of any level together and plays them. Pick one laser
-   type, or two dealt into the same bars, from a tile for each of the 27 (in the order the levels bring them in), and
+   **CUSTOM** puts the makings of any level together and plays them. Pick up to three laser types, dealt into the
+   same bars, from a tile for each of the 30 (in the order the levels bring them in; the first picked is lit cyan,
+   the second magenta, the third white, and a fourth takes the third's place), or none, for the beat alone, and
    set the rest in boxes: the form (wave, laser, or switching between them by turns: two bars of each), laser form's
    targets and the lasers to dodge between them, the beats' colours, the song (an act's, with its backdrop), a tempo
    from 72 to 132 BPM, a warning of 2, 1.5 or 1 beats, 4, 8 or 16 bars, and the difficulty. Point at a tile or a box
@@ -181,8 +210,10 @@ old scores unfair: the site then starts fresh boards, the old scores kept but no
    of is greyed out and takes no press, its tooltip saying what would turn it on: TARGETS and DODGES in wave form, which
    has no targets, and the laser tiles in laser form, which deals only targets. A preview plays the
    pattern's first bars round and round as it is put together, with the game's own lasers and backdrop and a piece to
-   show where you would be (lining up with the targets in laser form), says what each type picked does, and says so
-   when a pair is one the levels never deal (a corridor with anything, a cage with a laser on its own note). PLAY plays
+   show where you would be (lining up with the targets in laser form), says what each type picked does (with three,
+   and a word on the form or the pair besides, it names them together), and says so
+   when a pair is one the levels never deal (a corridor with anything, a cage with a laser on its own note, a drifting
+   laser with a cage, a pincer or closing walls). PLAY plays
    it after the count-in and a bar's rest. In either section, it can't be lost: a laser that gets you, or a gate let
    by, is counted as a HIT rather than costing a shield, and the meter never fails you; it has no lives, and nothing it
    does is recorded. Under the preview, in both, four boxes set how it is practised (each washed in cyan while it is
@@ -216,7 +247,8 @@ old scores unfair: the site then starts fresh boards, the old scores kept but no
    rush's, the longest its combo ran across its levels) and how far each run got (LEVEL 12, BOSS 3 / 5, CLEARED) or each level's rank.
    Without a site, HIGH SCORES has LOCAL alone, and no toggle. A play asks the site for a ticket as it starts. When it ends with a new best that would also make its board's top ten (a level from the
    level select cleared with its results saying NEW BEST, or a run or a rush over or finished with a total above the
-   most one had scored when it began), a panel over the results asks for a name, up to 20 characters and remembered
+   most one had scored when it began; a full run's game over offers its total before CONTINUE, and a continued run's
+   own score is offered when it ends), a panel over the results asks for a name, up to 20 characters and remembered
    for next time, and posts it, saying the place it took, or what the site refused it for; SKIP, Esc or a
    controller's B lets it go. On a phone held upright it is turned with the game, made smaller where the screen is too
    short for it, and by touch its field is tapped to type (a name kept from before needs none). A play that isn't a new best asks nothing, and keeps its ticket for the next. Practice
@@ -264,12 +296,16 @@ old scores unfair: the site then starts fresh boards, the old scores kept but no
    bleeds its glow while the picture dims, the core splits into a cyan copy and a magenta copy flying apart along the
    laser as the waves lose phase and their trail scatters, and it fades to dark (skipped with the effects
    reduced or off). Then it has results of its own, under the level's number and name and **FAIL 失敗** (or **So
-   Close**, for an attempt 90% or more of the way through, and FAIL at the game over too): how far the attempt got,
+   Close**, for an attempt 90% or more of the way through, or **GAME OVER** at the game over): how far the attempt got,
    the timing scale of where its presses landed (as a clear's), its beats so far and its points, and the lives left,
    with **TRY AGAIN**, which the life spent pays for, the points kept, and **QUIT**. While a level is unbeaten, the
    furthest an attempt has got through it is kept (on a boss level, how far the boss was worn down), and a death that
    gets further says **NEW BEST** under how far it got;
-   one that doesn't says how far the best got. Out of lives it is the game over: FAIL under red banners, with **PLAY AGAIN** and **QUIT**.
+   one that doesn't says how far the best got. Out of lives it is the game over: GAME OVER under red banners, with **PLAY AGAIN** and **QUIT**,
+   and on a full run **CONTINUE**: the level it ended on again, on full lives and shields, with the run's score back to
+   0. The total the run had stands on its records and is offered to the leaderboard first, as at any game over; from
+   there the continued run's score is a total of its own (its finish says "Score from Level 12"), offered to the board
+   when it ends, and a continued run can't set the best full run's time. The boss rush has no CONTINUE.
    The lives are in the corner under the level's line: a small copy of your piece for each, its two waves meeting at
    its core, dim once spent. A death's results show them the same way, the one it spent going out. Lives belong to a
    full run and the boss rush; the level select's levels have none (above).
@@ -278,18 +314,31 @@ old scores unfair: the site then starts fresh boards, the old scores kept but no
    OFF TARGET or a gate not passed, drains it by 4%. Empty, the track is failed, which costs what a death costs.
    Under 25%, where it can fail you, it is in danger and says so: the screen's edges glow red, beating on the beat and
    the stronger the emptier it runs, and the meter flashes DANGER beside its figure. A track it fails says so too:
-   PERFORMANCE FAILED across the death, and PERFORMANCE METER EMPTY under FAIL on its results, so it isn't taken for
+   PERFORMANCE FAILED across the death, and PERFORMANCE METER EMPTY under FAIL (or GAME OVER) on its results, so it isn't taken for
    a laser's doing.
  - **Difficulty** decides what a run is. Each mode opens the difficulty screen, a button a difficulty, each saying what
    it gives, and pressing one starts the run or the rush on it, or opens the level select on it, which has a
    difficulty button of its own too. The numbers are
    `DIFFICULTIES` in run.js:
-   - EASY: 5 lives, 4 shields, warnings 25% longer, half points; performance fills 25% faster and drains 25% slower,
-     and can never fail you.
-   - NORMAL: 3 lives, 3 shields, warnings as written, points as scored; performance as written.
-   - HARD: 2 lives, 2 shields, warnings 15% shorter, points x1.5; performance fills 20% slower and drains 25% faster.
-   - TRUE: no lives, one shield, warnings 30% shorter, points x2; performance fills 35% slower and drains 50% faster.
-   The timing windows (PERFECT 50 ms, GREAT 80 ms, GOOD 110 ms, BAD 160 ms) are the same on every difficulty.
+   - EASY: 3 lives, 3 shields, warnings 50% longer, moving lasers at 40% of their speed, gaps 50% wider, half points;
+     performance fills 25% faster and drains 25% slower, and can never fail you.
+   - NORMAL: 3 lives, 3 shields, warnings 25% longer, moving lasers at 60% of their speed, gaps 30% wider, points as
+     scored; performance as written.
+   - HARD: 3 lives, 3 shields, warnings as written, moving lasers at 80% of their speed, gaps 15% wider, points x1.5;
+     performance fills 20% slower and drains 25% faster.
+   - TRUE: 3 lives, 3 shields, warnings 15% shorter, moving lasers at full speed, gaps as written, points x2;
+     performance fills 35% slower and drains 50% faster.
+   The moving lasers' pace (`speed`) is how fast a laser goes while it can hit: a corridor keeps its bar and gets that
+   much of its path through it; a sweeper, the radar, a pendulum and the spinning X make their whole way all the same,
+   taking that much longer (10 beats on EASY, 4 on TRUE), on into the bars after their own, but are done before laser
+   form, the level's end, another of them, or a bar with a place of its own to get into (a cage, a pincer, a corridor,
+   closing walls), going just fast enough for that where they must; and the drifting lasers take that much longer to
+   cross the screen (20 beats on EASY, 8 on TRUE).
+   The gaps (`gap`) are the ones the lasers leave to be in: a corridor's, a wall's and a sweeper's hole, 30% of the
+   height on TRUE and 45% on EASY; a pincer's and a cage's cell, 20% of the height (and a cage's 20% of the width) on
+   TRUE and 30% on EASY; and closing walls', 20% of the width on TRUE and 30% on EASY. All but a corridor's widen about
+   the same middle and are kept on the screen. The timing windows (PERFECT 50 ms, GREAT 80 ms, GOOD 110 ms, BAD 160 ms)
+   are the same on every difficulty.
    Records are kept per difficulty, and so are the level select's unlocks: a level beaten on one opens the next there only.
  - **The song:** each act has one, and a level plays it through: a kick on every beat with a snare on the second and
    fourth, a hat on the off-beats, opened on the bar's last, and a fill through every fourth bar's end; a bass, a pad,
@@ -319,7 +368,13 @@ old scores unfair: the site then starts fresh boards, the old scores kept but no
    menu theme from the start of its section and a paused level's song with its first beat after the pause. Where the
    browser won't give it back (Edge can keep it held, the sound effects that play from files still heard and the song
    and the drums gone), or keeps it running with its clock standing still, the game starts its audio afresh a moment
-   later, as reloading the page would.
+   later, as reloading the page would. It does the same when an audio device comes or goes (headphones, a monitor's
+   speakers waking, Windows changing its default device), as Chrome and Edge can go on playing into the device that
+   was there, or into nothing, while the sound effects from files play on the new one, and when the browser says the
+   audio failed. What the audio did is kept in the browser across a reload, the last 200 lines of it: if the sound
+   goes, reload, open the console (F12) and type `lazerAudioLog()` to see it, from the audio being made to its state
+   changing, a refusal to wake, starting afresh and why, the page hidden and back, the devices changing, each song
+   starting and stopping, and every half a minute its clock and its delay. Nothing in it is sent anywhere.
  - **Sound effects:** besides the beat, the lasers' zaps and your shots, the game's moments have sounds of their own,
    synthesized as the startup is and, where they have a pitch, in the act's key: a gate passed (two tones meeting in
    the beam the waves become, or parting again back to the wave), overdrive coming on (a shot, and the power surging
@@ -360,8 +415,9 @@ old scores unfair: the site then starts fresh boards, the old scores kept but no
 	- SPACE or MIDDLE MOUSE BUTTON = on a gate, switch between wave and laser; anywhere else, OVERDRIVE once its meter
 	  is full (the beat nearest the press decides).  Touch: the white button, which says GATE or OVERDRIVE.
 	- L = the level select, from the start screen.  P or ESCAPE = PAUSE, and again to resume.  H = instructions, from the start screen or a pause.  After a level, ENTER or SPACE = CONTINUE and
-	  R = RETRY (or click or tap them).  After a death, ENTER, SPACE or R = TRY AGAIN and Q = QUIT; at the game over,
-	  ENTER, SPACE or R = PLAY AGAIN.  After the final level, click or press R to play again.
+	  R = RETRY (or click or tap them).  After a death, ENTER, SPACE or R = TRY AGAIN and Q = QUIT; at a full run's game
+	  over, ENTER or SPACE = CONTINUE, R = PLAY AGAIN and Q = QUIT (at the boss rush's, ENTER, SPACE or R = PLAY AGAIN).
+	  After the final level, click or press R to play again.
 	- On a story screen: a click, ENTER, SPACE, ESCAPE or Z / X (a tap; A or START on a controller) brings the lore in,
 	  then goes on.
 	- The pause has RESUME, RETRY (the level again from its start: it costs the run the time, not a mistake) and QUIT
@@ -380,9 +436,9 @@ old scores unfair: the site then starts fresh boards, the old scores kept but no
 
 | File | What it holds |
 |---|---|
-| `audio.js` | The synthesized beat track (kick, hat, the crash a cleared level's song resolves on, count-in tick, laser zap, the piece's shot, the overdrive meter's chime when it fills, on Web Audio; the drums can play into a node and on a kit of their own, as the menu theme's do), the audio woken whenever the browser has it asleep (`beatAudio`, and in any press `wakeAudio`), or made afresh when it won't wake or its clock stands still (`audioRemake`, watched by `audioWatch`), the menu theme told when it runs again, when the startup sequence plays (its sound is `sfx.js`'s), the playlist (`TRACKS`, for recorded songs: empty, as the levels' songs are synthesized, `music.js`), sound effects, all but the beat track at the SOUND FX setting's level (`sfxLevel`) |
+| `audio.js` | The synthesized beat track (kick, hat, the crash a cleared level's song resolves on, count-in tick, laser zap, the piece's shot, the overdrive meter's chime when it fills, on Web Audio; the drums can play into a node and on a kit of their own, as the menu theme's do), the audio woken whenever the browser has it asleep (`beatAudio`, and in any press `wakeAudio`), or made afresh when it won't wake, its clock stands still, the devices change or it fails (`audioRemake`, watched by `audioWatch`; what it did kept across a reload, `audioLog`, printed by `lazerAudioLog()` in the console), the menu theme told when it runs again, when the startup sequence plays (its sound is `sfx.js`'s), the playlist (`TRACKS`, for recorded songs: empty, as the levels' songs are synthesized, `music.js`), sound effects, all but the beat track at the SOUND FX setting's level (`sfxLevel`) |
 | `layout.js` | The palette (`COLORS`), the 1280x800 layout frame, band fitting for phones, the HUD transform, banners, resize handling |
-| `waves.js` | `LEVELS` (the 25 levels: name and lore, bpm, bars, warning lead, phrases, colours, laser sections, and the curve they climb), the `PHRASES` that fill a bar, placing their beams on the tune's notes, the `COLOR_PATTERNS` that paint one, laser form's `TARGET_PHRASES` (`tune` traces the chorus), the seeded timeline (which phrase each bar gets from a stream of its own, `DEAL_SEEDS`), and what goes on screen: `Beam`, `Target`, `Gate` |
+| `waves.js` | `LEVELS` (the 25 levels: name and lore, bpm, warning lead, colours, lasers to dodge, boss, and each one's `chart`, its bars one by one, read by `chartLevel`; and the curve they climb, outlined in `PROGRESSION.md`), the `PHRASES` that fill a bar, placing their beams on the tune's notes, the `COLOR_PATTERNS` that paint one, laser form's `TARGET_PHRASES` (`tune` traces the chorus), the timeline a chart is built into (`buildTimeline`: each bar's details drawn by a stream of its own, `barRandom`; a drifting laser's time cut at a gate into laser form or the level's end), and what goes on screen: `Beam`, the drifting lasers' `Drifter` and `Mine`, `Target`, `Gate` |
 | `story.js` | The acts (`ACTS`: name, their band of the spectrum, backdrop and lore; five levels each) and the epilogue, and the story screens between levels: an act's intro, typed over its backdrop to its theme, a level's card, the epilogue before the finish |
 | `music.js` | Each act's song as MIDI notes (`SONGS`: a key, the `CHORDS` of its bars, its melody, the laser sections' lead, bass and arpeggio lines, and its lead's voice, with each of its other levels' own melody, lead and end in `tunes`, laid over it by `levelSong`), and the Web Audio synths that play it on the beat track's clock: bass, pad, arpeggio and lead, an echo, and a dip under every kick. It builds through its act, the laser sections play the chorus, overdrive opens the filters, a pause or a death cuts it, a clear resolves on the level's own `end` (a note or two onto the key's) over the key's chord, held and let ring (`musicEnd`), and an act's intro plays its theme. The MUSIC setting (`musicLevel`) scales all of it, or at OFF plays none, and a change over a paused level plays a moment of Act I's theme to be heard (on the menus, the menu theme is playing to hear it in: `theme.js`). `songTune` tells the timeline where the tune's notes are, and `zapNote` which one a laser sounds |
 | `sfx.js` | The synthesized sound effects, each a function of (context, time, output, argument) built from a small kit (`sfxKit`: enveloped gains, oscillators, noise, filters, panners, a ping-pong echo, a room, pulse waves) so it can be rendered offline as well as played (`playSfx`), at its own level (`SFX_LEVELS`, set by measurement against the sounds around it) times SOUND FX's: the startup sequence, the gate, overdrive's start and end, the absorb, the multiplier, the boss's siren and fall, the new best's bells, the game over and the finale |
@@ -391,12 +447,12 @@ old scores unfair: the site then starts fresh boards, the old scores kept but no
 | `world.js` | `component`, the player piece's stepped movement, the `hazards` list and hit testing |
 | `player.js` | The player's look: two sine waves drawn off its position history, drifting into a glowing trail, meeting on each beat, the coming beat's colour lit; once the level is done, at rest in one line, the core a steady white, and a ring going out from it as the song resolves |
 | `death.js` | The death animation: the picture of the hit, taken as the level stops, worked over for 1.3 s before the results in three overlapping movements (the prism split, burn-through, decoherence); it plays out whatever is pressed, and reduced effects skip it |
-| `boss.js` | The bosses: the Array's node at the right edge, its health (a point a target), the health bar in the progress stripe's slot, the break-up and the level's end at the bar it falls in, the loop that deals the level's last bars again while it stands, and the bonus it pays brought down, less the longer the fight ran; a level's `boss` in `LEVELS` names its fight |
+| `boss.js` | The bosses: the Array's node at the right edge, its health (`hp`, a point off it for a target struck or a laser absorbed), the health bar in the progress stripe's slot, the break-up and the level's end at the bar it falls in, the loop that deals the level's last bars again while it stands, and the bonus it pays brought down, less the longer the fight ran; a level's `boss` in `LEVELS` names its fight |
 | `hud.js` | Score / deaths / act and level readout, the overdrive meter and the progress stripe |
 | `fx.js` | The effects setting (auto / full / reduced / off, honouring reduced motion), `fxHash`, the CRT overlay |
 | `sky.js` | Each level's colour, from its act's band of the spectrum, and each act's backdrop in it (`SKY_STYLES`: rising embers, a sun over a grid, an oscilloscope, a warp, an aurora), pulsing on the beat under the level and the story screens (still once a level is done, and lit up as its song resolves), still under the screens between levels. Moving at full effects, still when reduced, only the colour when off |
 | `menu.js` | Start, mode (`playMode`), difficulty, options, help and level select screens (the select: an act a row, a tile a level, locked until the one before is beaten on the difficulty chosen), settings persistence, hover flash, slogans, start-screen glitches |
-| `practice.js` | The practice screen, in two sections: LEVELS, a tile for each of the game's levels, played whole (`practiceWave`); CUSTOM, a tile a laser type, the boxes for the rest, the level they describe (`practiceDef`, dealt in the song and seeds of the chosen act's middle level), the live preview (the game's own lasers and backdrop drawn onto a canvas of its own the size of the layout, the game's state swapped for the preview's while they step and draw, and put back), the aids (OVERDRIVE, AUTO TIMING, RESTART ON HIT, LOOP), the session's bests (in memory only, per setup: `practiceKey`), and PLAY. The rules of a practice level (counted hits, no lives, no records) live with the rest of the game's, under `practice` (loop.js, levels.js) |
+| `practice.js` | The practice screen, in two sections: LEVELS, a tile for each of the game's levels, played whole (`practiceWave`); CUSTOM, a tile a laser type, the boxes for the rest, the level they describe (`practiceDef`, charted, in the song and draws of the chosen act's middle level), the live preview (the game's own lasers and backdrop drawn onto a canvas of its own the size of the layout, the game's state swapped for the preview's while they step and draw, and put back), the aids (OVERDRIVE, AUTO TIMING, RESTART ON HIT, LOOP), the session's bests (in memory only, per setup: `practiceKey`), and PLAY. The rules of a practice level (counted hits, no lives, no records) live with the rest of the game's, under `practice` (loop.js, levels.js) |
 | `online.js` | The HIGH SCORES screen (`drawScoresScreen`), LOCAL (this browser's bests, `localRunBests`, `localLevelBests`) and GLOBAL, and the online leaderboards behind GLOBAL, where the WordPress plugin passes the site's scores address on the game's URL (`api=`): a ticket from the site as a play starts (`onlinePlayStarts`), a run's MAX COMBO (its combo at its longest, `runPeakCombo`, loop.js), the name asked for over the results when a new best would make its board's top ten (`onlineOffer`; a panel of the page's own, which keeps the keys and presses to itself while it is up), posting it, and GLOBAL's boards, a board at a time, by kind, level and difficulty, fetched as it is picked. `SCORE_VERSION` is the scoring the boards are kept under |
 | `titlelight.js` | The start screen's laser: a WebGL fragment shader on a screen-blended canvas over the game's, sweeping behind the title, with light-scattering rays the letters cut shadows through and their outlines burning where it passes. Only at full effects, and nothing at all without WebGL |
 | `titleparticles.js` | The start screen's particles, which go on rising behind its menu screens (the mode and difficulty screens, the level select, the options, the help and the timing test, behind whatever they draw), on a screen-blended canvas of their own: neon dust drifting up, big soft lights far behind it, a shooting star now and then, and sparks struck off the title's letters where the laser crosses behind them, the dust near the laser catching its light. They cut out everything the screen draws in front of its ground, read off the canvas (the title, the text, the buttons' frames and labels, the stripes), so they pass behind all of it and show through the buttons' insides. Moving at full effects, still when reduced, gone when off; the dust and stars without WebGL, the sparks only with the laser |
@@ -411,30 +467,40 @@ old scores unfair: the site then starts fresh boards, the old scores kept but no
   `.claude/safegap.js` and run `validateAll([10], 1000)`: it plays the level with the real lasers over a grid of piece
   positions and reports any moment with nowhere safe to reach, and the tightest moment (the share of the screen a piece
   could stand on and reach at a hand speed of 1000 px/s). Reload afterwards: it disarms the level to run it.
+  `cellConflicts([10])` reports a laser burning through a cage's cell or a pincer's gap, and `driftDeals([21])` a
+  drifting laser dealt where it can't get across or would drift through such a place.
 
 - A new pattern is a function in `PHRASES` (waves.js) that fills one bar with `add(fireBeat, axis, pos, size, more)`,
   `more` being anything else the event carries (`{ hold }`, the beats a held note's beam burns for; `{ kind: "fall" }`
-  for a faller); list its name in a level's `phrases`, alone or in a combination ("a+b" deals both into one bar). It is handed the bar's `tune` too (`songTune`, music.js):
+  for a faller); put its name in a level's `chart`, alone or in a combination ("a+b" deals both into one bar,
+  "a+b+c" all three). It is handed the bar's `tune` too (`songTune`, music.js):
   `onset[i]`, the note the tune starts on beat i, or null, `hold[i]`, how many beats it is held, `sound[i]`, the note
   sounding on it, and `bass[i]`, the bass's note under it; `tuneBeam` and `tuneAt` put a note at its height on the
-  screen, and `bassAt` the bass's across it, so the lasers follow the song. Which phrase each bar gets is drawn from
-  a seeded stream of its own (`DEAL_SEEDS`, one seed a level), apart from the phrases' own draws, so changing a
-  phrase or the music never deals a level's bars another way; adding, removing or reordering an entry in a level's
-  `phrases` does, so pick its seed again (one whose wave bars deal every type and combination the list holds) and
-  run `.claude/safegap.js` over it.
+  screen, and `bassAt` the bass's across it, so the lasers follow the song. Its random draws (a height where the tune
+  has no note, which way a thing goes) come from `rnd`, a stream of the bar's own.
 - A level is an entry in `LEVELS` with its `name` and `lore` (a line or two of the story for its card, never how to
-  play it); every five of them are an
+  play it), and its `chart`: the level bar by bar after the count-in, an entry a bar, its place in the list the bar's
+  number (bar 0, the opening rest, first). An entry is `"rest"`, a phrase, a combination of two or three
+  (`"pincer+cage"`, `"swarm+rain+stairs"`), or a bar in laser form with the targets it deals (`"laser:zigzag"`), a
+  run of those a laser section, opened and closed by a gate; a boss's level goes round from the bar before its last.
+  Changing an entry changes that bar alone: each bar's details are drawn by streams of its own (`barRandom`). An entry
+  that names nothing is said so in the console, and plays as a rest. After changing a chart, run
+  `node .claude/progression.js` (about a minute, no browser): it works out the tables in `PROGRESSION.md`, the curve
+  the charts climb, again from the charts, and checks every level as `.claude/safegap.js` would: a moment with nowhere
+  to go (measured as `validateAll` does), a laser through a cage's cell or a pincer's gap (`cellConflicts`), and a
+  drifting laser just before a laser section or the level's end, or in the two bars before a cage, a pincer, a
+  corridor or closing walls (`driftDeals`). What it finds is listed in its output and under the outline's Checks, and
+  it exits with 1; `--check` prints the outline without writing it. Every five levels are an
   act. An act is an entry in `ACTS` (story.js): its `name`, `jp`, the `band` of the spectrum its levels' colours run
   through (in nm), its `sky` (a style in `SKY_STYLES`, sky.js, which draws over the level's colour) and its `lore`; and
   a song in `SONGS`.
 - A level's `colors` lists the `COLOR_PATTERNS` its bars are painted from (`solid`, `pairs`, `alt`), the knob for how
-  hard the colours are to read; none makes it colourless. The colours come from a random stream of their own, so
-  changing them never moves a beam.
-- A level's `laser` lists its laser sections as `[first bar, bars]`; a gate opens and closes each. Their bars are drawn
-  from its `targets`, names in `TARGET_PHRASES`, whose functions fill a bar with `add(fireBeat, "target", height, size)`.
-  Laser form has a random stream of its own too, so adding or moving a section leaves the wave bars around it alone.
-  Its `dodges` is how many lasers each laser bar fires across the path between targets; they only go where two
-  targets are at least `DODGE_GAP` apart, keeping `DODGE_MARGIN` clear round each, and have a stream of their own.
+  hard the colours are to read; none makes it colourless. Each bar's pattern is drawn from the list by the bar's own
+  colour stream, so changing them never moves a beam.
+- A laser form bar's targets are a name in `TARGET_PHRASES`, whose functions fill a bar with
+  `add(fireBeat, "target", height, size)`. A level's `dodges` is how many lasers each laser bar fires across the path
+  between targets; they only go where two targets are at least `DODGE_GAP` apart, keeping `DODGE_MARGIN` clear round
+  each, and are picked by the bar's own stream.
 - A new hazard is anything with `x, y, width, height, update()`, plus `step()` (return `false` when done), `hits(piece)`
   and `fit()`; `Beam` is the model (with `{ kind: "fall" }` or `{ kind: "slide", from, lead }` it moves to where it
   fires, with `{ kind: "chase" }` it hunts the piece's height, with `{ span }` it covers a stretch of the width), and

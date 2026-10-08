@@ -196,6 +196,23 @@ function pageBack() { // the page is in sight and in hand again: the audio woken
     themeSync();
 }
 
+// Embedded in a page (the WordPress plugin's frame), the game tells the page whether a level is being played, so the
+// page can hold back its own menu, and a middle click's scrolling, from a right or a middle click (MAGENTA, the GATE)
+// that lands outside the frame as the cursor strays past its edge (embed.js). Said only when it changes
+var hostPlaying = null;
+
+function tellHost() {
+    var playing = !!(gameStart && alive && !pause);
+    if (playing === hostPlaying || !window.parent || window.parent === window) {
+        return;
+    }
+    hostPlaying = playing;
+    try {
+        window.parent.postMessage({ lazerWave: "playing", playing: playing }, "*"); // nothing in it but that
+    } catch (e) { // a page that won't be told: it keeps its menu
+    }
+}
+
 function cancelResume() { // stop a touch resume countdown
     if (resumeTimer) {
         clearTimeout(resumeTimer);
@@ -1076,6 +1093,13 @@ function bindInput() { // the touch, mouse, keyboard, controller and page listen
     window.addEventListener("focus", pageBack); // back from another window or app, the page never out of sight
     window.addEventListener("pageshow", pageBack); // or out of the back-forward cache
     window.addEventListener("pagehide", releaseAll);
+    window.addEventListener("contextmenu", function (e) { // the browser's menu kept off the game, a right click being
+        // MAGENTA: anywhere on the page but a text field (the name asked for, online.js), which keeps its own
+        if (!/^(INPUT|TEXTAREA)$/.test(e.target && e.target.tagName || "")) {
+            e.preventDefault();
+        }
+    }, true);
+    setInterval(tellHost, 250); // and the page it is embedded in told when a level is being played
     STARTUP_PRESSES.forEach(function (type) { window.addEventListener(type, wakeAudio, true); }); // and any press wakes
     // the audio, if it is still asleep: some browsers only let it start again in one (audio.js)
     window.addEventListener('click', function (e) {
@@ -1233,8 +1257,9 @@ function bindInput() { // the touch, mouse, keyboard, controller and page listen
         }
         if (resultsUp && resultForKey(key) && !e.ctrlKey && !e.metaKey) {
             // a level's results: a clear's R = RETRY, ENTER or SPACE = CONTINUE; a death's R, ENTER or SPACE = TRY
-            // AGAIN (PLAY AGAIN at the game over) and Q = QUIT. Nothing else hears the key, not even the action SPACE
-            // is bound to
+            // AGAIN (PLAY AGAIN at the boss rush's game over; at a full run's, ENTER or SPACE = CONTINUE and R = PLAY
+            // AGAIN) and Q = QUIT (resultForKey, levels.js). Nothing else hears the key, not even the action SPACE is
+            // bound to
             e.preventDefault();
             if (!e.repeat) {
                 chooseResult(resultForKey(key));

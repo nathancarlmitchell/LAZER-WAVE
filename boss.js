@@ -1,21 +1,22 @@
 // Lazer Wave -- the bosses. A level with a boss (`boss` in its LEVELS entry, waves.js: { name, kind }) is a fight
-// with the Array. Its health is the level's targets: every one struck lined up takes one, and so does every laser
-// absorbed in overdrive. Its own bars are the level's wave bars, to be survived; yours are its laser bars, to hurt it
-// in. The name and a health bar take the top stripe's slot in place of the level's progress. At no health it breaks
+// with the Array. Its health is its own (hp), and only a target struck lined up takes a point of it (a laser absorbed
+// in overdrive pays, but doesn't hurt it). Its own bars are the level's wave bars, to be survived; yours are its
+// laser bars, to hurt it in. The name and a health bar take the top stripe's slot in place of the level's progress.
+// At no health it breaks
 // up: the lasers stop, the gates go, the form is the wave's, and the bar plays out as a pause, the beat track stopped, the
 // song resolving on its first beat with a last kick and a crash, as a level's does on the bar line after its last laser
 // (finalHit, loop.js), and no beat in it to hit or miss (playEnd); the level ends there, cleared.
 // Until then the level does not end: with its end in view and the boss still up, its loop, the bars from the one
 // before its last laser section to its last, is dealt again (loopFrom, waves.js; extendLevel, loop.js), a round
 // more, as many as it takes; the health bar counts the rounds, and the rank counts every beat of every one. Brought
-// down, the boss pays a bonus (bossBonus): the whole of it for a fight finished in the first round, less the longer
-// the fight runs on.
+// down, the boss pays a bonus (bossBonus): the whole of it for a fight finished by its par, the earliest round it can
+// fall in (bossPar), less the longer the fight runs on after that.
 //
 // Five kinds, one an act, each with a signature: "node" (Red Giant), a node at the right edge where the targets come
 // from; "twin" (Interference), a node at each edge, laser form facing right in its first section and left in its
 // second (facing, loop.js); "radar" (Static Bloom), a node in the middle of the screen, the radar's pivot, whose arm
-// runs slower the more it is hurt (bossSlow); "chaser" (Overdrive), a node that follows the piece's height, whose
-// ports are open only while overdrive runs; and "mirror" (Lazer Wave), a mirror of the piece on the right that fires
+// runs slower the more it is hurt (bossSlow); "chaser" (Overdrive), a node that follows the piece's height; and
+// "mirror" (Lazer Wave), a mirror of the piece on the right that fires
 // back, on every other beat of its bars, at the height the piece was at a bar ago. index.html loads this with a
 // plain <script src>, as globals rather than modules, so the game still opens straight off disk.
 
@@ -30,7 +31,7 @@ var BOSS_ECHO_EVERY = 2; // the mirror fires on every this-many-th beat of its b
 var BOSS_MIRROR_X = 0.85; // of the width: where the mirror's head sits
 var BOSS_MIRROR_TAIL = 150; // px: its waves, trailing to the right
 var BOSS_BONUS = 1000; // points a boss brought down pays, an act's number of times over (Red Giant 1000, Lazer Wave 5000),
-// at NORMAL's rate, for a fight finished within the level's own bars: its first round
+// at NORMAL's rate, for a fight finished by its par, the earliest round it can fall in (bossPar)
 var bossBonusWon = 0; // what the boss brought down in this attempt paid, for the results
 
 var boss = null; // the level's boss while it has one: { name, kind, max, health, downAt, parts, y, echo }
@@ -40,8 +41,10 @@ function bossUp() { // a boss level, its boss still standing
     return boss !== null && boss.downAt === null;
 }
 
-function bossStart(def, timeline) { // a level starts: its boss, if it has one, with a point of health for every target
-    // the level has
+function bossStart(def, timeline, all) { // a level starts: its boss, if it has one, with its health (hp in its LEVELS
+    // entry, or a point for every target the level has): all of it from the level's start, and from a later bar
+    // (practice's START AT) the share of it that the targets still to come (timeline) are of all the level's (all);
+    // and its par, the earliest round it can fall in from here (bossPar)
     boss = null;
     bossBonusWon = 0;
     var quiet = bossSirenQuiet;
@@ -49,20 +52,24 @@ function bossStart(def, timeline) { // a level starts: its boss, if it has one, 
     if (!def.boss) {
         return;
     }
-    var targets = timeline.filter(function (ev) { return ev.axis == "target"; }).length;
-    boss = { name: def.boss.name, kind: def.boss.kind || "node", max: Math.max(1, targets), health: Math.max(1, targets),
+    var count = function (list) { return list.filter(function (ev) { return ev.axis == "target"; }).length; };
+    var targets = count(timeline), hp = def.boss.hp ? Math.round(def.boss.hp * targets / Math.max(1, count(all || timeline)))
+        : targets;
+    boss = { name: def.boss.name, kind: def.boss.kind || "node", max: Math.max(1, hp), health: Math.max(1, hp),
         downAt: null, parts: [], y: 0.5, echo: {} };
+    boss.par = bossPar(def, all || timeline, firstPlayBeat(), boss.max);
     if (!quiet) { // and its siren, over the count-in (sfx.js)
         playSfx(sfxBossWarning, 0, SFX_LEVELS.bossWarning, actSong(level).key);
     }
 }
 
-function bossBonus(at) { // the points the boss pays brought down at beat `at`: the act's BOSS_BONUS within the level's own
-    // bars, and less the longer the fight runs past them, by rounds (loopLen, loop.js): a round more halves it, two more
-    // thirds it; times the combo's multiplier as it stands, so a boss beaten on a long streak pays as the streak does
-    // (overdrive's doubling does not apply), and as the combo cannot climb past the first round (earning, loop.js) a
-    // fight drawn out only loses; at the difficulty's rate (modePoints, run.js)
-    var own = (COUNT_IN_BARS + wave.bars) * BEATS_PER_BAR;
+function bossBonus(at) { // the points the boss pays brought down at beat `at`: the act's BOSS_BONUS by the end of its
+    // par, the earliest round it can fall in (bossPar), and less the longer the fight runs past that, by rounds
+    // (loopLen, loop.js): a round more halves it, two more thirds it; times the multiplier as it stands (the combo's
+    // times the level's, loop.js), so a boss beaten on a long streak pays as the streak does (overdrive's doubling does
+    // not apply), and as the combo cannot climb past its par (earning, loop.js) a fight drawn out only loses; at the
+    // difficulty's rate (modePoints, run.js)
+    var own = (COUNT_IN_BARS + wave.bars) * BEATS_PER_BAR + Math.max(0, boss.par - 1) * loopLen;
     var over = loopLen > 0 ? Math.max(0, at - own) / loopLen : 0;
     return modePoints(BOSS_BONUS * levelAct(level) * multiplier() / (1 + over));
 }
@@ -71,12 +78,39 @@ function bossSlow() { // what the radar's arm is slowed by: 1 unless Static Bloo
     return boss && boss.kind == "radar" && boss.downAt === null ? 1 + BOSS_SLOW * (1 - boss.health / boss.max) : 1;
 }
 
-function bossPortsOpen() { // can a target struck hurt the boss now: always, but for Overdrive's, open only in overdrive
-    return !boss || boss.kind != "chaser" || driveOn();
+// The earliest round a boss can fall in: 1, the level's own bars; 2, the first time round again; and so on. Played
+// perfectly from beat `first`, every target struck, the loop's again each round, until they have taken its health
+// (hp). A boss level earns in every round up to it (earning, loop.js), and its bonus is whole until it ends. Never later
+// than BOSS_PAR_MOST
+var BOSS_PAR_MOST = 30;
+
+function bossPar(def, all, first, hp) {
+    var own = (COUNT_IN_BARS + def.bars) * BEATS_PER_BAR, from = loopFrom(def);
+    if (from === null) {
+        return 1;
+    }
+    var loopAt = (COUNT_IN_BARS + from) * BEATS_PER_BAR, struck = 0, again = 0;
+    all.forEach(function (ev) {
+        if (ev.axis == "target" && ev.fire >= first && ev.fire < own) {
+            struck++; // the first round's
+        }
+        if (ev.axis == "target" && ev.fire >= loopAt && ev.fire < own) {
+            again++; // and every round's after it
+        }
+    });
+    var round = 1;
+    while (struck < hp && round < BOSS_PAR_MOST) {
+        if (!again) {
+            return BOSS_PAR_MOST;
+        }
+        struck += again;
+        round++;
+    }
+    return round;
 }
 
-function bossHit(n, port) { // a target struck (port), or n lasers absorbed: health off it, and at none, down it goes
-    if (!bossUp() || (port && !bossPortsOpen())) {
+function bossHit(n) { // n targets struck: health off it, and at none, down it goes
+    if (!bossUp()) {
         return;
     }
     boss.health = Math.max(0, boss.health - n);
@@ -94,7 +128,7 @@ function bossDown() { // the boss breaks up, the bar plays out, and the level en
         last = Math.max(last, Number(j));
     }
     boss.playEnd = Math.max(Math.ceil(beatPos), last + 1);
-    bossBonusWon = bossBonus(beatPos); // the fight's points: the most for one finished in the first round
+    bossBonusWon = bossBonus(beatPos); // the fight's points: the most for one finished by its par
     score += bossBonusWon;
     var barEnd = (Math.floor(beatPos / BEATS_PER_BAR) + 1) * BEATS_PER_BAR;
     if (barEnd < beatPos + BOSS_BREAK) {
@@ -146,13 +180,15 @@ function bossStep() { // each step: the chaser's node eases toward the piece's h
 }
 
 function bossBeat(b) { // a beat went by: the mirror remembers where the piece is, and in its own bars fires, on every
-    // other beat, at where the piece was a bar ago, a beam warned the level's warning ahead
+    // other beat, at where the piece was a bar ago, a beam warned the level's warning ahead. Not one that would fire in
+    // laser form, which a longer warning reaches into from the bar before: the piece is held to its line then
     if (!bossUp() || boss.kind != "mirror") {
         return;
     }
     boss.echo[b] = (gamePiece.y + gamePiece.height / 2) / gameArea.canvas.height;
     var was = boss.echo[b - BOSS_ECHO_BEATS], lead = Math.ceil(warnBeats());
-    if (was === undefined || form != "wave" || b % BOSS_ECHO_EVERY != 0 || b + lead >= totalBeats) {
+    var fireBar = levelBar(Math.floor((b + lead) / BEATS_PER_BAR) - COUNT_IN_BARS);
+    if (was === undefined || form != "wave" || b % BOSS_ECHO_EVERY != 0 || b + lead >= totalBeats || laserBars(wave)[fireBar]) {
         return;
     }
     hazards.push(makeHazard({ fire: b + lead, axis: "h", pos: Math.max(BEAM_TOP, Math.min(0.97 - BEAM_SIZE, was - BEAM_SIZE / 2)),
@@ -210,7 +246,7 @@ function drawBoss() { // the boss, behind the lasers and the targets, by kind; o
     } else if (boss.kind == "chaser") { // a block at the right edge, on the piece's height, a step behind it
         var top = Math.max(0, Math.min(H - BOSS_CHASE_H * H, boss.y * H - BOSS_CHASE_H * H / 2));
         bossColumn(W - col, W, 1, life, pulse, top, top + BOSS_CHASE_H * H);
-        bossPorts(W - col / 2, life, bossPortsOpen() ? 1 : 0.35);
+        bossPorts(W - col / 2, life);
     } else if (boss.kind == "mirror") { // the mirror of the piece: two waves trailing to the right from a head at
         // where the piece was a bar ago, in the piece's colours but dim, round a core in the laser's red
         var hx = BOSS_MIRROR_X * W, hy = bossEchoY() * H, gap = waveGap(beatPos, WAVE_GAP);
@@ -304,11 +340,10 @@ function drawBossBar() { // the top stripe's slot: the boss's name and its healt
     ctx.globalAlpha = 1;
     ctx.font = "bold 14px Arial";
     ctx.fillStyle = COLORS.laserCore;
-    var note = boss.downAt !== null ? "DOWN   +" + bossBonusWon : boss.health + " / " + boss.max
-        + (passes > 0 ? "   ROUND " + (passes + 1) + " (SCORE HELD)" : "") // the loop's round, once it has gone round: nothing
-        // is earned in it (earning, loop.js)
-        + "   BONUS " + bossBonus(beatPos) // what it pays brought down now: less as the fight runs on
-        + (boss.kind == "chaser" && !driveOn() ? "   ports shut: overdrive opens them" : "");
+    var note = boss.downAt !== null ? "DOWN   +" + scoreText(bossBonusWon) : boss.health + " / " + boss.max
+        + (passes > 0 ? "   ROUND " + (passes + 1) + (passes + 1 > boss.par ? " (SCORE HELD)" : "") : "") // the loop's
+        // round, once it has gone round: past its par nothing is earned in it (earning, loop.js)
+        + "   BONUS " + scoreText(bossBonus(beatPos)); // what it pays brought down now: less as the fight runs on
     ctx.fillText(boss.name + "   " + note, 12, BAR_TOP + BAR_H - 5);
     ctx.restore();
 }

@@ -9,19 +9,28 @@
 // rather than configure one. Each is a few numbers. lives: the deaths a run survives, each buying the level again
 // with its points kept, the death after the last being the game over. shields: what an attempt starts with. warn:
 // what a level's warning time is multiplied by (its `warn`, waves.js: how many beats ahead a laser shows itself).
+// speed: the pace of the lasers that move as they burn, of TRUE's (laserPace, waves.js): a corridor keeps its bar and
+// covers less of its path, a sweeper, the radar, a pendulum and the spinning X make their whole way all the same over
+// the bars after their own, the drifting lasers take longer to cross.
+// gap: how much wider the gaps the player is asked into are than TRUE's: a corridor's, a wall's, closing walls', a
+// pincer's, a cage's cell and a sweeper's hole (gapRoom, waves.js).
 // points: what every point scored is multiplied by. perfGain and perfDrain: what the performance meter's fill on a
 // hit and drain on a miss are multiplied by (loop.js), and perfFail: false means an empty meter never fails the
 // track. The timing windows are the same on every difficulty. blurb: what all that comes to, said on its button in a
 // line or two. Records are kept per difficulty (rec), and so are the level select's unlocks (levelBeaten).
 const DIFFICULTIES = [
-    { name: "easy", label: "EASY 簡単", lives: 5, shields: 4, warn: 1.25, points: 0.5, perfGain: 1.25, perfDrain: 0.75,
-        perfFail: false, blurb: ["5 lives · 4 shields · half points", "long warnings · performance can't fail you"] },
-    { name: "normal", label: "NORMAL 普通", lives: 3, shields: 3, warn: 1, points: 1, perfGain: 1, perfDrain: 1,
-        blurb: ["3 lives · 3 shields · points as scored", "warnings as written · performance fails at empty"] },
-    { name: "hard", label: "HARD 難しい", lives: 2, shields: 2, warn: 0.85, points: 1.5, perfGain: 0.8, perfDrain: 1.25,
-        blurb: ["2 lives · 2 shields · points x1.5", "short warnings · performance fills slower, drains faster"] },
-    { name: "true", label: "TRUE 真", lives: 0, shields: 1, warn: 0.7, points: 2, perfGain: 0.65, perfDrain: 1.5,
-        blurb: ["no lives · 1 shield · points x2", "the shortest warnings · performance fills slowest, drains fastest"] },
+    { name: "easy", label: "EASY 簡単", lives: 3, shields: 3, warn: 1.5, speed: 0.4, gap: 1.5, points: 0.5,
+        perfGain: 1.25, perfDrain: 0.75, perfFail: false,
+        blurb: ["half points · moving lasers at their slowest", "long warnings · performance can't fail you"] },
+    { name: "normal", label: "NORMAL 普通", lives: 3, shields: 3, warn: 1.25, speed: 0.6, gap: 1.3, points: 1,
+        perfGain: 1, perfDrain: 1,
+        blurb: ["points as scored · moving lasers slowed", "warnings as written · performance fails at empty"] },
+    { name: "hard", label: "HARD 難しい", lives: 3, shields: 3, warn: 1, speed: 0.8, gap: 1.15, points: 1.5,
+        perfGain: 0.8, perfDrain: 1.25, blurb: ["points x1.5 · moving lasers a little slowed",
+            "short warnings · performance fills slower, drains faster"] },
+    { name: "true", label: "TRUE 真", lives: 3, shields: 3, warn: 0.85, speed: 1, gap: 1, points: 2,
+        perfGain: 0.65, perfDrain: 1.5, blurb: ["points x2 · moving lasers at full speed",
+            "the shortest warnings · performance fills slowest, drains fastest"] },
 ];
 var difficulty = "normal";
 var runLives = 0; // lives left this run
@@ -45,6 +54,11 @@ function shieldsMax() { // the shields an attempt starts with on this difficulty
 
 function modePoints(points) { // points scored, at what this difficulty makes them worth
     return Math.round(points * mode().points);
+}
+
+function scoreText(n) { // a score as it is shown, its thousands set off with commas (1,234,567), as the site's boards
+    // show them; anything not a number (a dash for none) as it is
+    return typeof n == "number" && isFinite(n) ? String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, ",") : String(n);
 }
 
 function startRunLives() { // a run begins: the lives are its own (the HUD shows them, drawLife)
@@ -115,7 +129,7 @@ var runRecord = false; // and, on a run or a rush, whether its total as the leve
 var reachRecord = false; // whether the death just had got further through its unbeaten level than any attempt before
 
 var RECORD_MAX_MS = 86400000; // a day: past this a stored time is not a run, and printing it would look broken
-var RECORD_MAX_SCORE = 1e10; // and past this a stored score is not one the game can give, the multiplier having no ceiling
+var RECORD_MAX_SCORE = 1e12; // and past this a stored score is not one the game can give, the multiplier having no ceiling
 
 function storedTime(v) { // a stored number we are willing to believe
     return typeof v == "number" && isFinite(v) && v > 0 && v <= RECORD_MAX_MS ? v : null;

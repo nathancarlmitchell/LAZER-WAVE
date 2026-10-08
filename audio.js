@@ -139,6 +139,91 @@ var audioRemadeAt = -Infinity; // when it was last made afresh
 var audioClockAt = 0, audioClockTime = 0; // its clock as last watched: the page's time then, and its own
 var audioPressed = false; // the page has had a press (where the browser can't say: navigator.userActivation)
 var audioWatchTimer = null;
+var audioWakeTold = false; // a refusal to wake has gone in the log since it last ran (one line, not one a frame)
+// A device coming or going (headphones, a monitor's speakers waking, Windows changing its default) leaves Chrome's and
+// Edge's audio on the one that was there, or on a stand-in that keeps its clock running and plays nothing: "running",
+// its clock moving, and silent, while the sound effects that play from files open on the new one and are heard. So
+// audio is made afresh on whatever is there now when the devices change, once they settle, and when the browser says it
+// failed (an AudioContext's "error")
+var AUDIO_DEVICE_SETTLE_MS = 800;
+var audioDeviceTimer = null;
+
+// What the audio did, kept in the browser across a reload (the last AUDIO_LOG_MAX lines), so the moment it went quiet
+// can be looked into after the page was reloaded to bring the sound back: lazerAudioLog() in the console prints it. A
+// line a second at most: made, its state changing, a refusal to wake, made afresh and why, the page hidden and back,
+// the devices changing, a song starting and stopping, and every AUDIO_LOG_EVERY_MS while it runs, its clock and its
+// delay. It stays in the browser: nothing is sent anywhere
+var AUDIO_LOG_STORE = "lazerwave.audiolog";
+var AUDIO_LOG_MAX = 200;
+var AUDIO_LOG_EVERY_MS = 30000;
+var audioLogLines = audioLogLoad();
+var audioLogBeatAt = 0; // performance.now() of the last of those
+
+function audioLogLoad() {
+    try {
+        var kept = JSON.parse(window.localStorage.getItem(AUDIO_LOG_STORE) || "[]");
+        return Array.isArray(kept) ? kept.slice(-AUDIO_LOG_MAX) : [];
+    } catch (e) {
+        return [];
+    }
+}
+
+function audioLog(what) { // a line in the log: the time as the clock on the wall has it, and what
+    var d = new Date(), two = function (n) { return (n < 10 ? "0" : "") + n; };
+    audioLogLines.push(d.getFullYear() + "-" + two(d.getMonth() + 1) + "-" + two(d.getDate()) + " " + two(d.getHours())
+        + ":" + two(d.getMinutes()) + ":" + two(d.getSeconds()) + "  " + what);
+    if (audioLogLines.length > AUDIO_LOG_MAX) {
+        audioLogLines.splice(0, audioLogLines.length - AUDIO_LOG_MAX);
+    }
+    try {
+        window.localStorage.setItem(AUDIO_LOG_STORE, JSON.stringify(audioLogLines));
+    } catch (e) { // a private window, or storage turned off: kept for this page only
+    }
+}
+
+function lazerAudioLog() { // the log, printed: type lazerAudioLog() in the browser's console (F12), even after a reload
+    console.log(audioLogLines.length ? audioLogLines.join("\n") : "(nothing in the audio's log yet)");
+    return audioLogLines.length + " lines, the newest last";
+}
+
+function audioState(c) { // a context's state for the log, with its clock and its delay as it reports them
+    return c.state + ", clock " + c.currentTime.toFixed(1) + " s, delay " + Math.round(1000 * ((c.baseLatency || 0)
+        + (c.outputLatency || 0))) + " ms" + (typeof c.sinkId == "string" && c.sinkId ? ", device " + c.sinkId : "");
+}
+
+function audioLogStart() { // the page loaded: said in the log, and in the console if the page before had trouble
+    var from = -1;
+    for (var i = audioLogLines.length - 1; i >= 0 && from < 0; i--) {
+        if (audioLogLines[i].indexOf("page loaded") >= 0) {
+            from = i;
+        }
+    }
+    var trouble = audioLogLines.slice(from + 1).some(function (line) {
+        return /afresh|wouldn't wake|failed|devices changed|stood still/.test(line);
+    });
+    if (trouble) {
+        console.info("Lazer Wave: the audio had trouble before this page loaded: lazerAudioLog() prints what it did");
+    }
+    var browser = /(Edg|OPR|Firefox|Chrome|Version)\/[\d.]+/.exec(navigator.userAgent);
+    audioLog("page loaded (" + (browser ? browser[0] : "browser unknown") + ")");
+    document.addEventListener("visibilitychange", function () {
+        audioLog(document.hidden ? "page hidden" : "page back" + (audioCtx ? ": " + audioState(audioCtx) : ""));
+    });
+    if (navigator.mediaDevices && navigator.mediaDevices.addEventListener) {
+        navigator.mediaDevices.addEventListener("devicechange", audioDevicesChanged);
+    }
+}
+
+function audioDevicesChanged() { // a device came or went: the audio made afresh on whatever is there, once they settle
+    audioLog("the audio devices changed" + (audioCtx ? " (" + audioState(audioCtx) + ")" : ""));
+    clearTimeout(audioDeviceTimer);
+    audioDeviceTimer = setTimeout(function () {
+        audioDeviceTimer = null;
+        if (audioCtx) {
+            audioRemake("the audio devices changed");
+        }
+    }, AUDIO_DEVICE_SETTLE_MS);
+}
 
 // Each act's drum kit, indexed as ACTS is (story.js): kick, the pitch its sine drops from and to and its decay; snare,
 // the band its noise is in and its decay; clap, whether a clap doubles the snare; hat, the edge its noise is cut at.
@@ -172,21 +257,45 @@ function beatAudio() { // the audio context, made on first use and woken if it i
         }
         audioCtx = made;
         audioRunningAt = performance.now();
+        audioLog("audio made: " + audioState(made) + ", " + made.sampleRate + " Hz");
         made.onstatechange = function () { // started, or woken however it was: its delay's estimate starts over, and
             // the menu theme, if it is wanted, starts again (theme.js), after whatever waited on the waking itself (the
             // startup sequence, which the theme comes in under)
+            audioLog("audio now " + audioState(made));
             if (made.state == "running") {
                 audioRunningAt = performance.now();
                 audioAsleepSince = 0;
+                audioWakeTold = false;
                 setTimeout(themeSync, 0);
             }
         };
+        if (made.addEventListener) { // the browser saying the audio failed (its device lost, say): made afresh, though
+            // not again within AUDIO_RETRY_MS of the last time, so a device gone for good isn't remade on end
+            made.addEventListener("error", function (e) {
+                audioLog("audio failed" + (e && e.error ? ": " + e.error : ""));
+                if (made === audioCtx && performance.now() - audioRemadeAt >= AUDIO_RETRY_MS) {
+                    setTimeout(function () {
+                        if (made === audioCtx) {
+                            audioRemake("it failed");
+                        }
+                    }, 0);
+                }
+            });
+            made.addEventListener("sinkchange", function () {
+                audioLog("audio moved to another device: " + audioState(made));
+            });
+        }
         if (audioWatchTimer === null) {
             audioWatchTimer = setInterval(audioWatch, 1000);
         }
     }
     if (audioCtx.state == "suspended" || audioCtx.state == "interrupted") {
-        audioCtx.resume().catch(function () {});
+        audioCtx.resume().catch(function (e) {
+            if (!audioWakeTold) {
+                audioWakeTold = true;
+                audioLog("audio wouldn't wake: " + (e && e.name ? e.name : "refused") + " (" + audioCtx.state + ")");
+            }
+        });
     }
     return audioCtx;
 }
@@ -199,7 +308,7 @@ function wakeAudio() { // a press of a kind a browser lets sound start from (STA
         return;
     }
     if (audioStuck()) {
-        audioRemake();
+        audioRemake("it stayed asleep after the page tried to wake it");
     } else {
         audioTried();
         beatAudio();
@@ -230,13 +339,17 @@ function audioWatch() { // every second, while the page is in sight: audio that 
     if (audioCtx.state != "running") {
         audioClockAt = 0;
         if (audioStuck()) {
-            audioRemake();
+            audioRemake("it stayed asleep after the page tried to wake it");
         }
         return;
     }
+    if (now - audioLogBeatAt >= AUDIO_LOG_EVERY_MS) { // how it stands, in the log now and then
+        audioLogBeatAt = now;
+        audioLog("audio " + audioState(audioCtx) + (music ? ", a song playing" : ""));
+    }
     var real = now - audioClockAt, moved = 1000 * (audioCtx.currentTime - audioClockTime);
     if (audioClockAt && real >= AUDIO_STUCK_MS && moved < AUDIO_STALL * real && now - audioRemadeAt >= AUDIO_RETRY_MS) {
-        audioRemake();
+        audioRemake("its clock stood still: " + Math.round(moved) + " ms in " + Math.round(real) + " ms");
         return;
     }
     if (!audioClockAt || real >= AUDIO_STUCK_MS) {
@@ -245,10 +358,11 @@ function audioWatch() { // every second, while the page is in sight: audio that 
     }
 }
 
-function audioRemake() { // the audio given up on: closed, and made afresh, as reloading the page would make it. What
+function audioRemake(why) { // the audio given up on: closed, and made afresh, as reloading the page would make it. What
     // played on the old goes with it, to start again on the new: a level's song with its next beat (music.js), the menu
     // theme where its section began once the new one runs (theme.js), an act's theme where it was (introTick)
     var old = audioCtx, state = old.state;
+    audioLog("audio made afresh: it was " + audioState(old) + (why ? "; " + why : ""));
     audioRemadeAt = performance.now();
     audioAsleepSince = 0;
     audioClockAt = 0;
@@ -260,10 +374,13 @@ function audioRemake() { // the audio given up on: closed, and made afresh, as r
     old.onstatechange = null;
     old.close().catch(function () {});
     // said in the console, as nothing else in the game is: a browser holding the sound is what to look for if it stays
-    console.info("Lazer Wave: the audio was " + state + " and wouldn't start again, so it was made afresh");
+    console.info("Lazer Wave: the audio was " + state + (why ? " (" + why + ")" : "") + ", so it was made afresh: "
+        + "lazerAudioLog() prints what it did");
     beatAudio(); // the new one: in the press that asked for it, where there was one
     audioTried(); // given its own time to wake
 }
+
+audioLogStart();
 
 function audioLatencyMs() { // how long after it is scheduled a sound actually leaves the speakers
     return audioCtx ? 1000 * ((audioCtx.baseLatency || 0) + (audioCtx.outputLatency || 0)) : 0;

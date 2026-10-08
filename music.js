@@ -594,6 +594,7 @@ function musicIntroStop(fade) { // the theme stops, going over `fade` seconds
 
 function musicBus(c, beatSec) { // where a song's notes go, made as it starts or starts again: every part into duck,
     // which dips on each kick, and the arpeggio and the lead into the echo too; out is what musicStop fades
+    audioLog("a song started (" + audioState(c) + ", MUSIC " + Math.round(100 * musicLevel) + "%)"); // (audio.js)
     var out = c.createGain();
     out.gain.value = musicGain();
     out.connect(c.destination);
@@ -631,6 +632,7 @@ function musicStop(fade) { // the song stops where it stands, going over `fade` 
     }
     var m = music;
     music = null;
+    audioLog("a song stopped");
     fadeBus(m, fade, musicGain());
 }
 

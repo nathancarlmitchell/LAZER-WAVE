@@ -12,7 +12,9 @@
  * rate-limited by address (kept only as a salted hash), and a name is held to the site's Disallowed Comment Keys.
  *
  * Routes, under /wp-json/lazer-wave/v1/: GET scores?board=&difficulty=&limit= (a board), POST tickets {board,
- * difficulty, version} (a ticket), POST scores {ticket, name, score, reached, combo, grade} (a score, with its place).
+ * difficulty, version, from} (a ticket; from, the levels of the board before the play's score began: a full run's
+ * CONTINUE begins it again at the level it goes on from), POST scores {ticket, name, score, reached, combo, grade} (a
+ * score, with its place).
  *
  * @package Lazer_Wave_Game
  */
@@ -163,14 +165,15 @@ function lazer_wave_scores_difficulty_ok( $difficulty ) {
  * @param string $board      The board.
  * @param string $difficulty The difficulty.
  * @param int    $reached    Levels cleared: of the run's, the rush's bosses, or 1 for a level's board.
+ * @param int    $from       Levels of the board before the play's score began (a continued run's), from its ticket.
  * @return int
  */
-function lazer_wave_scores_cap( $board, $difficulty, $reached ) {
+function lazer_wave_scores_cap( $board, $difficulty, $reached, $from = 0 ) {
 	$limits = lazer_wave_scores_limits();
 	$levels = lazer_wave_scores_levels( $board );
 	$single = 0 === strpos( $board, 'level-' );
 	if ( ! $single ) {
-		$levels = array_slice( $levels, 0, min( count( $levels ), max( 0, (int) $reached ) + 1 ) );
+		$levels = lazer_wave_scores_played( $levels, $reached, $from );
 	}
 	$step  = max( 1, (int) $limits['combo_step'] );
 	$beat  = ( (int) $limits['perfect'] + (int) $limits['absorb'] * (int) $limits['absorbs_per_beat'] ) * (int) $limits['overdrive'];
@@ -178,17 +181,45 @@ function lazer_wave_scores_cap( $board, $difficulty, $reached ) {
 	$combo = 0;
 	foreach ( $levels as $n ) {
 		$def   = $limits['levels'][ $n ];
-		$beats = (int) $def['bars'] * (int) $limits['beats_per_bar'];
+		$beats = lazer_wave_scores_level_bars( $def ) * (int) $limits['beats_per_bar'];
+		$by    = empty( $limits['level_mult'] ) ? 1 : (int) $n; // a level's points are times its number
 		for ( $b = 0; $b < $beats; $b++ ) {
 			$combo++;
-			$total += $beat * ( 1 + intdiv( $combo, $step ) ) + (int) $limits['survive'];
+			$total += $beat * ( 1 + intdiv( $combo, $step ) ) * $by + (int) $limits['survive'];
 		}
 		if ( ! empty( $def['boss'] ) ) {
-			$total += (int) $limits['boss_bonus'] * (int) $def['act'] * ( 1 + intdiv( $combo, $step ) );
+			$total += (int) $limits['boss_bonus'] * (int) $def['act'] * ( 1 + intdiv( $combo, $step ) ) * $by;
 		}
 	}
 	$tries = $single ? 1 : 1 + (int) $limits['lives'][ $difficulty ];
 	return (int) ceil( $total * (float) $limits['points'][ $difficulty ] * $tries ) + 1000;
+}
+
+/**
+ * The bars a level earns in: its own, and on a boss level the rounds after them up to its boss's par, the earliest it
+ * can fall in, each dealing the level's last bars (`loop`) again.
+ *
+ * @param array $def The level's limits.
+ * @return int
+ */
+function lazer_wave_scores_level_bars( $def ) {
+	$par = isset( $def['par'] ) ? max( 1, (int) $def['par'] ) : 1;
+	return (int) $def['bars'] + ( $par - 1 ) * ( isset( $def['loop'] ) ? (int) $def['loop'] : 0 );
+}
+
+/**
+ * The levels of a run's or a rush's board a play's score was made on: from where it began (a continued run's, from its
+ * ticket) through the one it ended on, past those it cleared.
+ *
+ * @param array $levels  The board's levels.
+ * @param int   $reached Levels cleared.
+ * @param int   $from    Levels of the board before the play's score began.
+ * @return array
+ */
+function lazer_wave_scores_played( $levels, $reached, $from ) {
+	$first = min( count( $levels ), max( 0, (int) $from ) );
+	$last  = min( count( $levels ), max( 0, (int) $reached ) + 1 );
+	return array_slice( $levels, $first, max( 0, $last - $first ) );
 }
 
 /**
@@ -199,11 +230,13 @@ function lazer_wave_scores_cap( $board, $difficulty, $reached ) {
  *
  * @param string $board   The board.
  * @param int    $reached Levels cleared.
+ * @param int    $from    Levels of the board before the play's score began (a continued run's), from its ticket.
  * @return int
  */
-function lazer_wave_scores_min_seconds( $board, $reached ) {
+function lazer_wave_scores_min_seconds( $board, $reached, $from = 0 ) {
 	$limits  = lazer_wave_scores_limits();
-	$cleared = array_slice( lazer_wave_scores_levels( $board ), 0, max( 0, (int) $reached ) );
+	$from    = max( 0, (int) $from );
+	$cleared = array_slice( lazer_wave_scores_levels( $board ), $from, max( 0, (int) $reached - $from ) );
 	$seconds = 0.0;
 	foreach ( $cleared as $n ) {
 		$def      = $limits['levels'][ $n ];
@@ -220,17 +253,18 @@ function lazer_wave_scores_min_seconds( $board, $reached ) {
  *
  * @param string $board   The board.
  * @param int    $reached Levels cleared.
+ * @param int    $from    Levels of the board before the play's score began (a continued run's), from its ticket.
  * @return int
  */
-function lazer_wave_scores_combo_cap( $board, $reached ) {
+function lazer_wave_scores_combo_cap( $board, $reached, $from = 0 ) {
 	$limits = lazer_wave_scores_limits();
 	$levels = lazer_wave_scores_levels( $board );
 	if ( 0 !== strpos( $board, 'level-' ) ) {
-		$levels = array_slice( $levels, 0, min( count( $levels ), max( 0, (int) $reached ) + 1 ) );
+		$levels = lazer_wave_scores_played( $levels, $reached, $from );
 	}
 	$beats = 0;
 	foreach ( $levels as $n ) {
-		$beats += (int) $limits['levels'][ $n ]['bars'] * (int) $limits['beats_per_bar'];
+		$beats += lazer_wave_scores_level_bars( $limits['levels'][ $n ] ) * (int) $limits['beats_per_bar'];
 	}
 	return 2 * $beats;
 }
@@ -274,17 +308,19 @@ function lazer_wave_scores_secret() {
 }
 
 /**
- * A ticket for a play of `$board` on `$difficulty`, starting now: what it is for, when it was given and a nonce of its
- * own, signed so the game can't write one itself.
+ * A ticket for a play of `$board` on `$difficulty`, starting now: what it is for, where on its board the play's score
+ * begins, when it was given and a nonce of its own, signed so the game can't write one itself.
  *
  * @param string $board      The board.
  * @param string $difficulty The difficulty.
+ * @param int    $from       Levels of the board before the play's score begins.
  */
-function lazer_wave_scores_make_ticket( $board, $difficulty ) {
+function lazer_wave_scores_make_ticket( $board, $difficulty, $from = 0 ) {
 	$payload = wp_json_encode(
 		array(
 			'b' => $board,
 			'd' => $difficulty,
+			'f' => (int) $from,
 			't' => time(),
 			'n' => wp_generate_password( 20, false, false ),
 		)
@@ -294,7 +330,8 @@ function lazer_wave_scores_make_ticket( $board, $difficulty ) {
 }
 
 /**
- * A ticket read back, if it is one the site signed: array with b (board), d (difficulty), t (when) and n (nonce).
+ * A ticket read back, if it is one the site signed: array with b (board), d (difficulty), f (levels before the play's
+ * score began; none in a ticket given before there was a CONTINUE), t (when) and n (nonce).
  *
  * @param string $ticket The ticket.
  * @return array|null
@@ -453,6 +490,11 @@ function lazer_wave_scores_routes() {
 					'type'     => 'integer',
 					'required' => true,
 				),
+				'from'       => array(
+					'type'    => 'integer',
+					'default' => 0,
+					'minimum' => 0,
+				),
 			),
 		)
 	);
@@ -496,7 +538,8 @@ function lazer_wave_scores_rest_ticket( $request ) {
 	if ( ! lazer_wave_scores_rate_ok( 'ticket', 300, HOUR_IN_SECONDS ) ) { // the game keeps an unspent ticket through retries; room for a house or a school behind one address
 		return new WP_Error( 'lazer_wave_rate', __( 'Too many games started from here: try again later.', 'lazer-wave-game' ), array( 'status' => 429 ) );
 	}
-	return rest_ensure_response( array( 'ticket' => lazer_wave_scores_make_ticket( $board, $difficulty ) ) );
+	$from = 0 === strpos( $board, 'level-' ) ? 0 : min( count( lazer_wave_scores_levels( $board ) ) - 1, max( 0, (int) $request['from'] ) ); // a level's board is the level alone
+	return rest_ensure_response( array( 'ticket' => lazer_wave_scores_make_ticket( $board, $difficulty, $from ) ) );
 }
 
 /**
@@ -527,15 +570,16 @@ function lazer_wave_scores_rest_post( $request ) {
 	}
 	$board      = $ticket['b'];
 	$difficulty = $ticket['d'];
+	$from       = isset( $ticket['f'] ) ? max( 0, (int) $ticket['f'] ) : 0; // where the play's score began on the board
 	$score      = (int) $request['score'];
 	$most       = count( lazer_wave_scores_levels( $board ) );
-	$reached    = 0 === strpos( $board, 'level-' ) ? 1 : min( $most, max( 0, (int) $request['reached'] ) );
+	$reached    = 0 === strpos( $board, 'level-' ) ? 1 : min( $most, max( $from, (int) $request['reached'] ) );
 	$grade      = preg_match( '/^(S\+|SS|S|A|B|C|D|F)$/', (string) $request['grade'] ) ? (string) $request['grade'] : '';
-	$combo      = min( lazer_wave_scores_combo_cap( $board, $reached ), max( 0, (int) $request['combo'] ) );
-	if ( $score > lazer_wave_scores_cap( $board, $difficulty, $reached ) ) {
+	$combo      = min( lazer_wave_scores_combo_cap( $board, $reached, $from ), max( 0, (int) $request['combo'] ) );
+	if ( $score > lazer_wave_scores_cap( $board, $difficulty, $reached, $from ) ) {
 		return new WP_Error( 'lazer_wave_score', __( 'That is more than those levels could give.', 'lazer-wave-game' ), array( 'status' => 400 ) );
 	}
-	if ( $seconds < lazer_wave_scores_min_seconds( $board, $reached ) ) {
+	if ( $seconds < lazer_wave_scores_min_seconds( $board, $reached, $from ) ) {
 		return new WP_Error( 'lazer_wave_score', __( 'That came back sooner than the songs could have played.', 'lazer-wave-game' ), array( 'status' => 400 ) );
 	}
 	set_transient( $used, 1, DAY_IN_SECONDS ); // once only

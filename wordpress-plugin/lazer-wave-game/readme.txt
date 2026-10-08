@@ -4,7 +4,7 @@ Tags: game, rhythm, arcade, html5, embed
 Requires at least: 6.1
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 1.15.1
+Stable tag: 1.19.7
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -14,9 +14,10 @@ Play Lazer Wave, a neon rhythm arcade game, on your WordPress site.
 
 Lasers flicker as a warning, then fire on the beat. Steer out of them. You are two sine waves trailing neon: hit on
 the beat, when they meet, in its colour: Z for cyan, X for magenta. Every eight in a row raise your multiplier, with
-no ceiling, and a run carries it from level to level. Charge the overdrive meter and spend it with Space to become a
-laser, untouchable, for eight beats. At a gate, Space switches you to laser form: lock on, and hit the targets in
-their colours while you dodge the lasers crossing your path.
+no ceiling, a run carries it from level to level, and every level multiplies it by its number, so level 25 pays x25.
+Charge the overdrive meter and spend it with Space to become a laser, untouchable, for eight beats. At a gate, Space
+switches you to laser form: lock on, and hit the targets in their colours while you dodge the lasers crossing your
+path. Out of lives on a full run, CONTINUE plays on from the level, the score from 0.
 
 Twenty-five levels in five acts climb the visible spectrum from Infrared to Ultraviolet, at 96 to 132 BPM, with lore
 between them and a boss at the end of every act, a fight that goes round again until the boss falls. Every act has a
@@ -24,9 +25,9 @@ synth song of its own, and the lasers fire on its notes. A performance meter fil
 miss, and at empty the level is failed. Each cleared level is ranked from F to SS and keeps its best rank; a level
 played on its own from the level select keeps its best score too, and a run keeps its best total. The level select
 opens each level once the one before is beaten. Four difficulties, EASY to TRUE, picked as a run starts, set its
-lives, shields, warnings, points and how fast the meter fills and drains, and each keeps records and unlocks of its
-own. A level played from the level select has no lives: a death offers it again, as often as it takes. BOSS RUSH
-plays the five bosses back to back, with records of its own.
+lives, shields, warnings, how fast the moving lasers go, how wide the gaps between the lasers are, points and how
+fast the meter fills and drains, and each keeps records and unlocks of its own. A level played from the level select has no lives: a
+death offers it again, as often as it takes. BOSS RUSH plays the five bosses back to back, with records of its own.
 
 Online leaderboards: players post their own scores to your site, under a name they type, on boards kept per
 difficulty for a full run's total, a boss rush's total and each of the 25 levels played on its own, each score with
@@ -73,6 +74,8 @@ they tap along to a beat.
 
 Mouse: your piece follows the cursor. Z or the left button hits a cyan beat, X or the right button a magenta one.
 Space or the middle button passes a gate (Z and X pass it too), and anywhere else spends a full overdrive meter. P or Esc to pause, H for help.
+While a level is being played, a right or a middle click that strays outside the game's frame opens nothing on the
+page; it doesn't reach the game either, so Fullscreen is the surest way to play with the mouse.
 Touch: drag anywhere to steer, and tap the CYAN, MAGENTA and GATE / OVERDRIVE buttons. On a phone, use Fullscreen or
 "Open in a new window". A controller works too: the left stick or the D-pad steers, LT, LB or X hit cyan, RT, RB or B
 magenta, A or Y take the gates and overdrive, and START pauses.
@@ -107,6 +110,139 @@ one place apart; the address itself is not kept). Deleting the plugin leaves the
 reinstall keeps the boards.
 
 == Changelog ==
+
+= 1.19.7 =
+* A boss level now earns in every round up to the earliest one its boss can be brought down in, as its first does:
+  the points, and the combo climbing. Only the rounds after that hold the score.
+* Overdrive's targets hurt it whether or not your overdrive runs, so it can come down in round 5 (it was 7).
+* The leaderboards start again under the new scoring: scores posted before are kept, and listed under Tools as old
+  scoring, but no longer shown on the boards.
+
+= 1.19.6 =
+* A laser absorbed in overdrive no longer hurts a boss: only its targets do (Overdrive's only while your overdrive
+  runs). Absorbing still pays.
+* A boss's bonus is whole until the end of the earliest round it can be brought down in, and only shrinks after that:
+  round 2 for Red Giant, 3 for Interference, 4 for Static Bloom and Lazer Wave, 7 for Overdrive. The boss's bar shows
+  the bonus as it stands.
+
+= 1.19.5 =
+* Scores are written with commas, 128,400 rather than 128400, wherever the game shows them: the corner, the points
+  popping up, the results, the finish, a boss's bar, a level's card, the level select, and HIGH SCORES and the name
+  panel, where the MAX COMBOs have them too, as the site's boards always had.
+
+= 1.19.4 =
+* Right-clicking (MAGENTA) outside the game's frame while a level is being played, the cursor strayed past its edge,
+  no longer opens the page's menu, and a middle click (the GATE) there no longer starts the browser's scrolling. The
+  page has its menu back in the menus, on the results and in a pause. In the game itself the menu is kept off
+  everywhere but the name field, which keeps its own for pasting.
+
+= 1.19.3 =
+* The bosses are tougher, each more than the last: Red Giant 30 health (was 15), Interference 40 (was 22), Static
+  Bloom 50 (was 15), Overdrive 60 (was 22), Lazer Wave 75 (was 30). A target struck still takes a point, and so does a
+  laser absorbed in overdrive, which now has to make up what a round's targets can't for a boss to fall in its first
+  round; otherwise the fight goes round again.
+
+= 1.19.2 =
+* The song and the drums come back by themselves when an audio device comes or goes (headphones, a monitor's speakers
+  waking, Windows changing its default device): the game starts its audio afresh on whatever is there, as a reload
+  would, where the browser went on playing into the old one, or into nothing. And when the browser says the audio
+  failed.
+* What the audio did is kept in the browser across a reload: if the sound goes, reload, open the console (F12) and type
+  lazerAudioLog() to see it. Nothing in it is sent anywhere.
+
+= 1.19.1 =
+* The game over says GAME OVER (ゲームオーバー) where it said FAIL. A death with lives left still says FAIL, or So
+  Close for an attempt nearly through.
+
+= 1.19.0 =
+* Every level's points are times its number: level 1 x1, level 8 x8, level 25 x25, on top of the combo's multiplier
+  (x3 on level 10 is x30) and the difficulty's, for hits, lasers absorbed and a boss's bonus. The later levels of a
+  run, and a combo carried into them, are worth the most. The HUD shows the multiplier from the first beat, and a
+  level's card says what its points are worth.
+* CONTINUE at a full run's game over: the level again, on full lives and shields, with the run's score back to 0. The
+  score the run had is offered to the leaderboard first, as before; the continued run's own score can go on the board
+  too when it ends, and a continued run can't set the best full run's time.
+* The leaderboards start again under the new scoring: scores posted before are kept, and listed under Tools as old
+  scoring, but no longer shown on the boards. A copy of the game left open from before has to be reloaded to post.
+* The instructions' RHYTHM page is split in two, a SURVIVAL page now holding the shields, the performance meter and
+  the lives: its last lines ran under its buttons, and one ran off the screen's edges.
+
+= 1.18.6 =
+* Sweepers, pendulums and the spinning X make their whole way on every difficulty, as the radar does: on the slower
+  ones they take the longer, going on into the bars after their own (a sweeper still wipes all the way across, a
+  pendulum swings there and back firing on every beat, the X turns half way round), but are done before laser form,
+  the level's end, another of them, or a bar with a place of its own to get into, going just fast enough for that
+  where they have to.
+
+= 1.18.5 =
+* A sweeper's hole widens on the easier difficulties too: 15% wider on HARD, 30% on NORMAL, 50% on EASY, about the
+  note and kept on the screen.
+* The radar comes round in full on every difficulty again. On the slower ones it takes the longer to, turning on into
+  the bars after its own (10 beats on EASY), but comes round before laser form, the level's end, another radar, or a
+  bar with a place of its own to get into (a cage, a pincer, a corridor, closing walls), turning just fast enough for
+  that where it has to.
+
+= 1.18.4 =
+* A pincer's gap and a cage's cell widen on the easier difficulties too, as a wall's gap does: 15% wider on HARD, 30%
+  on NORMAL, 50% on EASY (a cage's both ways), about the note and kept on the screen. On TRUE they stand where they
+  did.
+
+= 1.18.3 =
+* Closing walls land further apart on the easier difficulties, as a wall's gap widens: 15% wider on HARD, 30% on
+  NORMAL, 50% on EASY, about the bass's column and kept on the screen. On TRUE they land where they did.
+
+= 1.18.2 =
+* A wall's gap widens on the easier difficulties as a corridor's does: 15% wider on HARD, 30% on NORMAL, 50% on EASY,
+  about the same middle, kept clear of the screen's edges. The walls stand where they did on TRUE.
+
+= 1.18.1 =
+* The corridor goes at the difficulty's pace too: on HARD, NORMAL and EASY its path scrolls in slower and less of it
+  comes past in its bar, so the gap rides less of the melody, and more gently. Its gap is wider there as well: 15%
+  wider on HARD, 30% on NORMAL, 50% on EASY.
+* The difficulties retuned: the lasers that move go at 80% of TRUE's pace on HARD, 60% on NORMAL and 40% on EASY;
+  warnings are 50% longer on EASY, 25% longer on NORMAL, as written on HARD and 15% shorter on TRUE; and every
+  difficulty starts with 3 lives and 3 shields.
+
+= 1.18.0 =
+* Lasers that move go at the difficulty's pace: as before on TRUE, 85% on HARD, 70% on NORMAL, half speed on EASY. A
+  sweeper, the radar, the spinning X and a pendulum keep their bar and get less far through it; the drifting lasers
+  take longer to cross the screen, and a mine bursts nearer the edge it came in at. Each difficulty's button says so.
+* Lazer Wave's echo beams no longer fire into laser form, which a long warning (EASY's) let them reach from the bar
+  before.
+
+= 1.17.0 =
+* Every level is laid out bar by bar, each bar the pattern it was dealt, in place of a list dealt out by a seed, so a
+  level can be reworked a bar at a time. Each bar's own details (a laser's height where the tune rests, a wall's gap,
+  which way the columns march, its colours) are drawn for that bar alone now, so some lasers sit where they didn't
+  before; every level was checked again for room to get through.
+
+= 1.16.2 =
+* The MARCH is taken out of the drifting lasers. Levels 23 to 25 are dealt again without it: Fluorescence deals the
+  swarm with STAIRS twice, Edge of Sight keeps its mines and its bar of three, and Lazer Wave's fight deals the three
+  drifting lasers left.
+
+= 1.16.1 =
+* Practice: CUSTOM deals up to three lasers into the same bars (the third picked lit white; a fourth takes its place),
+  as the last levels do, or none at all: every bar the beat alone, to play in time with the song, or in laser form the
+  targets alone. With three picked and a word on the form or the pair besides, the lines under the preview name the
+  three together.
+
+= 1.16.0 =
+* Four new lasers that drift, brought in through the last act. Each comes in at the right edge, an arrow there warning
+  of it, and takes two bars to cross, burning the whole way, so the way through is picked out ahead while the other
+  lasers keep firing. The PIANO ROLL (level 21) plays the melody in as lasers, each note as long as it is held; the
+  SWARM (22) is a drift of small ones, with a lane through them that follows the tune; the MARCH (23) is a formation
+  that steps on a column on every beat, showing where it lands next; and MINES (24) drift in as outlines and burst
+  into a cross wherever they have got to, a fuse ring counting down. Lazer Wave's fight deals all four.
+* From level 24, a few bars deal three patterns at once: a drifting one, with a beam each way on every beat.
+* Levels 21 to 25 are dealt anew around them. Lazer Wave keeps every laser it had, a few now only in combinations.
+* A drifting laser goes at a gate into laser form, and at the level's end. Overdrive passes through drifting lasers
+  without absorbing them, but absorbs a mine's burst.
+* Practice: a tile for each of the four, the tiles set closer to fit them.
+
+= 1.15.2 =
+* Practice's WARNING tooltip says what the levels really use: a warning of 2 beats in every level, with 1.5 and 1 there
+  for less time to react. It had still said the warnings shortened to 1.5 beats in Act III and 1 in Act V.
 
 = 1.15.1 =
 * By touch, a tap on a results or pause button no longer presses the screen it opens as well: QUIT after failing a
