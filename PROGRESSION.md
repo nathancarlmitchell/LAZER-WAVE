@@ -5,7 +5,7 @@ out from the charts by `node .claude/progression.js`: run it after changing a ch
 its markers. The notes between the tables are written by hand, so give them a look after a change.
 
 <!-- begin stamp -->
-_Tables worked out from the charts at plugin 1.19.7 by `node .claude/progression.js`._
+_Tables worked out from the charts at plugin 1.22.0 by `node .claude/progression.js`._
 <!-- end stamp -->
 
 The *lasers a bar* are what each wave bar fires, average and busiest (rests and drifting lasers left out, a mine's burst
@@ -140,7 +140,7 @@ targets and lasers to dodge); rest bars after bar 0; lasers a bar; the tightest 
 | 22 | Black Light | 128 | 20 | pairs, alt | 5-8, 12-15: zigzag, tune, scatter | 2 | swarm (2), roll+cross (3), spin+ring (4) | 0 | 3.5 / 9, 18 drifting | 54% |
 | 23 | Fluorescence | 129 | 20 | pairs, alt | 5-8, 12-15: tune, zigzag, scatter | 2 | swarm+stairs (9) | 0 | 5.2 / 9, 17 drifting | 52% |
 | 24 | Edge of Sight | 131 | 22 | pairs, alt | 5-8, 13-16: scatter, zigzag | 2 | mines (2), roll+rain+stairs (17) | 0 | 4.2 / 9, 4 drifting | 49% |
-| 25 | Lazer Wave, boss | 132 | 22 | pairs, alt | 5-8, 13-16: scatter, zigzag, tune | 2 | swarm+rain+stairs (19), mines+cross (21) | 0 | 4.5 / 10, 19 drifting | 36% |
+| 25 | Lazer Wave, boss | 132 | 22 | pairs, alt | 5-8, 13-16: scatter, zigzag, tune | 2 | swarm+rain+stairs (19), mines+cross (21) | 0 | 3.9 / 10, 19 drifting | 36% |
 <!-- end act-5 -->
 
 - 23 brings nothing new since the march came out.
@@ -219,7 +219,7 @@ bar it can't slow down at all: a rest put after it gives it room.
 | 23 | 3 | pendulum (pendulum+cage) | 8 | 6.7 | 5 | 4 | laser form, bar 5 |
 | 24 | 1 | spinning X | 8 | 6.7 | 5 | 4 | radar, bar 3 |
 | 24 | 3 | radar | 8 | 6.7 | 5 | 4 | laser form, bar 5 |
-| 25 | 4 | spinning X (spin+ring) | 4 | 4 | 4 | 4 | laser form, bar 5 |
+| 25 | 4 | spinning X | 4 | 4 | 4 | 4 | laser form, bar 5 |
 | 25 | 12 | spinning X (spin+ring) | 4 | 4 | 4 | 4 | laser form, bar 13 |
 <!-- end movers -->
 
@@ -249,7 +249,7 @@ Names as a chart writes them (practice's tile name in brackets where it differs)
 | chord | 17, bar 1 | 17, 23 |
 | pendulum | 17, bar 2 | 17, 23 |
 | double | 18, bar 7 | 18-24 |
-| close | 18, bar 8 | 18, 22, 25 |
+| close | 18, bar 8 | 18, 22 |
 | doubletap | 18, bar 14 | 18, 23 |
 | chase (CHASERS) | 19, bar 9 | 19, 21, 25 |
 | stutter | 19, bar 10 | 19, 22 |
@@ -257,7 +257,7 @@ Names as a chart writes them (practice's tile name in brackets where it differs)
 | diagonal | 20, bar 1 | 20-22, 24-25 |
 | spin (SPINNING X) | 20, bar 14 | 20, 22, 24-25 |
 | roll (PIANO ROLL) | 21, bar 1 | 21-22, 24-25 |
-| fill | 21, bar 14 | 21, 24-25 |
+| fill | 21, bar 14 | 21, 24 |
 | swarm | 22, bar 2 | 22-23, 25 |
 | mines | 24, bar 2 | 24-25 |
 <!-- end patterns -->

@@ -37,7 +37,7 @@ var PRACTICE_PHRASES = [
     { key: "double", name: "DOUBLE", info: "two beams at once on 1 and 3, and a column on 2 and 4" },
     { key: "doubletap", name: "DOUBLE TAP", info: "a short burn on the beat and again on its \"and\", in the same place" },
     { key: "close", name: "CLOSE", info: "walls sliding in from both edges, to fire on the bar's last beat" },
-    { key: "chase", name: "CHASERS", info: "beams that hunt your height until half a beat before they fire" },
+    { key: "chase", name: "CHASERS", info: "beams that hunt you, lock a warning before firing, and burn one beat" },
     { key: "stutter", name: "STUTTER", info: "the melody's beams flickering on and off in sixteenths for a beat" },
     { key: "ring", name: "RING", info: "a ring growing round each note's point: be inside it, or outside" },
     { key: "diagonal", name: "DIAGONAL", info: "a band leaning through each note's point, the way the melody goes" },

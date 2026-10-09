@@ -4,7 +4,7 @@ Tags: game, rhythm, arcade, html5, embed
 Requires at least: 6.1
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 1.19.7
+Stable tag: 1.22.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -110,6 +110,54 @@ one place apart; the address itself is not kept). Deleting the plugin leaves the
 reinstall keeps the boards.
 
 == Changelog ==
+
+= 1.22.0 =
+* The screen comes alive with your streak, at the same steps as the song's layers: glints twinkle in the sky on the
+  off-beats (x2), a haze gathers round your trail (x3), light falls from the top of the screen (x4), the floor glows
+  and dips with each kick (x5), light runs along the beat's stripes (x6), clouds drift through the sky (x8), and
+  sparks stream off your head (x10). A break takes it all away with the music. It sits under the lasers, in soft
+  light, and follows the effects setting: at reduced only the glows show, still; at none, none of it.
+
+= 1.21.2 =
+* A sub bass joins the streak's layers at x5 on the combo's multiplier: the chord's root low under the bass (41 to 78
+  Hz), swelling back after each kick, with a quiet octave over it for speakers too small for the sub itself. It sits
+  out the bar before a laser section, so the chorus drops in with it, and booms on a level's last chord if the
+  streak is still going.
+
+= 1.21.1 =
+* Three more parts for a long streak: at x6 on the combo's multiplier a pulse, the chord struck in gated sixteenths;
+  at x8 a choir singing the chord; at x10 the soar, the melody an octave up on saws spread wide. All six fall away
+  together when the streak breaks, and the ones still in ring on a level's last chord.
+
+= 1.21.0 =
+* The song answers your streak. At x2 on the combo's multiplier a sparkle comes in, a bell high over the arpeggio on
+  the off-beats; at x3 a harmony on the melody; at x4 the air, the chord held high over the pad. Break the streak and
+  all three fall away at once, fading as their sound closes down, and they come back as it climbs again. A streak
+  still going at the end of a level rings on its last chord.
+
+= 1.20.2 =
+* Chasers hunt you twice as long before they lock, a whole warning: three beats on EASY, two and a half on NORMAL,
+  two on HARD, 1.7 on TRUE. So they show two warnings ahead of their beat: six beats on EASY, four on HARD.
+* Chasers burn for one beat once they fire, down from two.
+
+= 1.20.1 =
+* You can see a chaser lock again: its outline flashes as it locks, then stays brighter and wider than while it was
+  hunting you, until its last beat comes up as any laser's does.
+
+= 1.20.0 =
+* Chasers lock onto your height twice as long again before they fire, a whole warning: three beats on EASY, two and
+  a half on NORMAL, two on HARD, 1.7 on TRUE. They show half a warning sooner than other lasers, so they hunt you for
+  as long as before: four and a half beats ahead on EASY, three and three quarters on NORMAL, three on HARD, 2.55 on
+  TRUE.
+
+= 1.19.9 =
+* Chasers lock onto your height twice as long before they fire: a beat and a half on EASY, a beat and a quarter on
+  NORMAL, a beat on HARD, 0.85 of a beat on TRUE.
+
+= 1.19.8 =
+* Chasers lock onto your height for longer before they fire on the easier difficulties, as their warnings are longer:
+  three quarters of a beat on EASY, a little under two thirds on NORMAL, half a beat on HARD, a little under half on
+  TRUE. And each burns for two beats once it fires.
 
 = 1.19.7 =
 * A boss level now earns in every round up to the earliest one its boss can be brought down in, as its first does:

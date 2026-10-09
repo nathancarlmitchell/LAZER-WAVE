@@ -942,6 +942,7 @@ function startLevel() { // a level is about to be played: from the start, or aga
     timingSum = timingCount = 0;
     timings = [];
     playerReset();
+    flairReset(); // and no streak's flair yet (flair.js)
 }
 
 function endLevel() { // the level is over, cleared or lost
@@ -1027,6 +1028,7 @@ function onBeat(b) { // a whole beat just went by
         score += modePoints(SURVIVE_POINTS);
     }
     bossBeat(b); // the mirror boss remembers where the piece is, and fires where it was (boss.js)
+    flairBeat(); // the streak's flair comes in with the song's layers (flair.js)
 }
 
 function judge(grade, off, color) { // off: how far off the beat, in ms (negative early), if it was a press; color:
@@ -1041,9 +1043,10 @@ function breakCombo(show, off) { // show: say MISS even with no combo to lose (a
     loseCombo();
 }
 
-function loseCombo() { // the combo goes, and the level's streak with it
+function loseCombo() { // the combo goes, and the level's streak with it, and the song's layers fall away (music.js)
     combo = 0;
     streak = 0;
+    musicLayersDrop();
 }
 
 function pressBeat(time) { // the beat position of a press at real time `time`, less the time the audio takes to
@@ -1381,7 +1384,9 @@ function drawLevel(forDeath) { // draw the level as it stands, without moving an
     drawSky(level, beatPos * msPerBeat() / 1000, calmed() ? null : judgePos(), 1, resolved()); // the ground: its act's
     // backdrop, its colour, and the beat as the player plays it to pulse on; the level done, still, and lit up as the
     // song resolves
+    drawFlairSky(); // a streak's flair in the sky (flair.js)
     drawBeatPulse();
+    drawFlairStripes(); // and running out along the beat's stripes
     drawStrikeLine();
     drawBoss(); // the boss's node, on a boss level, behind the lasers and the targets
     drawWorld();
@@ -1485,6 +1490,7 @@ function updateGameArea() {
         return;
     }
     playerRecord(); // where the piece is now, for the waves' trail
+    flairStep(); // the streak's flair, easing in or out (flair.js)
     notePracticeScore(); // in practice, the session's best for it, if these points are more (practice.js)
 
     if (showFrame) {

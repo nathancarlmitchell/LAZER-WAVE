@@ -54,7 +54,16 @@ var RADAR_BEATS = BEATS_PER_BAR; // beats a radar's ray takes to come round at T
 var RADAR_WIDTH = 14; // px: the ray's core; its glow is wider
 var RADAR_CORE = 0.06; // of the height across: the hot disc at the ray's pivot, burning throughout
 var RADAR_TRAIL = 0.5; // radians of phosphor drawn behind the ray, which is only light
-var CHASE_LOCK = 0.5; // beats before its beat a chaser stops following the piece's height
+var CHASE_LOCK = 1; // of a laser's warning (warnBeats, loop.js: 2 beats on HARD, 3 on EASY): how long before its
+                    // beat a chaser stops following the piece's height, so once it has locked it gives as long to get
+                    // out of its way as any laser's warning does
+var CHASE_HUNT = 1; // of a warning: how long it follows the piece's height for before that, showing itself that much
+                    // sooner than another laser would (eventLead)
+var CHASE_HELD = 0.5; // how near to its beat a locked chaser's warning is drawn as, at the least (warnLook's near): a
+                      // brighter, wider outline than it hunts with, the tell that it has locked. Its flicker and
+                      // hatch wait for its last beat, as any warning's do
+var CHASE_FLASH = 0.5; // beats the flash it locks with, drawn as full, takes to die down to that
+var CHASE_BURN = 1; // beats a chaser burns for once it fires, whatever its note
 var CLOSE_LEAD = BEATS_PER_BAR; // beats closing walls take to slide in from the edges
 var CLOSE_GAP = CAGE_GAP; // of the width: the gap closing walls land either side of, a cage's cell, at TRUE's; wider
                           // at an easier difficulty's (gapRoom)
@@ -347,7 +356,7 @@ const LEVELS = [null,
     { name: "Lazer Wave", lore: ["At the Source waits the first wave that ever climbed.",
             "It became the Broadcast. It has your shape."],
         bpm: 132, warn: 2, colors: ["pairs", "alt"], dodges: 2, boss: { name: "LAZER WAVE", kind: "mirror", hp: 75 }, chart: [
-            "rest", "fill", "close", "roll", "spin+ring", // bars 0-4
+            "rest", "mines", "swarm", "roll", "spin", // bars 0-4
             "laser:scatter", "laser:zigzag", "laser:zigzag", "laser:zigzag", // bars 5-8, laser form
             "chase+cage", "roll", "cross", "spin+ring", // bars 9-12
             "laser:tune", "laser:tune", "laser:zigzag", "laser:scatter", // bars 13-16, laser form
@@ -578,8 +587,10 @@ const PHRASES = {
         hole = Math.max(SWEEP_GAP / 2 + SWEEP_EDGE, Math.min(1 - SWEEP_EDGE - SWEEP_GAP / 2, hole));
         add(b0, "sweep", (b0 / BEATS_PER_BAR) % 2 == 0 ? 1 : -1, BEAM_SIZE_V, { hole: hole, gap: SWEEP_GAP, beats: SWEEP_BEATS });
     },
-    chase: function (b0, rnd, add, tune) { // the melody's beams as chasers: each starts at its note's height, follows the
-        // piece's height through its warning, and locks half a beat before it fires: that is the moment to move
+    chase: function (b0, rnd, add, tune) { // the melody's beams as chasers: each starts at its note's height, shows
+        // itself a whole warning sooner than another laser and follows the piece's height through it (CHASE_HUNT), then
+        // locks a whole warning before it fires (CHASE_LOCK), and from there gives as long to move as any laser. It
+        // burns for CHASE_BURN beats
         for (var i = 0; i < BEATS_PER_BAR; i++) {
             if (tune.onset[i] !== null) {
                 add(b0 + i, "h", tuneBeam(tune, tune.onset[i], BEAM_SIZE), BEAM_SIZE, { kind: "chase", hold: tune.hold[i] });
@@ -1091,9 +1102,10 @@ function dodgeLasers(events, def, n) { // laser form's lasers: in each laser bar
 }
 
 function eventLead(ev, warn) { // how many beats ahead of its beat an event comes on screen: its own, if it has one; a
-    // mine's, the warning ahead of its coming in and the beats it drifts before it bursts
+    // mine's, the warning ahead of its coming in and the beats it drifts before it bursts; a chaser's, the time it
+    // hunts the piece's height and then the time it is locked (CHASE_HUNT, CHASE_LOCK)
     return ev.lead !== undefined ? ev.lead : ev.axis == "gate" ? GATE_LEAD : ev.axis == "target" ? warn + TARGET_LEAD
-        : ev.axis == "mine" ? warn + ev.drift : warn;
+        : ev.axis == "mine" ? warn + ev.drift : ev.kind == "chase" ? warn * (CHASE_HUNT + CHASE_LOCK) : warn;
 }
 
 function timelineEnd(events, none) { // the moment the last of a timeline's events is done with, in beats: a laser's
@@ -1146,17 +1158,20 @@ function flankPlace(ev, room) { // where a beam flanking a gap (a wall's, closin
 // fires over its warning instead of flickering in place, its landing place marked: a faller (kind "fall") down from
 // just over the top edge, landing FALL_LAND of the way through its warning to sit on its outline until it fires, a
 // slider (kind "slide") from wherever its event says (`from`, on its axis). A chaser (kind
-// "chase") follows the piece's height until CHASE_LOCK before its beat, then locks, and its outline goes solid: the
-// tell. A segment (`span`) covers only that stretch of the width. Its place is kept as fractions of the screen, so a
+// "chase") shows sooner than another beam and follows the piece's height until a warning before its beat
+// (CHASE_HUNT, CHASE_LOCK), then locks and stays there, its outline flashing and then holding brighter than it hunted
+// with (CHASE_FLASH, CHASE_HELD): the tell. It burns for CHASE_BURN beats. A segment (`span`) covers only
+// that stretch of the width. Its place is kept as fractions of the screen, so a
 // resize refits it. A
 // coloured beam warns in its colour -- cyan in a solid line, magenta dashed, so the two differ by more than colour --
 // and burns with a glow of it round the laser core, which stays the laser's own colour: that is what can hit. A
 // beam the piece absorbs in overdrive can't hit any more, and collapses to a white line and goes.
 // How every laser is drawn, so that a busy screen still reads. A warning is dim and thin until WARN_LAST beats before it
 // fires, then comes up to full over that last beat, flickering in sixteenths only once it is that near: what is about
-// to fire stands out from what is not. The footprint of anything due within that last beat is hatched in its colour
-// (laserHatch), so the ground left clear reads as the safe area. A burning laser's core, the part that can hit, is drawn
-// to its hitbox with a hard white edge, and its glow, which is forgiven, is faint outside it.
+// to fire stands out from what is not. (A locked chaser's is drawn no dimmer than CHASE_HELD, its tell.) The footprint
+// of anything due within that last beat is hatched in its colour (laserHatch), so the ground left clear reads as the
+// safe area. A burning laser's core, the part that can hit, is drawn to its hitbox with a hard white edge, and its glow,
+// which is forgiven, is faint outside it.
 var WARN_LAST = 1; // beats before it fires that a warning comes up to full over
 var WARN_DIM = 0.2; // of full: a warning's brightness before that
 var WARN_HATCH = 0.32; // the hatch's alpha over a footprint due within WARN_LAST
@@ -1214,13 +1229,14 @@ function pathEdge(x0, y0, x1, y1) { // one of that ground's dashed edges, in the
     ctx.stroke();
 }
 
-function warnLook(fireAt) { // how a warning due at beat fireAt is drawn now: near, 0 until WARN_LAST beats before it and
-    // 1 on its beat; blink, its flicker, once near; alpha, of full; width, of its line, in px; wash, of the faint fill of
-    // its footprint; hatch, of the hatch over it, 0 until it is near
-    var near = Math.max(0, Math.min(1, 1 - (fireAt - beatPos) / WARN_LAST));
+function warnLook(fireAt, least) { // how a warning due at beat fireAt is drawn now: near, 0 until WARN_LAST beats before
+    // it and 1 on its beat; blink, its flicker, once near; alpha, of full; width, of its line, in px; wash, of the faint
+    // fill of its footprint; hatch, of the hatch over it, 0 until it is near. Given `least`, its brightness, line and
+    // fill are drawn as at least that near (a locked chaser's, Beam.lockLit), its flicker and hatch still wait on near
+    var near = Math.max(0, Math.min(1, 1 - (fireAt - beatPos) / WARN_LAST)), lit = Math.max(near, least || 0);
     var blink = near > 0 && (beatPos * 4) % 1 >= 0.5 ? 0.6 : 1;
-    return { near: near, blink: blink, alpha: (WARN_DIM + (1 - WARN_DIM) * near) * blink, width: 1 + 2 * near,
-        wash: (0.03 + 0.12 * near) * blink, hatch: near > 0 ? WARN_HATCH * blink : 0 };
+    return { near: near, blink: blink, alpha: (WARN_DIM + (1 - WARN_DIM) * lit) * blink, width: 1 + 2 * lit,
+        wash: (0.03 + 0.12 * lit) * blink, hatch: near > 0 ? WARN_HATCH * blink : 0 };
 }
 
 // A laser that moves while it can hit (a sweeper wiping across, a pendulum on its swing, the radar's ray and the
@@ -1324,14 +1340,24 @@ function Beam(ev, warn) {
     this.from = ev.kind == "fall" ? -ev.size : ev.from; // a mover's start on its axis: a faller's just over the top
     this.fall = ev.kind == "fall"; // a faller lands early (FALL_LAND) and waits on its outline
                                                         // edge, a slider's where its event says; undefined, it stays put
-    this.chase = ev.kind == "chase"; // a chaser: its height follows the piece's until it locks
-    this.lockAt = ev.fire - CHASE_LOCK;
+    this.chase = ev.kind == "chase"; // a chaser: its height follows the piece's until it locks, CHASE_LOCK of a
+    // warning before its beat; what it is given as `warn` is its lead (eventLead), its hunt and its lock together
+    this.lockAt = ev.fire - warn * CHASE_LOCK / (CHASE_HUNT + CHASE_LOCK);
     this.warnAt = ev.fire - warn;
     this.fireAt = ev.fire;
-    this.endAt = ev.fire + BEAM_FIRE * (ev.hold || 1); // a held note's burns for the note
+    this.endAt = ev.fire + (this.chase ? CHASE_BURN : BEAM_FIRE * (ev.hold || 1)); // a held note's burns for the note;
+    // a chaser for CHASE_BURN
     this.absorbedAt = null; // the beat it was absorbed on, if it has been
     this.fit();
 }
+
+Beam.prototype.lockLit = function () { // how near to its beat a chaser's warning is drawn as, at the least (warnLook):
+    // as any warning while it hunts; full as it locks, dying down over CHASE_FLASH to CHASE_HELD, held until its beat
+    if (beatPos < this.lockAt) {
+        return 0;
+    }
+    return CHASE_HELD + (1 - CHASE_HELD) * Math.max(0, 1 - (beatPos - this.lockAt) / CHASE_FLASH);
+};
 
 Beam.prototype.absorb = function () {
     this.absorbedAt = beatPos;
@@ -1418,11 +1444,11 @@ Beam.prototype.update = function () { // draw it: an outline that sharpens as it
         ctx.fillStyle = COLORS.laserCore;
         this.band((this.axis == "h" ? this.height : this.width) * 0.5 * gone);
     } else if (beatPos < this.fireAt) { // the warning
-        var t = this.chase && beatPos >= this.lockAt ? 1 : this.fallen(); // a chaser's goes solid once it has locked
-        var look = warnLook(this.fireAt), blink = look.blink;
+        var t = this.fallen(); // how far through its warning: a faller is on its way until FALL_LAND
+        var look = warnLook(this.fireAt, this.chase ? this.lockLit() : 0), blink = look.blink;
         if (this.from !== undefined) { // where a mover will fire, under it on its way. A faller's is its warning
-            // proper, as bright and as blinking as any beam's, since that is where to read it; a slider's or a
-            // chaser's is dim, firming up as it comes
+            // proper, as bright and as blinking as any beam's, since that is where to read it; a slider's is dim,
+            // firming up as it comes
             ctx.strokeStyle = tint;
             if (this.fall) {
                 ctx.globalAlpha = look.alpha;

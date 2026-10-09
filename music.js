@@ -10,9 +10,11 @@
 // sidechained mix pumps. A pause, a death, a retry or a quit cuts it (musicStop), and the first beat after a pause
 // starts it again. A cleared level resolves: the drums drop out once its last laser is done, the song plays on to the
 // bar line after it, and there its lead's end, a note or two onto the key's own, lands over the key's own chord on a
-// last kick and a crash, held and let ring (musicEnd); a boss brought down resolves the same way. An act's intro
-// plays its theme with no beat under it (musicIntro). OPTIONS' MUSIC sets how loud all of it is (musicLevel), down to
-// none at all, while the beat track plays on: the kick is the beat, and a player can play to it alone.
+// last kick and a crash, held and let ring (musicEnd); a boss brought down resolves the same way. And it answers the
+// player: a streak brings in the combo's layers, a part at each of seven of the multiplier's steps, and a break takes
+// them all away at once (LAYERS). An act's intro plays its theme with no beat under it (musicIntro). OPTIONS' MUSIC
+// sets how loud all of it is (musicLevel), down to none at all, while the beat track plays on: the kick is the beat,
+// and a player can play to it alone.
 //
 // The lasers play the song too. songTune tells the timeline (waves.js) which notes the tune starts on each beat of a
 // bar, and how high each is: a phrase fires its beams on them, as high on the screen as the notes are, and a laser
@@ -260,6 +262,15 @@ const VOICES = {
     pad: { level: 0.05, cutoff: 1100, attack: 0.3, release: 0.4, spread: 8 },
     arp: { level: 0.09, cutoff: 1500, release: 0.16 },
     lead: { level: 0.09, cutoff: 2600, release: 0.12, vibrato: 12, vibratoHz: 5.5 },
+    // the combo's layers, each playing from a step of the combo's multiplier (the step is set in LAYERS)
+    sparkle: { level: 0.06, release: 0.8 }, // from x2
+    harmony: { level: 0.04, release: 0.12 }, // from x3
+    air: { level: 0.04, cutoff: 2600, attack: 0.6, release: 0.9, spread: 7 }, // from x4
+    pulse: { level: 0.029, cutoff: 1800, release: 0.04 }, // from x6
+    choir: { level: 0.13, attack: 0.5, release: 1, vibrato: 14, vibratoHz: 5 }, // from x8
+    soar: { level: 0.03, cutoff: 3200, release: 0.15 }, // from x10
+    sub: { level: 0.2, overtone: 0.25 }, // from x5. overtone: how loud the octave over its sine is, against the sine:
+    // the part of it a speaker too small for the sine itself can play
 };
 var MUSIC_VOLUME = 0.5; // the whole song, under the beat track (BEAT_VOLUME, audio.js): the kick is the beat
 var musicLevel = 1; // the MUSIC setting (OPTIONS): the share of MUSIC_VOLUME the song plays at; 0 is no song at all
@@ -274,6 +285,47 @@ var OVERDRIVE_BRIGHT = 2.5; // and overdrive
 var ECHO_BEATS = 0.75; // the arpeggio's and the lead's echo: a dotted eighth, each repeat quieter and duller
 var ECHO_FEEDBACK = 0.35;
 var ECHO_LEVEL = 0.3;
+
+// The combo's layers: parts a level's song plays only while the player keeps a streak going, one more at each of
+// seven steps of the combo's multiplier (comboMultiplier, loop.js), so a streak is heard building, and all of them
+// falling away the moment it breaks, their filter closing as they fade (musicLayersDrop, from loseCombo). The sparkle:
+// a bell high over the arpeggio on the off-beats, climbing the chord through the bar. The harmony: the tune doubled on
+// the chord's next note over it. The air: the chord held high over the pad, slow to swell. The sub: the chord's root
+// low under the bass, swelling back after each kick as a sidechained sub does. The pulse: the chord struck in
+// sixteenths through a gate, between the pad and the sparkle. The choir: the chord sung on an "ah". The soar: the
+// tune an octave up on saws spread wide. A layer comes in on the first beat handed to the audio clock after its step;
+// all but the harmony sit out a breakdown, as the pad and the arpeggio do (the sub the beats after the drums drop
+// out too), and a layer still in when the level resolves rings on its last chord
+var LAYERS = [ // in the order they come in: the step of the combo's multiplier each comes in at, where it sits across
+    // the stereo field (0 for one that spreads its own notes), and whether it goes into the echo too
+    { name: "sparkle", step: 2, pan: 0.45, echo: true }, // opposite the arpeggio
+    { name: "harmony", step: 3, pan: -0.25 }, // opposite the lead
+    { name: "air", step: 4, pan: 0 },
+    { name: "sub", step: 5, pan: 0 },
+    { name: "pulse", step: 6, pan: 0 },
+    { name: "choir", step: 8, pan: 0 },
+    { name: "soar", step: 10, pan: 0, echo: true },
+];
+var LAYER_AT = {}; // each layer's place in LAYERS, by its name
+LAYERS.forEach(function (l, i) { LAYER_AT[l.name] = i; });
+var LAYER_IN = 0.04; // s a layer takes to come in, on its beat
+var LAYER_OUT = 0.5; // s it takes to fall away, its filter closing from LAYER_OPEN to LAYER_SHUT as it fades
+var LAYER_OPEN = 12000, LAYER_SHUT = 180; // Hz
+var SPARKLE_LOW = 84; // C6: the sparkle takes the chord's notes into the octave up from here
+var HARMONY_OVER = 3; // semitones at the least between a note of the tune and its harmony: a minor third
+var AIR_LOW = 67; // G4: the air's chord, an octave over the pad's
+var PAN_AIR = 0.6; // the air split either side
+var PULSE_LOW = 62; // D4: the pulse's chord, between the pad's and the sparkle's
+var PULSE_GATE = [1, 0, 1, 1]; // the sixteenths of a beat the pulse strikes on
+var PULSE_LEN = 0.6; // of a sixteenth each stab sounds for
+var CHOIR_LOW = 64; // E4: the choir's chord
+var CHOIR_FORMANTS = [[800, 6, 1], [1150, 7, 0.6], [2900, 9, 0.25]]; // its "ah": each formant's centre (Hz), how narrow
+// (Q), and how much of the voice comes through it
+var PAN_CHOIR = 0.35; // the choir split either side
+var SOAR_CENTS = [-18, -8, 0, 8, 18]; // the soar's saws, each so many cents off the tune an octave up...
+var SOAR_PAN = [-0.6, -0.3, 0, 0.3, 0.6]; // ...and sitting so far across the stereo field
+var SUB_LOW = 28; // E1: the sub takes the chord's root into the octave up from here, under the bass whatever its line
+var SUB_SWELL = 0.35; // of a beat the sub takes to swell back after each kick, from nothing
 
 var music = null; // the song as it plays: where its notes go, and the beat its pad's chord lasts until; null stopped
 var wordCache = {};
@@ -358,13 +410,17 @@ function musicBeat(n, delay, beatSec, over, quiet) { // beat n of the level prop
     }
     if (at < m.lastAt) { // the loop went round: the chord starts over with it
         m.padUntil = at;
+        m.airUntil = at;
+        m.choirUntil = at;
     }
     m.lastAt = at;
-    songBeat(c, m, song, sec, at, when, beatSec, { bright: (over ? OVERDRIVE_BRIGHT : sec.laser ? LASER_BRIGHT : 1)
-        * (wave && wave.boss ? BOSS_BRIGHT : 1),
+    var layers = musicLayersWanted();
+    layersTo(c, m, layers, when); // the combo's layers in as the streak has them, from this beat
+    songBeat(c, m, song, sec, at, when, beatSec, { layers: layers,
+        bright: (over ? OVERDRIVE_BRIGHT : sec.laser ? LASER_BRIGHT : 1) * (wave && wave.boss ? BOSS_BRIGHT : 1),
         arp: levelInAct(level) >= ARP_FROM, arpLevel: levelInAct(level), arpHigh: levelInAct(level) >= ARP_HIGH_FROM, lift: songLift(wave, bar, level),
-        breakdown: !sec.laser && next !== null && musicSection(wave, next).laser }); // the bar before a laser
-        // section is a breakdown: the bass and the drums alone under the melody, so the chorus lands
+        breakdown: !sec.laser && next !== null && musicSection(wave, next).laser, quiet: !!quiet }); // the bar
+        // before a laser section is a breakdown: the bass and the drums alone under the melody, so the chorus lands
 }
 
 function musicBarAfter(n) { // the bar, as the level's definition has it, that follows the bar beat n is in, or null
@@ -374,9 +430,10 @@ function musicBarAfter(n) { // the bar, as the level's definition has it, that f
     return (COUNT_IN_BARS + bar) * BEATS_PER_BAR < (end === null ? totalBeats : end) ? levelBar(bar) : null;
 }
 
-function songBeat(c, m, song, sec, n, when, beatSec, o) { // o: bright, arp, arpLevel, arpHigh, lift, breakdown // a song's notes from beat n to the next, the beat
+function songBeat(c, m, song, sec, n, when, beatSec, o) { // a song's notes from beat n to the next, the beat
     // falling at `when` in section sec: the chord, the bass, the arpeggio if arp, and the melody, or the lead in a
-    // laser section
+    // laser section; and the first `layers` of the combo's layers (LAYERS), on a song that has them (songLayers).
+    // o: bright, arp, arpLevel, arpHigh, lift, breakdown, layers, quiet (the drums out)
     var from = n - sec.first * BEATS_PER_BAR; // beats into its section, which starts the chords and the lines afresh
     var left = sec.end * BEATS_PER_BAR - n; // and beats left in it, which no note outlasts
     var bar = Math.floor(n / BEATS_PER_BAR), inSec = Math.floor(from / BEATS_PER_BAR); // the bar, and bars into the section
@@ -403,9 +460,59 @@ function songBeat(c, m, song, sec, n, when, beatSec, o) { // o: bright, arp, arp
             playArp(c, m, when + k * beatSec / 4, note, len * beatSec / 4, bright, k == 0);
         });
     }
+    var playing = m.layers ? o.layers || 0 : 0; // how many of the combo's layers the streak has in
+    var layer = function (name) { // a layer's way in, if it is one of those, and not sitting out a breakdown
+        return LAYER_AT[name] < playing && (name == "harmony" || !o.breakdown) ? m.layers[LAYER_AT[name]].input : null;
+    };
+    var harmony = layer("harmony"), soar = layer("soar");
     lineNotes(sec.laser ? song.lead : phrase.melody, 2, from, left, function (k, step, len) {
-        playLead(c, m, song.waves, when + k * beatSec / 2, key + step + (sec.laser ? 0 : phrase.octave), len * beatSec / 2, bright);
+        var note = key + step + (sec.laser ? 0 : phrase.octave);
+        playLead(c, m, song.waves, when + k * beatSec / 2, note, len * beatSec / 2, bright);
+        if (harmony) {
+            playHarmony(c, harmony, song.waves, when + k * beatSec / 2, harmonyNote(key, chord, note), len * beatSec / 2,
+                bright);
+        }
+        if (soar) {
+            playSoar(c, soar, when + k * beatSec / 2, note, len * beatSec / 2, bright);
+        }
     });
+    var sparkle = layer("sparkle"), air = layer("air"), pulse = layer("pulse"), choir = layer("choir");
+    var sub = !o.quiet && layer("sub");
+    var toBar = BEATS_PER_BAR - n % BEATS_PER_BAR; // beats to the bar's end
+    if (sub) { // the chord's root under the bass through the beat, swelling back after its kick
+        playSub(c, sub, when, register(root, SUB_LOW), beatSec, SUB_SWELL * beatSec);
+    }
+    if (sparkle) { // on the off-beat: the chord's notes in turn up the bar, its last an octave over its first
+        var bell = voiced(key, chord, SPARKLE_LOW), beat = n % BEATS_PER_BAR;
+        playSparkle(c, sparkle, when + beatSec / 2, bell[beat % bell.length] + (beat == BEATS_PER_BAR - 1 ? 12 : 0));
+    }
+    if (air && n >= m.airUntil) { // the chord to the bar's end, as the pad's
+        playAir(c, air, when, voiced(key, chord, AIR_LOW), toBar * beatSec, bright);
+        m.airUntil = n + toBar;
+    }
+    if (pulse) { // the chord struck on the gate's sixteenths, the beat's own the loudest
+        var stab = voiced(key, chord, PULSE_LOW);
+        PULSE_GATE.forEach(function (on, q) {
+            if (on) {
+                playPulse(c, pulse, when + q * beatSec / 4, stab, PULSE_LEN * beatSec / 4, bright, q == 0);
+            }
+        });
+    }
+    if (choir && n >= m.choirUntil) { // the chord to the bar's end, as the pad's
+        playChoir(c, choir, when, voiced(key, chord, CHOIR_LOW), toBar * beatSec);
+        m.choirUntil = n + toBar;
+    }
+}
+
+function harmonyNote(key, chord, note) { // the tune's harmony on `note`: the chord's nearest note over it by
+    // HARMONY_OVER or more, so it sits on the chord whatever the tune does
+    var tones = CHORDS[chord].map(function (t) { return t % 12; });
+    for (var up = HARMONY_OVER; up < HARMONY_OVER + 12; up++) {
+        if (tones.indexOf(((note + up - key) % 12 + 12) % 12) >= 0) {
+            return note + up;
+        }
+    }
+    return note + 12;
 }
 
 function songTune(def, n, bar) { // what the tune does over bar `bar` of level n (def, its definition), for the lasers
@@ -521,6 +628,23 @@ function musicEnd(c, m, song, when, lift, beatSec) { // the level resolved, from
     duckAt(m, when, beatSec);
     playPad(c, m, when, voiced(key, "i", PAD_LOW), hold, 1, END_RING);
     playBass(c, m, when, register(key, BASS_LOW), hold, 1, END_RING);
+    var layer = function (name) { // a layer still in: the streak is still going, and it rings on the last chord
+        var l = m.layers && m.layers[LAYER_AT[name]];
+        return l && l.on ? l.input : null;
+    };
+    var sparkle = layer("sparkle"), air = layer("air"), choir = layer("choir"), soar = layer("soar"), sub = layer("sub");
+    if (sub) { // the key's note under the bass, swelling back after the last kick and ringing on
+        playSub(c, sub, when, register(key, SUB_LOW), hold, SUB_SWELL * beatSec, END_RING);
+    }
+    if (sparkle) { // the key's note struck
+        playSparkle(c, sparkle, when, register(key, SPARKLE_LOW));
+    }
+    if (air) { // and the chord held high, and sung
+        playAir(c, air, when, voiced(key, "i", AIR_LOW), hold, 1, END_RING);
+    }
+    if (choir) {
+        playChoir(c, choir, when, voiced(key, "i", CHOIR_LOW), hold, END_RING);
+    }
     steps.forEach(function (w, i) {
         if (w == "-" || w == ".") {
             return;
@@ -531,6 +655,9 @@ function musicEnd(c, m, song, when, lift, beatSec) { // the level resolved, from
         }
         var last = !steps.slice(i + 1).some(function (v) { return v != "-" && v != "."; }); // the note it lands on
         playLead(c, m, song.waves, when + i * beatSec / 2, key + Number(w), len * beatSec / 2, 1, last ? END_RING : 0);
+        if (soar) { // and the soar over it
+            playSoar(c, soar, when + i * beatSec / 2, key + Number(w), len * beatSec / 2, 1, last ? END_RING : 0);
+        }
     });
 }
 
@@ -808,4 +935,225 @@ function playLead(c, m, waves, when, note, len, bright, ring) { // two oscillato
     f.connect(g);
     g.connect(m.leadPan || m.duck);
     g.connect(m.echo);
+}
+
+function songLayers(c, m) { // a level's song's combo layers, made with its first beat, in LAYERS' order, each out
+    // until the streak brings it in
+    if (!m.layers) {
+        m.layers = LAYERS.map(function (l) { return layerBus(c, m, l.pan, l.echo); });
+        m.airUntil = -1;
+        m.choirUntil = -1;
+    }
+    return m.layers;
+}
+
+function layerBus(c, m, where, echo) { // a layer's way into the song: its notes into `input`, through a low-pass that
+    // closes as it falls away and a gain that takes it out, then across to `where` and into the dip (and the echo)
+    var input = c.createGain(), shut = lowpass(c, LAYER_OPEN, 0.7), gain = c.createGain();
+    gain.gain.value = 0;
+    input.connect(shut);
+    shut.connect(gain);
+    var to = m.duck;
+    if (where && c.createStereoPanner) {
+        to = c.createStereoPanner();
+        to.pan.value = where;
+        to.connect(m.duck);
+    }
+    gain.connect(to);
+    if (echo) {
+        gain.connect(m.echo);
+    }
+    return { input: input, shut: shut, gain: gain, on: false, inAt: 0 };
+}
+
+function musicLayersWanted() { // how many of the combo's layers the streak has brought in: one for each step in
+    // LAYERS its multiplier has reached
+    var mult = comboMultiplier();
+    return LAYERS.filter(function (l) { return mult >= l.step; }).length;
+}
+
+function layersTo(c, m, n, when) { // the song's first n layers in from `when`, and any others out
+    songLayers(c, m).forEach(function (l, i) {
+        if (i < n && !l.on) {
+            l.on = true;
+            l.inAt = when;
+            l.shut.frequency.cancelScheduledValues(when);
+            l.shut.frequency.setValueAtTime(LAYER_OPEN, when);
+            l.gain.gain.cancelScheduledValues(when);
+            l.gain.gain.setValueAtTime(0, when);
+            l.gain.gain.linearRampToValueAtTime(1, when + LAYER_IN);
+        } else if (i >= n && l.on) {
+            layerOut(l, when);
+        }
+    });
+}
+
+function layerOut(l, at) { // a layer falling away from `at`: its filter closing as it fades over LAYER_OUT; one still
+    // to come in goes without a sound
+    l.on = false;
+    var f = l.shut.frequency, g = l.gain.gain;
+    f.cancelScheduledValues(at);
+    g.cancelScheduledValues(at);
+    if (at < l.inAt + LAYER_IN) {
+        g.setValueAtTime(0, at);
+        return;
+    }
+    f.setValueAtTime(LAYER_OPEN, at);
+    f.exponentialRampToValueAtTime(LAYER_SHUT, at + LAYER_OUT);
+    g.setValueAtTime(1, at);
+    g.linearRampToValueAtTime(0, at + LAYER_OUT);
+}
+
+function musicLayersDrop(at) { // the streak broke (loseCombo, loop.js): every layer in falls away, from `at` on the
+    // audio clock, or now
+    if (!music || !music.layers) {
+        return;
+    }
+    var when = at === undefined ? music.out.context.currentTime : at;
+    music.layers.forEach(function (l) {
+        if (l.on) {
+            layerOut(l, when);
+        }
+    });
+}
+
+function playSparkle(c, to, when, note) { // a bell: a triangle with a sine an octave over it, struck and let ring away
+    var v = VOICES.sparkle, end = when + v.release + 0.02;
+    var g = c.createGain();
+    g.gain.setValueAtTime(0, when);
+    g.gain.linearRampToValueAtTime(v.level, when + 0.003);
+    g.gain.exponentialRampToValueAtTime(0.0001, when + v.release);
+    osc(c, "triangle", note, 0, when, end).connect(g);
+    var over = c.createGain();
+    over.gain.value = 0.35;
+    osc(c, "sine", note + 12, 0, when, end).connect(over);
+    over.connect(g);
+    g.connect(to);
+}
+
+function playHarmony(c, to, waves, when, note, len, bright) { // the lead's two oscillators, quieter, without its vibrato
+    // or its shine
+    var v = VOICES.harmony;
+    var off = when + Math.max(0.02, len - 0.02), end = off + v.release + 0.02;
+    var f = lowpass(c, VOICES.lead.cutoff * bright, 2);
+    [[waves[0], -5], [waves[1], 5]].forEach(function (w) {
+        osc(c, w[0], note, w[1], when, end).connect(f);
+    });
+    var g = noteGain(c, when, v.level, 0.01, off, v.release);
+    f.connect(g);
+    g.connect(to);
+}
+
+function playAir(c, to, when, notes, len, bright, ring) { // the chord high on saws drifting against each other either
+    // side, slow to swell and slow to go. ring: a release of its own, for the last chord
+    var v = VOICES.air, release = ring || v.release, off = when + len;
+    [[-v.spread, -PAN_AIR], [v.spread, PAN_AIR]].forEach(function (side) {
+        var f = lowpass(c, v.cutoff * bright, 0.7);
+        notes.forEach(function (note) {
+            osc(c, "sawtooth", note, side[0], when, off + release + 0.02).connect(f);
+        });
+        var g = noteGain(c, when, v.level, Math.min(v.attack, len / 2), off, release);
+        f.connect(g);
+        if (c.createStereoPanner) {
+            var p = c.createStereoPanner();
+            p.pan.value = side[1];
+            g.connect(p);
+            p.connect(to);
+        } else {
+            g.connect(to);
+        }
+    });
+}
+
+function playPulse(c, to, when, notes, len, bright, accent) { // a stab of the chord: two saws a note, through a
+    // low-pass that snaps shut; louder on the beat
+    var v = VOICES.pulse, end = when + len + v.release + 0.02;
+    var f = lowpass(c, v.cutoff * bright, 2);
+    f.frequency.setValueAtTime(v.cutoff * bright * 2.5, when);
+    f.frequency.exponentialRampToValueAtTime(v.cutoff * bright, when + 0.05);
+    notes.forEach(function (note) {
+        [-7, 7].forEach(function (cents) {
+            osc(c, "sawtooth", note, cents, when, end).connect(f);
+        });
+    });
+    var g = noteGain(c, when, v.level * (accent ? 1.25 : 1), 0.003, when + len, v.release);
+    f.connect(g);
+    g.connect(to);
+}
+
+function playChoir(c, to, when, notes, len, ring) { // the chord sung: saws a few cents apart either side, a vibrato
+    // coming in as they hold, through the formants of an "ah". ring: a release of its own, for the last chord
+    var v = VOICES.choir, release = ring || v.release, off = when + len, end = off + release + 0.02;
+    var lfo = c.createOscillator(), depth = c.createGain();
+    lfo.frequency.value = v.vibratoHz;
+    depth.gain.setValueAtTime(0, when);
+    depth.gain.linearRampToValueAtTime(v.vibrato, when + 0.6);
+    lfo.connect(depth);
+    lfo.start(when);
+    lfo.stop(end);
+    [[-9, -PAN_CHOIR], [9, PAN_CHOIR]].forEach(function (side) {
+        var voice = c.createGain(); // the side's voices together, into the formants
+        notes.forEach(function (note) {
+            var o = osc(c, "sawtooth", note, side[0], when, end);
+            depth.connect(o.detune);
+            o.connect(voice);
+        });
+        var g = noteGain(c, when, v.level, Math.min(v.attack, len / 2), off, release);
+        CHOIR_FORMANTS.forEach(function (fm) {
+            var band = c.createBiquadFilter(), share = c.createGain();
+            band.type = "bandpass";
+            band.frequency.value = fm[0];
+            band.Q.value = fm[1];
+            share.gain.value = fm[2];
+            voice.connect(band);
+            band.connect(share);
+            share.connect(g);
+        });
+        if (c.createStereoPanner) {
+            var p = c.createStereoPanner();
+            p.pan.value = side[1];
+            g.connect(p);
+            p.connect(to);
+        } else {
+            g.connect(to);
+        }
+    });
+}
+
+function playSoar(c, to, when, note, len, bright, ring) { // the tune's note an octave up on saws spread in pitch and
+    // across the stereo field, through one low-pass: wide and bright over the lead. ring: a release of its own
+    var v = VOICES.soar, release = ring || v.release;
+    var off = when + Math.max(0.02, len - 0.02), end = off + release + 0.02;
+    var f = lowpass(c, v.cutoff * bright, 1);
+    SOAR_CENTS.forEach(function (cents, i) {
+        var o = osc(c, "sawtooth", note + 12, cents, when, end);
+        if (c.createStereoPanner) {
+            var p = c.createStereoPanner();
+            p.pan.value = SOAR_PAN[i];
+            o.connect(p);
+            p.connect(f);
+        } else {
+            o.connect(f);
+        }
+    });
+    var g = noteGain(c, when, v.level, 0.02, off, release);
+    f.connect(g);
+    g.connect(to);
+}
+
+function playSub(c, to, when, note, len, swell, ring) { // a sine on the root, with its octave over it, quiet, for the
+    // speakers too small to give the sine itself: up from nothing over `swell`, held to `len`, and let go quickly, or
+    // over `ring` for the last chord
+    var v = VOICES.sub, held = when + Math.max(len, swell), end = held + (ring || 0.05);
+    var g = c.createGain();
+    g.gain.setValueAtTime(0, when);
+    g.gain.linearRampToValueAtTime(v.level, when + Math.max(0.01, swell));
+    g.gain.setValueAtTime(v.level, held);
+    g.gain.exponentialRampToValueAtTime(0.0001, end);
+    osc(c, "sine", note, 0, when, end + 0.02).connect(g);
+    var over = c.createGain();
+    over.gain.value = v.overtone;
+    osc(c, "sine", note + 12, 0, when, end + 0.02).connect(over);
+    over.connect(g);
+    g.connect(to);
 }

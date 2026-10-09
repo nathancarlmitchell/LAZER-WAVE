@@ -227,8 +227,10 @@ function drawPlayer(o) { // the two waves and the core, flickering while a hit h
         strokeAhead(head, reach, dim);
     }
     var want = wave ? beatColor(cueBeat()) : null; // the coming beat's colour: its wave stays lit, the other dims
+    drawFlairAura(dim); // a streak's haze under the waves, and its sparks over them (flair.js)
     strokeWave(-1, COLORS.cyan, dim * (want == "magenta" ? WAVE_UNLIT : 1));
     strokeWave(1, COLORS.magenta, dim * (want == "cyan" ? WAVE_UNLIT : 1));
+    drawFlairSparks(dim);
     var flash = (playerFlash.age < FLASH_STEPS ? 1 - playerFlash.age / FLASH_STEPS : 0) * playerFlash.strength;
     var rest = calmed() ? Math.min(1, (beatPos - levelCalm()) * 2) : 0; // the level done: settling to a steady white
     ctx.globalAlpha = (0.25 + 0.5 * flash + CALM_LIGHT * rest) * dim; // the core's glow, and a burst of it on a press,
