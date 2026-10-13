@@ -87,9 +87,9 @@ old scores unfair: the site then starts fresh boards, the old scores kept but no
    Every 8 in a row raises the combo's multiplier by one, with no ceiling, and on a run the combo carries from each
    level into the next, so a long streak of perfect play is what a run plays for; the multiplier pops up at the orb as
    it climbs.
-   A missed or BAD beat, a press off the beat, the wrong colour (WRONG), a gate not passed or a laser that gets you
-   resets it. The score in the corner is the run's total so far, or the level's own when it is played from the
-   level select.
+   A missed beat, a press off the beat, the wrong colour (WRONG), a gate not passed or a laser that gets you resets it;
+   a BAD keeps it going, for the fewest points. The score in the corner is the run's total so far, or the level's own
+   when it is played from the level select.
  - Shields to start, three on NORMAL. A laser takes one and breaks your combo; the last one ends the attempt. On a run
    your shields and your overdrive charge carry over into the next level; a new attempt at a level starts on the
    difficulty's count and empty.
@@ -268,7 +268,7 @@ old scores unfair: the site then starts fresh boards, the old scores kept but no
  - A cleared level is ranked F, D, C, B, A, S, S+ or SS on how its beats were hit: a PERFECT counts the beat, a GREAT
    three quarters of it, a GOOD half and a BAD a quarter, a press off the beat or in the wrong colour takes half back,
    and a lost shield costs 5%. S+ needs every beat hit clean (no BAD), nothing off the beat or WRONG, and no shield
-   lost, and SS all of that with every beat PERFECT. That much (no miss, one combo through every beat, no hit) is
+   lost, and SS all of that with every beat PERFECT. That much (no miss or BAD, one combo through it all, no hit) is
    **FLAWLESS**, and the results flare it under the title: the word in the waves' two colours meeting in white, a streak
    of light through it, stamped in and glinting. It is worth no points. The rank comes up a moment after the results
    do, so there is a beat of not knowing: every grade stamps in as FLAWLESS lands (or would), the best under it coming
@@ -450,7 +450,7 @@ old scores unfair: the site then starts fresh boards, the old scores kept but no
 
 | File | What it holds |
 |---|---|
-| `audio.js` | The synthesized beat track (kick, hat, the crash a cleared level's song resolves on, count-in tick, laser zap, the piece's shot, the overdrive meter's chime when it fills, on Web Audio; the drums can play into a node and on a kit of their own, as the menu theme's do), the audio woken whenever the browser has it asleep (`beatAudio`, and in any press `wakeAudio`), or made afresh when it won't wake, its clock stands still, the devices change or it fails (`audioRemake`, watched by `audioWatch`; what it did kept across a reload, `audioLog`, printed by `lazerAudioLog()` in the console), the menu theme told when it runs again, when the startup sequence plays (its sound is `sfx.js`'s), the playlist (`TRACKS`, for recorded songs: empty, as the levels' songs are synthesized, `music.js`), sound effects, all but the beat track at the SOUND FX setting's level (`sfxLevel`) |
+| `audio.js` | The synthesized beat track (kick, hat, the crash a cleared level's song resolves on, count-in tick, laser zap, the piece's shot, the overdrive meter's chime when it fills, on Web Audio; the drums can play into a node and on a kit of their own, as the menu theme's do), the audio woken whenever the browser has it asleep (`beatAudio`, and in any press `wakeAudio`), or made afresh when it won't wake, its clock stands still, the devices change or it fails (`audioRemake`, watched by `audioWatch`; what it did kept across a reload, `audioLog`, printed by `lazerAudioLog()` in the console), the menu theme told when it runs again, when the startup sequence plays (its sound is `sfx.js`'s), the playlist (`TRACKS`, for recorded songs: empty, as the levels' songs are synthesized, `music.js`), sound effects, all but the beat track at the SOUND FX setting's level (`sfxLevel`), the ones from files decoded into the audio at the first press and played through a gain (`sfxDecode`, `playSound`), as an iPhone plays an audio element at full whatever its volume is set to |
 | `layout.js` | The palette (`COLORS`), the 1280x800 layout frame, band fitting for phones, the HUD transform, banners, resize handling |
 | `waves.js` | `LEVELS` (the 25 levels: name and lore, bpm, warning lead, colours, lasers to dodge, boss, and each one's `chart`, its bars one by one, read by `chartLevel`; and the curve they climb, outlined in `PROGRESSION.md`), the `PHRASES` that fill a bar, placing their beams on the tune's notes, the `COLOR_PATTERNS` that paint one, laser form's `TARGET_PHRASES` (`tune` traces the chorus), the timeline a chart is built into (`buildTimeline`: each bar's details drawn by a stream of its own, `barRandom`; a drifting laser's time cut at a gate into laser form or the level's end), and what goes on screen: `Beam`, the drifting lasers' `Drifter` and `Mine`, `Target`, `Gate` |
 | `story.js` | The acts (`ACTS`: name, their band of the spectrum, backdrop and lore; five levels each) and the epilogue, and the story screens between levels: an act's intro, typed over its backdrop to its theme, a level's card, the epilogue before the finish |

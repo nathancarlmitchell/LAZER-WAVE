@@ -294,8 +294,6 @@ function drawPauseScreen(countdown) { // over the level, frozen as it stood: how
         ctx.fillStyle = COLORS.text;
         ctx.font = "36px Arial";
         centerText("TAP TO RESUME", msgBottom() + 50);
-        ctx.font = "22px Arial";
-        centerText("Your piece stays put. Drag to steer.", msgBottom() + 34);
     } else {
         ctx.fillStyle = COLORS.text;
         ctx.font = "25px Arial";

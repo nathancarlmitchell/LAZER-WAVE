@@ -106,7 +106,11 @@ function playLevel() { // an attempt at the level begins: after its card, after 
 
 function startTouchGame() { // start from a tap: the piece starts at the left middle, and sounds are unlocked in this tap
     ALL_SFX.forEach(function (sound) {
-        // mobile browsers only let a sound play later if it was first played during a tap; pausing at once keeps it silent
+        // mobile browsers only let a sound play later if it was first played during a tap; pausing at once keeps it
+        // silent. One decoded plays through the audio instead, and on iOS none plays as an element (playSound, audio.js)
+        if (sound.sfxBuffer || !elementVolume) {
+            return;
+        }
         var playing = sound.play();
         sound.pause();
         if (playing) {
@@ -884,7 +888,7 @@ function drawResultsScreen() { // drawn as they come up, and again on a resize, 
     ctx.font = "60px Arial";
     printText(practice ? "練習" : "クリア", -75);
     var next = 0; // the line under the title
-    if (levelFlawless()) { // no miss, one combo through every beat, no hit: said, and worth nothing more
+    if (levelFlawless()) { // no miss or BAD, one combo through every beat, no hit: said, and worth nothing more
         showFlawless(FLAWLESS_DY);
         next = msgBottom() + FLAWLESS_NEXT;
     }

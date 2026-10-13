@@ -5,7 +5,7 @@ out from the charts by `node .claude/progression.js`: run it after changing a ch
 its markers. The notes between the tables are written by hand, so give them a look after a change.
 
 <!-- begin stamp -->
-_Tables worked out from the charts at plugin 1.22.0 by `node .claude/progression.js`._
+_Tables worked out from the charts at plugin 1.22.3 by `node .claude/progression.js`._
 <!-- end stamp -->
 
 The *lasers a bar* are what each wave bar fires, average and busiest (rests and drifting lasers left out, a mine's burst

@@ -4,7 +4,7 @@ Tags: game, rhythm, arcade, html5, embed
 Requires at least: 6.1
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 1.22.0
+Stable tag: 1.22.3
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -110,6 +110,18 @@ one place apart; the address itself is not kept). Deleting the plugin leaves the
 reinstall keeps the boards.
 
 == Changelog ==
+
+= 1.22.3 =
+* On an iPhone or an iPad the hit, the menu clicks, the death and the new best no longer play far louder than the
+  rest: they play through the game's audio at their own levels now, as iOS plays an audio element at full whatever
+  its volume is set to.
+
+= 1.22.2 =
+* The pause screen on a touch screen no longer says "Your piece stays put. Drag to steer."
+
+= 1.22.1 =
+* A BAD no longer breaks your combo: it keeps the streak, and the song's layers and the flair with it, going, for the
+  fewest points. FLAWLESS, and so S+ and SS, still need every beat hit without a BAD.
 
 = 1.22.0 =
 * The screen comes alive with your streak, at the same steps as the song's layers: glints twinkle in the sky on the

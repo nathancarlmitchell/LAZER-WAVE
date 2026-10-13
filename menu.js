@@ -721,7 +721,7 @@ function helpPages() { // every page: a heading is a line of its own, and the li
         { t: "PERFECT 100, GREAT 75, GOOD 50, BAD 25, times your multiplier and the difficulty's" },
         { t: "every " + COMBO_STEP + " in a row raises the multiplier, with no ceiling; a run keeps it from level to level" },
         { t: "and every level multiplies it by its number: level 1 x1, level 10 x10, level " + RUN_LEVELS + " x" + RUN_LEVELS },
-        { t: "A missed, BAD or WRONG beat resets the combo" },
+        { t: "A missed or WRONG beat resets the combo; a BAD keeps it going" },
     ], [
         { t: "SURVIVAL サバイバル", title: true },
         { t: "SHIELDS", head: true },

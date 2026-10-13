@@ -37,6 +37,21 @@ const aud_danger = sfxFile("music/72.wav", 0.05);
 const aud_click = sfxFile("music/click.wav", 0.1);
 // The sound effects a touch start unlocks together, which fetches every one of them: so only the sounds the game plays
 const ALL_SFX = [aud_menuSound, aud_death, aud_danger, aud_click]; // the rest are synthesized (sfx.js)
+// These play through the audio (Web Audio), each file decoded once from the first press (sfxDecode), at its level
+// through a gain: an element's volume can't be set on an iPhone or an iPad, where every element plays at full whatever
+// it is told, so an effect played as one came out far over the game's own sounds there (the hit's, at 0.05, 26 dB
+// over). The element is kept for a file that can't be fetched (a page opened straight off disk) or isn't decoded yet,
+// except where elements can't be turned down: there a sound not decoded yet is let go rather than played at full
+var sfxDecoding = false; // the files have been asked for
+var elementVolume = (function () { // can an element's volume be set here: not on iOS, where it stays at 1
+    try {
+        var probe = new Audio();
+        probe.volume = 0.5;
+        return probe.volume < 0.75;
+    } catch (e) {
+        return true;
+    }
+})();
 var musicVolume = 0.2;
 
 function loadAudio() { // on the first click, which is the one the browser lets sound start in. The levels bring
@@ -46,6 +61,33 @@ function loadAudio() { // on the first click, which is the one the browser lets 
         song.onended = function () { playSong((i + 1) % all_songs.length); };
     });
     beatAudio(); // made in the click, so the browser lets it play
+    sfxDecode(); // and the effects' files decoded into it
+}
+
+function sfxDecode() { // fetch the effects' files and decode them into the audio, once, from the first press (wakeAudio,
+    // loadAudio), where the audio can be made. A file that can't be fetched or decoded stays with its element
+    var c = audioCtx || beatAudio();
+    if (sfxDecoding || !c || !window.fetch) {
+        return;
+    }
+    sfxDecoding = true;
+    ALL_SFX.forEach(function (a) {
+        fetch(a.src).then(function (r) {
+            if (!r.ok) {
+                throw new Error("HTTP " + r.status);
+            }
+            return r.arrayBuffer();
+        }).then(function (bytes) {
+            return new Promise(function (ok, fail) { // the callback form: older Safari has no promise from it
+                c.decodeAudioData(bytes, ok, fail);
+            });
+        }).then(function (buffer) {
+            a.sfxBuffer = buffer; // a buffer plays in any of the audio's contexts, so one made afresh keeps it
+        }).catch(function (e) {
+            audioLog("an effect stays an element: " + decodeURIComponent(a.src.split("/").pop()) + " ("
+                + (e && e.message || e) + ")");
+        });
+    });
 }
 
 function playSong(i) {
@@ -57,10 +99,24 @@ function playSong(i) {
 }
 
 function playSound(audio) { // play, ignoring failures such as blocked autoplay or a missing file. A sound effect plays
-    // at the SOUND FX setting's share of its own volume, and not at all when that is off
+    // at the SOUND FX setting's share of its own volume, and not at all when that is off: through the audio once its
+    // file is decoded (sfxDecode), else as its element, where an element can be turned down
     if (audio.sfxVolume !== undefined) {
         if (sfxLevel <= 0) {
             return;
+        }
+        var c = audioCtx;
+        if (audio.sfxBuffer && c && c.state == "running") {
+            var source = c.createBufferSource(), level = c.createGain();
+            source.buffer = audio.sfxBuffer;
+            level.gain.value = audio.sfxVolume * sfxLevel;
+            source.connect(level);
+            level.connect(c.destination);
+            source.start();
+            return;
+        }
+        if (!elementVolume) {
+            return; // on iOS it would play at full, whatever its level
         }
         audio.volume = audio.sfxVolume * sfxLevel;
     }
@@ -304,6 +360,7 @@ function wakeAudio() { // a press of a kind a browser lets sound start from (STA
     // it is asleep, as some browsers only let it start again in a press, or made afresh in it if it has stayed asleep
     // since the page last tried
     audioPressed = true;
+    sfxDecode(); // and the effects' files decoded into it, the first time
     if (!audioCtx || audioCtx.state == "running") {
         return;
     }

@@ -235,9 +235,9 @@ function trackLatency() { // each step: the clock follows the audio's delay as t
 }
 
 // Hitting on the beat. A press is judged against the nearest beat: inside the PERFECT, GREAT, GOOD or BAD window it
-// scores, times the multiplier, though a BAD breaks the combo as a miss does; outside, or a second press on a beat
-// already hit, is a miss. A beat that goes by unhit breaks the combo. The BAD window is the beat's edge: past it the
-// beat has gone by (beatOpen).
+// scores, times the multiplier, and the combo goes on, a BAD's for the fewest points; outside, or a second press on a
+// beat already hit, is a miss. A beat that goes by unhit breaks the combo. The BAD window is the beat's edge: past it
+// the beat has gone by (beatOpen).
 // A coloured beat also wants the key of its colour: the other one, on the beat, is WRONG -- it spends the beat and
 // breaks the combo, and the rank counts it as a press off the beat. A gate's beat wants SPACE, and a target's wants
 // the beam lined up with it as well: on the beat, in its colour, but off it, is OFF TARGET, as WRONG is.
@@ -771,11 +771,12 @@ function shieldsLost() { // the shields this attempt has lost, or in practice, w
     return hpAtStart - hp + practiceHits;
 }
 
-function levelFlawless() { // the attempt was flawless: no miss, one combo through every beat, no hit. Every way a combo
-    // breaks is a beat missed or BAD, a press off the beat (a stray) or a laser that hits, so the longest streak being the
-    // beats, no stray and no shield lost says it all. The results flare FLAWLESS for it, worth no points; S+ and SS need it
+function levelFlawless() { // the attempt was flawless: no miss or BAD, one combo through every beat, no hit. Every way
+    // a combo breaks is a beat missed, a press off the beat (a stray) or a laser that hits, so the longest streak being
+    // the beats, no BAD (which keeps a combo going, but isn't clean), no stray and no shield lost says it all. The
+    // results flare FLAWLESS for it, worth no points; S+ and SS need it
     var beats = playBeats();
-    return beats > 0 && bestCombo == beats && strays == 0 && shieldsLost() == 0;
+    return beats > 0 && bestCombo == beats && bads == 0 && strays == 0 && shieldsLost() == 0;
 }
 
 function levelRank() { // this attempt's rank: { grade, color }
@@ -1126,13 +1127,9 @@ function hitBeatAt(b, color) { // a hit in `color` at beat position b, judged ag
         chargeDrive(n, OVERDRIVE_BAD);
     }
     var earns = earning(n); // past a boss level's par, no points, and the combo holds without climbing
-    if (grade == "bad") { // the beat is spent, but not cleanly: the combo goes, as on a miss
-        loseCombo();
-    } else {
-        streak++; // the level's own run of hits, which goes on counting whether the beat earns or not
-        bestCombo = Math.max(bestCombo, streak);
-    }
-    if (grade != "bad" && earns) {
+    streak++; // the level's own run of hits, a BAD's too, which goes on counting whether the beat earns or not
+    bestCombo = Math.max(bestCombo, streak);
+    if (earns) {
         var multWas = multiplier();
         combo++;
         runPeakCombo = Math.max(runPeakCombo, combo);
