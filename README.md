@@ -392,11 +392,12 @@ old scores unfair: the site then starts fresh boards, the old scores kept but no
  - **Sound effects:** besides the beat, the lasers' zaps and your shots, the game's moments have sounds of their own,
    synthesized as the startup is and, where they have a pitch, in the act's key: a gate passed (two tones meeting in
    the beam the waves become, or parting again back to the wave), overdrive coming on (a shot, and the power surging
-   up) and running out (the surge in reverse), a laser absorbed in it (a zap played backwards), the multiplier
-   climbing (three quick blips, higher for each step), a boss level's siren over the count-in, its boss brought down (a
-   big chord stab over a gated snare and its debris), a new best on the results (bells; for a FLAWLESS, the octave as
-   its stamp lands), the game over (an arcade's tube switching off) and the run's finish (the stab after a swell drawn
-   in backwards). All of them follow SOUND FX.
+   up) and running out (the surge in reverse), a laser absorbed in it (an arcade coin, a step up the scale for each
+   laser in a run, echoing left and right, the echo and a shimmer over it growing as the run climbs), the multiplier
+   climbing (three quick blips, higher for each step), a boss level's siren over the count-in, its boss brought down
+   (a big chord stab over a gated snare and its debris), a new best on the results (bells; for a FLAWLESS, the octave
+   as its stamp lands), the game over (an arcade's tube switching off) and the run's finish (the stab after a swell
+   drawn in backwards). All of them follow SOUND FX.
  - **Menu theme:** the start screen and every menu over it (the settings, the difficulty, the instructions, the level
    select and practice) play the game's own theme, a synthwave song in A minor at 100 BPM on the same synths and
    drums as the acts' songs. Its pad swells in under the startup sequence's chord as it rings (or comes in at the

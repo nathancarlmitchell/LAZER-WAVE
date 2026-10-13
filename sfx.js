@@ -8,14 +8,15 @@
 // the startup's, the game over's and the finish's in A, the key the game opens and closes in. index.html loads this
 // with a plain <script src>, as globals rather than modules, so the game still opens straight off disk.
 
-// Each effect's level, against the others and the game's own sounds: set by measuring each one's loudest twentieth of a
-// second, the bass under 150 Hz left out as small speakers leave it out, against the sound it replaced or the one it
-// sits nearest. The startup as loud as the sequence it replaced; the gate as the old gate's sweep, the absorb as the
-// coin it replaced; overdrive coming on near the gate (the stock power-up it replaced was the faintest sound in the
-// game), running out and the multiplier quieter, reminders rather than events; the siren a little under the gate; the
-// boss's stab a little under the startup, over the song's last chord; the finale as the startup; the new best's bells
-// and the game over over the results' and the death's own sounds, which they follow
-var SFX_LEVELS = { startup: 0.73, gate: 0.6, driveStart: 0.75, driveEnd: 0.9, absorb: 1.05, multiplier: 0.8,
+// Each effect's level, against the others and the game's own sounds: set by measuring each one's loudest twentieth
+// of a second, the bass under 150 Hz left out as small speakers leave it out, against the sound it replaced or the
+// one it sits nearest. The startup as loud as the sequence it replaced; the gate as the old gate's sweep, the absorb
+// (a run's first coin) as the zap it replaced, which had matched the stock coin before it; overdrive coming on near
+// the gate (the stock power-up it replaced was the faintest sound in the game), running out and the multiplier
+// quieter, reminders rather than events; the siren a little under the gate; the boss's stab a little under the
+// startup, over the song's last chord; the finale as the startup; the new best's bells and the game over over the
+// results' and the death's own sounds, which they follow
+var SFX_LEVELS = { startup: 0.73, gate: 0.6, driveStart: 0.75, driveEnd: 0.9, absorb: 0.83, multiplier: 0.8,
     bossWarning: 1.1, bossDown: 0.6, reward: 0.75, gameOver: 0.65, finale: 0.65 };
 var sfxNoise = null; // a second of white noise, made once (sfxKit)
 
@@ -312,23 +313,26 @@ function sfxDriveEnd(c, at, out, key) {
     band.connect(k.env(null, at, 0.05, 0.01, at + 0.05, 0.35));
 }
 
-// A laser absorbed in overdrive: a zap played backwards, a saw rising from an octave under the key's note to two over
-// it and cut off, and a glint where it ends
-var ABSORB_SECS = 0.07;
+// A laser absorbed in overdrive: an arcade coin, a pulse blip and a fourth over it, in the act's key and a step up its
+// minor scale for each laser absorbed in a run (absorbHazards, loop.js), held at the top, an octave up. It echoes left
+// and right, and as the run climbs the echo grows, and a shimmer an octave over the coin with it
+var ABSORB_SCALE = [0, 2, 3, 5, 7, 8, 10]; // the songs' minor keys
+var ABSORB_TOP = 7; // steps a run climbs before it holds: an octave
+var ABSORB_ECHO = 0.18; // s between the echo's repeats, left and right
 
-function sfxAbsorb(c, at, out, key) {
-    var k = sfxKit(c, out), end = at + ABSORB_SECS;
-    var zap = k.osc("sawtooth", midiHz(key - 12), at, end + 0.02), open = k.filt("lowpass", 600, 2, at);
-    zap.frequency.exponentialRampToValueAtTime(midiHz(key + 24), end);
-    open.frequency.exponentialRampToValueAtTime(7000, end);
-    zap.connect(open);
-    var g = c.createGain();
-    g.gain.setValueAtTime(0.0001, at);
-    g.gain.exponentialRampToValueAtTime(0.14, end - 0.005);
-    g.gain.linearRampToValueAtTime(0, end + 0.01);
-    g.connect(out);
-    open.connect(g);
-    k.osc("sine", midiHz(key + 24), end, end + 0.12).connect(k.env(null, end, 0.06, 0.002, end, 0.09));
+function sfxAbsorb(c, at, out, o) { // o: { key, step }
+    var k = sfxKit(c, out), pw = k.pulse(0.25), s = Math.min(o.step || 0, ABSORB_TOP), grow = s / ABSORB_TOP;
+    var note = o.key + 12 + ABSORB_SCALE[s % ABSORB_SCALE.length] + 12 * Math.floor(s / ABSORB_SCALE.length);
+    var ding = at + 0.045; // the coin's second note
+    var echo = k.pingpong(ABSORB_ECHO, 0.3 + 0.3 * grow, 0.3 + 0.3 * grow, 3000 + 2000 * grow);
+    var blip = k.env(null, at, 0.1, 0.001, at + 0.035, 0.01), tone = k.env(null, ding, 0.1, 0.001, ding + 0.035, 0.08);
+    k.osc(pw, midiHz(note), at, at + 0.05).connect(blip);
+    k.osc(pw, midiHz(note + 5), ding, ding + 0.2).connect(tone);
+    var shimmer = k.env(null, ding, 0.05 + 0.05 * grow, 0.002, ding + 0.01, 0.2 + 0.3 * grow);
+    k.osc("sine", midiHz(note + 17), ding, ding + 0.6).connect(shimmer);
+    [blip, tone, shimmer].forEach(function (g) {
+        g.connect(echo);
+    });
 }
 
 // The multiplier steps up: three quick blips climbing the key's note, its fifth and its octave, in pulses as an

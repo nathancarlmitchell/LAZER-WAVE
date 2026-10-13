@@ -4,7 +4,7 @@ Tags: game, rhythm, arcade, html5, embed
 Requires at least: 6.1
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 1.22.3
+Stable tag: 1.22.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -110,6 +110,11 @@ one place apart; the address itself is not kept). Deleting the plugin leaves the
 reinstall keeps the boards.
 
 == Changelog ==
+
+= 1.22.4 =
+* A laser absorbed in overdrive sounds an arcade coin in the act's key, a step up the scale for each laser absorbed
+  in a run, an octave at the most; it echoes left and right, and the echo and a shimmer over it grow as the run
+  climbs.
 
 = 1.22.3 =
 * On an iPhone or an iPad the hit, the menu clicks, the death and the new best no longer play far louder than the

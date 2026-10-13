@@ -433,6 +433,9 @@ function driveStep() { // each step: on AUTO, a full meter is spent at once, fro
     }
 }
 
+var ABSORB_RUN = 1.5; // beats within which each laser absorbed carries the absorb sound's run on a step (sfxAbsorb)
+var absorbRun = { step: 0, at: -Infinity }; // the run so far: its step, and the beat its last absorb came on
+
 function absorbHazards() { // in overdrive: every laser the piece is in is absorbed, for points, which pop up off it
     var n = 0;
     hazards.forEach(function (h) {
@@ -447,7 +450,9 @@ function absorbHazards() { // in overdrive: every laser the piece is in is absor
             score += points;
             popPoints(points, gamePiece.x + gamePiece.width / 2 + 44, gamePiece.y + gamePiece.height / 2 - 6);
         }
-        playSfx(sfxAbsorb, 0, SFX_LEVELS.absorb, actSong(level).key);
+        absorbRun.step = beatPos - absorbRun.at <= ABSORB_RUN ? absorbRun.step + 1 : 0; // its coin a step up the run
+        absorbRun.at = beatPos;
+        playSfx(sfxAbsorb, 0, SFX_LEVELS.absorb, { key: actSong(level).key, step: absorbRun.step });
     }
 }
 
@@ -944,6 +949,7 @@ function startLevel() { // a level is about to be played: from the start, or aga
     timings = [];
     playerReset();
     flairReset(); // and no streak's flair yet (flair.js)
+    absorbRun.at = -Infinity; // nor an absorb's run: the beat starts over
 }
 
 function endLevel() { // the level is over, cleared or lost
