@@ -94,9 +94,9 @@ const limits = {
     points: {}, lives: {}, levels: {},
 };
 difficulties.forEach(d => { limits.points[d.name] = d.points; limits.lives[d.name] = d.lives; });
-// a boss level earns in its rounds up to its boss's par, the earliest it can fall in (bossPar, boss.js; earning,
-// loop.js): worked out by the game's own code, run on its levels, as `par` and the bars a round after the first deals
-// again (`loop`)
+// a boss level earns in its rounds up to its boss's par, the earliest it can fall in without overdrive (bossPar,
+// boss.js; earning, loop.js), as overdrive's harder hits only end a fight sooner, earning less: worked out by the
+// game's own code, run on its levels, as `par` and the bars a round after the first deals again (`loop`)
 const sim = require("vm").createContext({ console: console, Math: Math, JSON: JSON });
 ["layout.js", "waves.js", "story.js", "music.js", "run.js", "world.js", "boss.js"].forEach(f => {
     require("vm").runInContext(source(f), sim, { filename: f });

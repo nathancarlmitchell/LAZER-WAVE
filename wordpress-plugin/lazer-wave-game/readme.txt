@@ -4,7 +4,7 @@ Tags: game, rhythm, arcade, html5, embed
 Requires at least: 6.1
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 1.22.4
+Stable tag: 1.22.5
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -110,6 +110,11 @@ one place apart; the address itself is not kept). Deleting the plugin leaves the
 reinstall keeps the boards.
 
 == Changelog ==
+
+= 1.22.5 =
+* A target struck in overdrive takes two points of a boss's health, not one, as its hit scores double. A boss's par
+  is still the earliest round it can fall in without overdrive, so a fight overdriven through can end sooner, its
+  bonus still whole.
 
 = 1.22.4 =
 * A laser absorbed in overdrive sounds an arcade coin in the act's key, a step up the scale for each laser absorbed

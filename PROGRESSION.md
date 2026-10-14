@@ -5,7 +5,7 @@ out from the charts by `node .claude/progression.js`: run it after changing a ch
 its markers. The notes between the tables are written by hand, so give them a look after a change.
 
 <!-- begin stamp -->
-_Tables worked out from the charts at plugin 1.22.4 by `node .claude/progression.js`._
+_Tables worked out from the charts at plugin 1.22.5 by `node .claude/progression.js`._
 <!-- end stamp -->
 
 The *lasers a bar* are what each wave bar fires, average and busiest (rests and drifting lasers left out, a mine's burst
@@ -57,7 +57,7 @@ and `safegap.js`'s `cellConflicts` and `driftDeals`.
 | Rest bars after bar 0 | 1-7, 10 |
 | Combinations | two in a bar: 5, 9-10, 13-25; three: 24-25 |
 | Drifting lasers | roll (PIANO ROLL): 21-22, 24-25; swarm: 22-23, 25; mines: 24-25 |
-| Bosses | 5 Red Giant (node, 30 HP, round 2 at the earliest), 10 Interference (twin, 40 HP, round 3 at the earliest), 15 Static Bloom (radar, 50 HP, round 4 at the earliest), 20 Overdrive (chaser, 60 HP, round 5 at the earliest), 25 Lazer Wave (mirror, 75 HP, round 4 at the earliest) |
+| Bosses | 5 Red Giant (node, 30 HP, par round 2), 10 Interference (twin, 40 HP, par round 3), 15 Static Bloom (radar, 50 HP, par round 4), 20 Overdrive (chaser, 60 HP, par round 5), 25 Lazer Wave (mirror, 75 HP, par round 4) |
 <!-- end milestones -->
 
 ## Act by act

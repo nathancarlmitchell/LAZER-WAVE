@@ -100,8 +100,9 @@ old scores unfair: the site then starts fresh boards, the old scores kept but no
    beats, and for one beat more the lasers still can't hurt you, room to come back out of it. OPTIONS → **OVERDRIVE**
    set to AUTO spends it the moment it fills, from the next beat, with no press; MANUAL, the default, leaves it to
    SPACE. You become a laser:
-   lasers can't hurt you, hits score double, and flying through a laser as it fires absorbs it for a bonus (a
-   drifting laser it only passes through; a mine's burst it absorbs). The colours still count.
+   lasers can't hurt you, hits score double and strike a boss twice as hard, and flying through a laser as it fires
+   absorbs it for a bonus (a drifting laser it only passes through; a mine's burst it absorbs). The colours still
+   count.
  - **Wave / laser:** from level 3 on, every level switches to laser form for a few bars. A **gate** (a white line)
    sweeps in: press SPACE, or either colour's key, as it reaches you, on the beat, to switch; one gone by unpassed switches anyway and costs a
    shield. In laser form you lock to the left third of the screen, steer only up and down, and fire across it: each
@@ -137,12 +138,13 @@ old scores unfair: the site then starts fresh boards, the old scores kept but no
    drop out early: the fallers after level 9, the pincers after 12, the ripples and crossfire after 15.
  - **Boss fights.** Each act's fifth level is a fight with the Array. In Red Giant its node stands at the right edge, where the
    targets come from, with a health bar in the progress stripe's slot. Every target struck lined up takes a point of
-   its health (a laser absorbed in overdrive pays, but doesn't hurt it): its own bars are the wave bars, to survive,
-   and yours are the laser bars. Its health is its own, more with each act (`hp` in its `LEVELS` entry): Red Giant 30,
-   Interference 40, Static Bloom 50, Overdrive 60, Lazer Wave 75, more than a round's targets can take (15, 22, 15,
-   22 and 30), so the fight goes round again until its targets have taken it all. The earliest round it can fall in,
-   its par (`bossPar`), is round 2 for Red Giant, 3 for Interference, 4 for Static Bloom and Lazer Wave, and 5 for
-   Overdrive. At none it breaks up and the bar plays out as a pause, the beat stopped, the song resolving on
+   its health, two in overdrive (a laser absorbed in overdrive pays, but doesn't hurt it): its own bars are the wave
+   bars, to survive, and yours are the laser bars. Its health is its own, more with each act (`hp` in its `LEVELS`
+   entry): Red Giant 30, Interference 40, Static Bloom 50, Overdrive 60, Lazer Wave 75, more than a round's targets
+   can take (15, 22, 15, 22 and 30), so the fight goes round again until its targets have taken it all. The earliest
+   round it can fall in without overdrive, its par (`bossPar`), is round 2 for Red Giant, 3 for Interference, 4 for
+   Static Bloom and Lazer Wave, and 5 for Overdrive; overdrive's harder hits can bring it down sooner. At none it
+   breaks up and the bar plays out as a pause, the beat stopped, the song resolving on
    its first beat as a cleared level's does and nothing left in it to hit or miss, and the level ends there, cleared. It does not end
    before that: at its last bar with the boss still up, the level goes round again from the bar before its last laser
    section, as many times as it takes, the health bar counting the rounds, and every beat of every round counts in
@@ -463,7 +465,7 @@ old scores unfair: the site then starts fresh boards, the old scores kept but no
 | `player.js` | The player's look: two sine waves drawn off its position history, drifting into a glowing trail, meeting on each beat, the coming beat's colour lit; once the level is done, at rest in one line, the core a steady white, and a ring going out from it as the song resolves |
 | `flair.js` | The streak's flair: the look of the combo's layers (`LAYERS`, music.js), a part at each of their steps, eased in on the beat after it and out together over `LAYER_OUT` when the streak breaks (`flairStep`, `flairBeat`): glints, the light from the top, the floor's glow and the clouds in the sky (`drawFlairSky`), light running along the beat's stripes (`drawFlairStripes`), a haze round the trail and sparks off the head (`drawFlairAura`, `drawFlairSparks`, from `drawPlayer`). It reads the combo, so it shows with MUSIC off, and follows the effects setting |
 | `death.js` | The death animation: the picture of the hit, taken as the level stops, worked over for 1.3 s before the results in three overlapping movements (the prism split, burn-through, decoherence); it plays out whatever is pressed, and reduced effects skip it |
-| `boss.js` | The bosses: the Array's node at the right edge, its health (`hp`, a point off it for a target struck or a laser absorbed), the health bar in the progress stripe's slot, the break-up and the level's end at the bar it falls in, the loop that deals the level's last bars again while it stands, and the bonus it pays brought down, less the longer the fight ran; a level's `boss` in `LEVELS` names its fight |
+| `boss.js` | The bosses: the Array's node at the right edge, its health (`hp`, a point off it for a target struck, two in overdrive), the health bar in the progress stripe's slot, the break-up and the level's end at the bar it falls in, the loop that deals the level's last bars again while it stands, and the bonus it pays brought down, less the longer the fight ran; a level's `boss` in `LEVELS` names its fight |
 | `hud.js` | Score / deaths / act and level readout, the overdrive meter and the progress stripe |
 | `fx.js` | The effects setting (auto / full / reduced / off, honouring reduced motion), `fxHash`, the CRT overlay |
 | `sky.js` | Each level's colour, from its act's band of the spectrum, and each act's backdrop in it (`SKY_STYLES`: rising embers, a sun over a grid, an oscilloscope, a warp, an aurora), pulsing on the beat under the level and the story screens (still once a level is done, and lit up as its song resolves), still under the screens between levels. Moving at full effects, still when reduced, only the colour when off |

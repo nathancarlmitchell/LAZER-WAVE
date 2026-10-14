@@ -740,6 +740,7 @@ function helpPages() { // every page: a heading is a line of its own, and the li
         { t: "and lasts eight beats, plus a beat of grace. The colours still count." },
         { t: "LASER FORM", head: true },
         { t: "Lasers can't hurt you, and your hits score double" },
+        { t: "Targets you strike hurt a boss twice as much" },
         { t: "Fly through a laser as it fires to absorb it for a bonus" },
     ], [
         { t: "WAVE / LASER 変形", title: true },

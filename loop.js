@@ -303,9 +303,10 @@ var deathProgress = 0; // how far through the level the last attempt got, for th
 // Overdrive: hits charge a meter, and SPACE spends a full one. It starts on a beat -- the one it is pressed on, if
 // the press is inside that beat's window, or else the next, so it never asks for SPACE and a colour at once -- and
 // runs OVERDRIVE_BEATS from there. For that
-// long the piece is a laser: the lasers can't hurt it, hits score double, and a laser it flies through is absorbed
-// for ABSORB_POINTS more. The colours still count. For OVERDRIVE_GRACE beats after it runs out the lasers still can't
-// hurt the piece, though it is a wave again and scores as one: room to come back out of it.
+// long the piece is a laser: the lasers can't hurt it, hits score double and strike a boss twice as hard, and a laser
+// it flies through is absorbed for ABSORB_POINTS more. The colours still count. For OVERDRIVE_GRACE beats after it
+// runs out the lasers still can't hurt the piece, though it is a wave again and scores as one: room to come back out
+// of it.
 var OVERDRIVE_PERFECTS = 16; // PERFECTs from empty to full; nothing charges it while it runs
 var OVERDRIVE_GREAT = 0.75, OVERDRIVE_GOOD = 0.5, OVERDRIVE_BAD = 0.25; // what a GREAT, a GOOD and a BAD charge,
                                                                         // against a PERFECT's 1 (as their points are)
@@ -315,6 +316,7 @@ var driveGraceUntil = 0; // the beat position that grace runs to, once it has ru
 var autoDrive = false; // the OVERDRIVE setting (OPTIONS): AUTO spends the meter the moment it fills, on the next beat;
                        // MANUAL, the default, leaves it to SPACE
 var OVERDRIVE_SCORE = 2; // what it multiplies the points for hits and absorbs by
+var OVERDRIVE_BOSS = 2; // and the health a target struck in it takes off a boss, against a point otherwise (bossHit)
 var ABSORB_POINTS = 50; // a laser absorbed, before the multipliers: half a PERFECT, a bonus rather than the point
 var drive = emptyDrive();
 
@@ -839,7 +841,7 @@ function levelBar(bar) { // the bar of the level's definition that bar `bar` of 
 }
 
 function earning(b) { // is beat b one that earns: any, but on a boss level only up to the end of its par, the earliest
-    // round it can fall in (bossPar, boss.js): its own bars, and the rounds after them it can't be brought down before.
+    // round it can fall in without overdrive (bossPar, boss.js): its own bars, and the rounds it takes after them.
     // Past that, with the boss still up, nothing is earned: no points for a hit, a beat lived through or a laser
     // absorbed, and the combo holds without climbing (a miss still breaks it), so a fight drawn out gains nothing, and
     // the boss's bonus, which follows the multiplier, only shrinks with the rounds (bossBonus). Practice on LOOP earns
@@ -1157,7 +1159,8 @@ function hitBeatAt(b, color) { // a hit in `color` at beat position b, judged ag
         target.hitAt = beatPos;
         target.grade = grade;
         synthShot(0);
-        bossHit(1); // and the boss, on a boss level, whose port it was
+        bossHit(driveOn() ? OVERDRIVE_BOSS : 1); // and the boss, on a boss level, whose port it was: harder in
+        // overdrive, the hits that score double there (pointsMult)
     }
     if (want == "gate") {
         passGate(n);

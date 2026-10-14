@@ -135,10 +135,11 @@ var MINE_FUSE_R = 34; // px: how far out the fuse starts, past the body
 // the charts for all of it, on every difficulty, as .claude/safegap.js does in the browser (validateAll,
 // cellConflicts, driftDeals).
 // boss, if given ({ name, kind, hp }), makes the level a fight with the Array (boss.js): hp is its health, which every
-// target struck takes a point of (a laser absorbed in overdrive pays but doesn't hurt it; without hp, a point a
-// target), and its kind is its signature, "node", "twin", "radar", "chaser" or "mirror"; the level does not end while
-// the boss stands, but goes round again from the bar before its last laser section (loopFrom) until it falls, and its
-// bonus is whole until the end of the earliest round it can fall in (bossPar), less for every round after.
+// target struck takes a point of, two in overdrive (a laser absorbed in overdrive pays but doesn't hurt it; without
+// hp, a point a target), and its kind is its signature, "node", "twin", "radar", "chaser" or "mirror"; the level does
+// not end while the boss stands, but goes round again from the bar before its last laser section (loopFrom) until it
+// falls, and its bonus is whole until the end of the earliest round it can fall in without overdrive (bossPar), less
+// for every round after.
 //
 // The curve climbs a step at a time, bringing in one thing at once and letting it settle before the next: the melody's
 // beams, then fallers and a beam on every beat (2), then laser form (3), pincers (4) and the cage (5); colours (6),

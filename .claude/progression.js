@@ -432,9 +432,9 @@ blocks.room = ["| # | Level | " + DIFFICULTIES.map(named).join(" | ") + " |", "|
         + (lv.rooms[d.name].traps ? ", TRAPPED" : "")).join(" | ") + " |")).join("\n");
 
 const parOf = (lv) => game.bossPar(game.levelDef(lv.n), game.buildTimeline(lv.n), game.COUNT_IN_BARS * game.BEATS_PER_BAR,
-    lv.boss.hp || 1); // the earliest round it can fall in
+    lv.boss.hp || 1); // the earliest round it can fall in without overdrive, whose hits take two
 const bosses = levels.filter((lv) => lv.boss).map((lv) => lv.n + " " + lv.name + " (" + lv.boss.kind
-    + (lv.boss.hp ? ", " + lv.boss.hp + " HP" : "") + ", round " + parOf(lv) + " at the earliest)").join(", ");
+    + (lv.boss.hp ? ", " + lv.boss.hp + " HP" : "") + ", par round " + parOf(lv) + ")").join(", ");
 const twoSections = where((lv) => lv.laser.length > 1);
 blocks.milestones = [
     "| | Levels |",

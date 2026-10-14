@@ -197,7 +197,8 @@ function lazer_wave_scores_cap( $board, $difficulty, $reached, $from = 0 ) {
 
 /**
  * The bars a level earns in: its own, and on a boss level the rounds after them up to its boss's par, the earliest it
- * can fall in, each dealing the level's last bars (`loop`) again.
+ * can fall in without overdrive (whose harder hits only end a fight sooner, earning less), each dealing the level's
+ * last bars (`loop`) again.
  *
  * @param array $def The level's limits.
  * @return int
@@ -224,9 +225,9 @@ function lazer_wave_scores_played( $levels, $reached, $from ) {
 
 /**
  * The fewest seconds the levels a board's play claims to have cleared could have taken: half the song of a level
- * without a boss, which always plays to its end; for a boss level, only its count-in and a tenth of its bars, as lasers
- * absorbed in overdrive hurt the boss too, and an overdrive carried in from the level before can bring it down within a
- * fifth of its song. Time on the results and the story screens only adds to it.
+ * without a boss, which always plays to its end; for a boss level, only its count-in and a tenth of its bars, well
+ * under the soonest a boss can fall, a target struck in overdrive taking two of its health. Time on the results and the
+ * story screens only adds to it.
  *
  * @param string $board   The board.
  * @param int    $reached Levels cleared.
