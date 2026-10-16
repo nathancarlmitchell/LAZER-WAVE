@@ -94,9 +94,9 @@ const limits = {
     points: {}, lives: {}, levels: {},
 };
 difficulties.forEach(d => { limits.points[d.name] = d.points; limits.lives[d.name] = d.lives; });
-// a boss level earns in its rounds up to its boss's par, the earliest it can fall in without overdrive (bossPar,
-// boss.js; earning, loop.js), as overdrive's harder hits only end a fight sooner, earning less: worked out by the
-// game's own code, run on its levels, as `par` and the bars a round after the first deals again (`loop`)
+// a boss level's points are capped over the rounds its targets take to bring it down at a point each (bossRounds,
+// boss.js), the longest a fight can last and keep its streak, which every round earns as the first does: worked out by
+// the game's own code, run on its levels, as `rounds` and the bars a round after the first deals again (`loop`)
 const sim = require("vm").createContext({ console: console, Math: Math, JSON: JSON });
 ["layout.js", "waves.js", "story.js", "music.js", "run.js", "world.js", "boss.js"].forEach(f => {
     require("vm").runInContext(source(f), sim, { filename: f });
@@ -106,8 +106,8 @@ levelList.forEach((def, n) => {
         limits.levels[n] = { name: def.name, bars: def.chart.length, bpm: def.bpm, act: Math.ceil(n / perAct), boss: !!def.boss };
         if (def.boss) {
             const level = sim.levelDef(n);
-            limits.levels[n].par = sim.bossPar(level, sim.buildTimeline(n), limits.count_in_bars * limits.beats_per_bar,
-                def.boss.hp || 1);
+            limits.levels[n].rounds = sim.bossRounds(level, sim.buildTimeline(n),
+                limits.count_in_bars * limits.beats_per_bar, def.boss.hp || 1);
             limits.levels[n].loop = level.bars - sim.loopFrom(level);
         }
     }

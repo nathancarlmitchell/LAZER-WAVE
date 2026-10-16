@@ -8,10 +8,11 @@
 // is posted. index.html loads this with a plain <script src>, as globals rather than modules, so the game still opens
 // straight off disk.
 
-var SCORE_VERSION = 3; // the scoring the boards are kept under: raised when a change to the scoring would make the old
+var SCORE_VERSION = 4; // the scoring the boards are kept under: raised when a change to the scoring would make the old
                        // scores unfair, and the site starts new boards (build.js hands it to scores.php). 2: a level's
-                       // points times its number (levelMultiplier, loop.js); 3: a boss level earning up to its par
-                       // (earning, loop.js)
+                       // points times its number (levelMultiplier, loop.js); 3: a boss level earning up to its par; 4:
+                       // no par, a boss level earning in every round, and its bonus not times the streak's multiplier
+                       // (bossBonus, boss.js)
 var ONLINE_TOP = 10; // a board's length, and the place a score must make to be asked a name for
 var ONLINE_NAME_STORE = "lazerwave.name";
 var ONLINE_FRESH_MS = 30000; // how long a board fetched is shown before it is fetched again

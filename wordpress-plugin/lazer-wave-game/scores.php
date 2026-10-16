@@ -158,7 +158,8 @@ function lazer_wave_scores_difficulty_ok( $difficulty ) {
 /**
  * The most a board's play could have scored, having cleared `$reached` of its levels (and played into the next): every
  * beat a PERFECT in overdrive, as many lasers absorbed on each as could be, the multiplier climbing from the first beat
- * without a break, and every boss paying all it can; on a run or a rush, as many times over as the difficulty has lives,
+ * without a break, and every boss paying its bonus, which is times the level's number but not the streak's multiplier;
+ * on a run or a rush, as many times over as the difficulty has lives,
  * since a death there keeps the points already scored and plays the level again. Far more than anyone scores: it is
  * there to refuse a number no play could have made.
  *
@@ -188,7 +189,7 @@ function lazer_wave_scores_cap( $board, $difficulty, $reached, $from = 0 ) {
 			$total += $beat * ( 1 + intdiv( $combo, $step ) ) * $by + (int) $limits['survive'];
 		}
 		if ( ! empty( $def['boss'] ) ) {
-			$total += (int) $limits['boss_bonus'] * (int) $def['act'] * ( 1 + intdiv( $combo, $step ) ) * $by;
+			$total += (int) $limits['boss_bonus'] * (int) $def['act'] * $by;
 		}
 	}
 	$tries = $single ? 1 : 1 + (int) $limits['lives'][ $difficulty ];
@@ -196,16 +197,17 @@ function lazer_wave_scores_cap( $board, $difficulty, $reached, $from = 0 ) {
 }
 
 /**
- * The bars a level earns in: its own, and on a boss level the rounds after them up to its boss's par, the earliest it
- * can fall in without overdrive (whose harder hits only end a fight sooner, earning less), each dealing the level's
- * last bars (`loop`) again.
+ * The bars a level's points are counted over: its own, and on a boss level, whose every round earns, the rounds after
+ * them that its targets take to bring it down at a point each (`rounds`), each dealing the level's last bars (`loop`)
+ * again: the longest a fight can last and keep its streak, as every hit takes a point at the least. A fight drawn out
+ * past that by missing targets keeps breaking its streak, and earns far less a beat than the cap counts.
  *
  * @param array $def The level's limits.
  * @return int
  */
 function lazer_wave_scores_level_bars( $def ) {
-	$par = isset( $def['par'] ) ? max( 1, (int) $def['par'] ) : 1;
-	return (int) $def['bars'] + ( $par - 1 ) * ( isset( $def['loop'] ) ? (int) $def['loop'] : 0 );
+	$rounds = isset( $def['rounds'] ) ? max( 1, (int) $def['rounds'] ) : 1;
+	return (int) $def['bars'] + ( $rounds - 1 ) * ( isset( $def['loop'] ) ? (int) $def['loop'] : 0 );
 }
 
 /**
@@ -226,7 +228,7 @@ function lazer_wave_scores_played( $levels, $reached, $from ) {
 /**
  * The fewest seconds the levels a board's play claims to have cleared could have taken: half the song of a level
  * without a boss, which always plays to its end; for a boss level, only its count-in and a tenth of its bars, well
- * under the soonest a boss can fall, a target struck in overdrive taking two of its health. Time on the results and the
+ * under the soonest a boss can fall, a PERFECT in overdrive taking four of its health. Time on the results and the
  * story screens only adds to it.
  *
  * @param string $board   The board.

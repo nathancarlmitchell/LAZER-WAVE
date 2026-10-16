@@ -63,7 +63,7 @@ const game = vm.createContext({ console: console, Math: Math, JSON: JSON });
 ["layout.js", "waves.js", "story.js", "music.js", "run.js", "world.js"].forEach(function (file) {
     vm.runInContext(read(file), game, { filename: file });
 });
-vm.runInContext(read("boss.js"), game, { filename: "boss.js" }); // a boss's par (bossPar)
+vm.runInContext(read("boss.js"), game, { filename: "boss.js" }); // the rounds a boss's targets take (bossRounds)
 const STEP_MS = number("loop.js", "STEP_MS"), BAD_MS = number("loop.js", "BAD_MS"), LASER_X = number("loop.js", "LASER_X");
 const LASER_SLIDE_BEATS = number("loop.js", "LASER_SLIDE_BEATS"), LASER_REACH = number("loop.js", "LASER_REACH");
 const ROOM_W = 880, ROOM_H = 550, ROOM_CELL = 16, ROOM_SPEED = 1000; // safegap.js's window, grid and hand speed
@@ -431,10 +431,11 @@ blocks.room = ["| # | Level | " + DIFFICULTIES.map(named).join(" | ") + " |", "|
     .concat(levels.map((lv) => "| " + lv.n + " | " + lv.name + " | " + DIFFICULTIES.map((d) => percent(lv.rooms[d.name].share)
         + (lv.rooms[d.name].traps ? ", TRAPPED" : "")).join(" | ") + " |")).join("\n");
 
-const parOf = (lv) => game.bossPar(game.levelDef(lv.n), game.buildTimeline(lv.n), game.COUNT_IN_BARS * game.BEATS_PER_BAR,
-    lv.boss.hp || 1); // the earliest round it can fall in without overdrive, whose hits take two
+const roundsOf = (lv) => game.bossRounds(game.levelDef(lv.n), game.buildTimeline(lv.n),
+    game.COUNT_IN_BARS * game.BEATS_PER_BAR, lv.boss.hp || 1); // the rounds its targets take at a point each
 const bosses = levels.filter((lv) => lv.boss).map((lv) => lv.n + " " + lv.name + " (" + lv.boss.kind
-    + (lv.boss.hp ? ", " + lv.boss.hp + " HP" : "") + ", par round " + parOf(lv) + ")").join(", ");
+    + (lv.boss.hp ? ", " + lv.boss.hp + " HP" : "") + ", " + roundsOf(lv) + (roundsOf(lv) == 1 ? " round" : " rounds")
+    + " at a point a target)").join(", ");
 const twoSections = where((lv) => lv.laser.length > 1);
 blocks.milestones = [
     "| | Levels |",

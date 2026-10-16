@@ -4,7 +4,7 @@ Tags: game, rhythm, arcade, html5, embed
 Requires at least: 6.1
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 1.22.5
+Stable tag: 1.23.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -110,6 +110,23 @@ one place apart; the address itself is not kept). Deleting the plugin leaves the
 reinstall keeps the boards.
 
 == Changelog ==
+
+= 1.23.0 =
+* Boss fights have no par. Every round of a fight earns as the first does, however long it runs, and no round says
+  SCORE HELD any more.
+* A boss's bonus is no longer times your streak's multiplier: it is 1,000 points an act times the level's multiplier,
+  at the difficulty's rate (on NORMAL, Red Giant 5,000 up to Lazer Wave 125,000), the same in whatever round the boss
+  falls.
+* Scoring version 4: the leaderboards start fresh, the old scores kept but no longer shown.
+
+= 1.22.7 =
+* A PERFECT on a boss's target takes two points of its health, not one, and overdrive doubles that: four for a
+  PERFECT in overdrive, two for any other grade. The pop under the target says how hard each hit was, x2 or x4. A
+  boss's par still counts a point a target, so a fight played well ends sooner, its bonus whole.
+
+= 1.22.6 =
+* A target struck in overdrive on a boss level pops up "x2 DAMAGE" under it, saying the hit took two points of the
+  boss's health.
 
 = 1.22.5 =
 * A target struck in overdrive takes two points of a boss's health, not one, as its hit scores double. A boss's par
